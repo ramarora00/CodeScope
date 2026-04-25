@@ -1,121 +1,111 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useState, useEffect } from 'react'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [activeTab, setActiveTab] = useState('dashboard')
+  const [health, setHealth] = useState({ status: 'Loading...', message: '' })
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/health')
+      .then(res => res.json())
+      .then(data => setHealth(data))
+      .catch(err => setHealth({ status: 'Error', message: 'Backend unreachable' }))
+  }, [])
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="dashboard-container">
+      {/* Sidebar */}
+      <aside className="sidebar glass">
+        <div className="logo-section">
+          <h2 className="text-gradient">Copilot AI</h2>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
+        <nav className="nav-links">
+          <button 
+            className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            Dashboard
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'upload' ? 'active' : ''}`}
+            onClick={() => setActiveTab('upload')}
+          >
+            Upload Repo
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`}
+            onClick={() => setActiveTab('chat')}
+          >
+            AI Chat
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'graph' ? 'active' : ''}`}
+            onClick={() => setActiveTab('graph')}
+          >
+            Dependency Graph
+          </button>
+        </nav>
+        <div className="sidebar-footer">
+          <div className={`status-badge ${health.status.toLowerCase()}`}>
+            {health.status === 'OK' ? '● Online' : '○ Offline'}
+          </div>
         </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      </aside>
 
-      <div className="ticks"></div>
+      {/* Main Content */}
+      <main className="main-content">
+        <header className="content-header">
+          <h1>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
+          <div className="user-profile">
+            <span>Dev User</span>
+          </div>
+        </header>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        <div className="content-body">
+          {activeTab === 'dashboard' && (
+            <div className="welcome-card glass shadow-glow">
+              <h2 className="text-gradient">Welcome to Codebase Intelligence</h2>
+              <p>Upload a repository to start analyzing your code with AI.</p>
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <h3>0</h3>
+                  <p>Repos Analyzed</p>
+                </div>
+                <div className="stat-card">
+                  <h3>0</h3>
+                  <p>Files Indexed</p>
+                </div>
+                <div className="stat-card">
+                  <h3>0</h3>
+                  <p>AI Queries</p>
+                </div>
+              </div>
+            </div>
+          )}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+          {activeTab === 'upload' && (
+            <div className="upload-placeholder glass">
+              <h2>Upload Repository</h2>
+              <p>Version 1: GitHub URL integration coming soon...</p>
+            </div>
+          )}
+
+          {activeTab === 'chat' && (
+            <div className="chat-placeholder glass">
+              <h2>AI Q&A</h2>
+              <p>Version 3: Context-aware chat coming soon...</p>
+            </div>
+          )}
+
+          {activeTab === 'graph' && (
+            <div className="graph-placeholder glass">
+              <h2>Dependency Graph</h2>
+              <p>Version 5: Visual relationships coming soon...</p>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
   )
 }
 
