@@ -10,7 +10,9 @@ app.use(express.json());
 
 // Routes
 const repoRouter = require('./routes/repo');
+const chatRouter = require('./routes/chat');
 app.use('/api/repo', repoRouter);
+app.use('/api/chat', chatRouter);
 
 // Health Check
 app.get('/api/health', (req, res) => {
