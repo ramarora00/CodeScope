@@ -20,6 +20,9 @@ import RepoUpload from './components/RepoUpload'
 import RepoList from './components/RepoList'
 import FileExplorer from './components/FileExplorer'
 import FileViewer from './components/FileViewer'
+import DependencyGraph from './components/DependencyGraph'
+import ImpactAnalysis from './components/ImpactAnalysis'
+import ArchitectureInsights from './components/ArchitectureInsights'
 import './App.css'
 
 function App() {
@@ -134,10 +137,13 @@ function App() {
               onClick={() => setActiveTab('dashboard')}
             >
               <LayoutDashboard size={18} />
-              <span>Dashboard</span>
+              <div className="flex-1 flex items-center justify-between">
+                <span>Dashboard</span>
+                <div className={`w-2 h-2 rounded-full ${health.status === 'ok' ? 'bg-success animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-error'}`} />
+              </div>
             </button>
             <button 
-              className={`nav-item ${activeTab === 'upload' ? 'active' : ''}`}
+              className={`nav-item connect-btn ${activeTab === 'upload' ? 'active' : ''}`}
               onClick={() => setActiveTab('upload')}
             >
               <Upload size={18} />
@@ -205,44 +211,40 @@ function App() {
             >
               Impact
             </button>
+            <button 
+              className={`toggle-btn ${viewMode === 'arch' ? 'active' : ''}`}
+              onClick={() => setViewMode('arch')}
+            >
+              Arch
+            </button>
           </div>
         </header>
 
         <div className="panel-body">
           {activeTab === 'dashboard' && (
             <div className="animate-in fade-in duration-500">
-              <div className="welcome-card-futuristic mb-8">
-                <h1 className="text-4xl font-bold mb-2 text-gradient-silver">Nexus Intelligence</h1>
-                <p className="text-text-secondary max-w-xl">
-                  Analyze, visualize, and query your entire codebase with AI-driven insights. 
-                  Start by connecting a repository.
-                </p>
-                <div className="mt-6 flex gap-4">
-                  <button onClick={() => setActiveTab('upload')} className="px-6 py-2 bg-accent text-white rounded-lg font-bold text-sm shadow-glow-subtle">
-                    Initialize Project
-                  </button>
+              {!selectedRepo ? (
+                <div className="h-full flex flex-col items-center justify-center py-12">
+                  <div className="relative mb-8">
+                    <div className="absolute inset-0 bg-accent/20 blur-[80px] rounded-full animate-pulse" />
+                    <div className="relative glass p-6 rounded-[2rem] border-silver shadow-2xl">
+                      <Cpu size={64} className="text-accent" />
+                    </div>
+                  </div>
+                  <h2 className="text-4xl font-bold text-gradient-silver mb-4 tracking-tight">Nexus Intelligence</h2>
+                  <p className="text-text-secondary text-center max-w-md mb-8 leading-relaxed">
+                    Connect your repository to begin deep architectural analysis.
+                  </p>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-6 mb-12">
-                <div className="glass p-6 rounded-2xl border-silver">
-                  <Cpu size={24} className="text-accent mb-4" />
-                  <div className="text-3xl font-bold mb-1">{repos.length}</div>
-                  <div className="text-xs text-text-muted uppercase font-bold tracking-wider">Repos Indexed</div>
+              ) : (
+                <div className="welcome-card-futuristic mb-8">
+                  <h1 className="text-4xl font-bold mb-2 text-gradient-silver">{selectedRepo.name.split('-')[0]}</h1>
+                  <p className="text-text-secondary">Architectural insights ready for analysis.</p>
                 </div>
-                <div className="glass p-6 rounded-2xl border-silver">
-                  <Terminal size={24} className="text-success mb-4" />
-                  <div className="text-3xl font-bold mb-1">0</div>
-                  <div className="text-xs text-text-muted uppercase font-bold tracking-wider">Active Analyses</div>
-                </div>
-                <div className="glass p-6 rounded-2xl border-silver">
-                  <Network size={24} className="text-warning mb-4" />
-                  <div className="text-3xl font-bold mb-1">0</div>
-                  <div className="text-xs text-text-muted uppercase font-bold tracking-wider">Graph Nodes</div>
-                </div>
-              </div>
-
-              <RepoList repos={repos} onSelect={handleRepoSelect} />
+              )}
+              
+              {/* Always show the list so you can select/switch repos */}
+              <RepoList repos={repos} fetchRepos={fetchRepos} onSelect={handleRepoSelect} />
             </div>
           )}
 
@@ -251,8 +253,19 @@ function App() {
           )}
 
           {activeTab === 'explorer' && selectedRepo && (
-            <div className="h-full flex flex-col gap-4 animate-in slide-in-from-right-4 duration-500">
-              <FileViewer repo={selectedRepo} file={selectedFile} />
+            <div className="flex-1 flex flex-col min-h-0 animate-in slide-in-from-right-4 duration-500">
+              {viewMode === 'code' && (
+                <FileViewer repo={selectedRepo} file={selectedFile} />
+              )}
+              {viewMode === 'graph' && (
+                <DependencyGraph repoId={selectedRepo.id} />
+              )}
+              {viewMode === 'impact' && (
+                <ImpactAnalysis repo={selectedRepo} selectedFile={selectedFile} />
+              )}
+              {viewMode === 'arch' && (
+                <ArchitectureInsights repo={selectedRepo} />
+              )}
             </div>
           )}
         </div>
