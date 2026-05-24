@@ -36,83 +36,169 @@ router.post('/', async (req, res) => {
 
     // Global Semantic Context (RAG)
     if (repoId) {
-      // If asking about architecture, force-include some structural hits
-      const enhancedPrompt = prompt.toLowerCase().includes('architecture') 
-        ? `${prompt} (focus on project structure and dependencies)`
-        : prompt;
+      // 1. INTENT CLASSIFICATION
+      let intent = 'conceptual';
+      const lowercasePrompt = prompt.toLowerCase();
+      if (lowercasePrompt.includes('architecture') || lowercasePrompt.includes('summary') || lowercasePrompt.includes('overview') || lowercasePrompt.includes('folder') || lowercasePrompt.includes('tech stack')) {
+        intent = 'architecture';
+      } else if (lowercasePrompt.includes('flow') || lowercasePrompt.includes('execute') || lowercasePrompt.includes('call') || lowercasePrompt.includes('how does') || lowercasePrompt.includes('route') || lowercasePrompt.includes('middleware')) {
+        intent = 'execution';
+      } else if (lowercasePrompt.includes('where is') || lowercasePrompt.includes('function') || lowercasePrompt.includes('class') || lowercasePrompt.includes('component')) {
+        intent = 'symbolic';
+      }
 
-      const semanticResults = await searchRepo(repoId, enhancedPrompt);
-      
-      // Extract keywords for exact lookups
+      console.log(`[Context Orchestrator] Classified Query Intent: ${intent.toUpperCase()}`);
+
+      let globalContextParts = [];
+
+      // Extract keywords for lookup
       const words = prompt.split(/\W+/).filter(w => w.length > 3);
 
-      // FILE PATH LOOKUP: Find files named after keywords (e.g. Button -> Button.tsx)
-      const keywordFiles = await prisma.file.findMany({
-        where: {
-          repoId,
-          OR: words.map(w => ({ path: { contains: w } }))
-        },
-        take: 3
-      });
-
-      if (keywordFiles.length > 0) {
-        const fileContext = keywordFiles
-          .filter(f => f.content && (f.path.endsWith('.tsx') || f.path.endsWith('.jsx') || f.path.endsWith('.ts') || f.path.endsWith('.js')))
-          .map(f => `[Source File: ${f.path}]\n${f.content.slice(0, 5000)}`)
-          .join('\n---\n');
-        context.globalContext = (context.globalContext || '') + '\n' + fileContext;
-      }
-
-      // SYMBOLIC LOOKUP: Find exact symbols mentioned in the prompt
-      const symbolicHits = await prisma.symbol.findMany({
-        where: {
-          repoId,
-          name: { in: words },
-        },
-        include: {
-          file: true,
-          callees: { include: { callee: { include: { file: true } } } }
-        },
-        take: 5
-      });
-
-      if (symbolicHits.length > 0) {
-        const symbolicContext = symbolicHits.map(s => {
-          let text = `[Symbol Definition: ${s.name} (${s.type}) in ${s.file.path}]\n`;
-          if (s.file.content) {
-            const lines = s.file.content.split('\n');
-            text += lines.slice(Math.max(0, s.lineStart - 1), s.lineEnd).join('\n');
-          }
-          if (s.callees.length > 0) {
-            text += `\n[This ${s.type} calls: ${s.callees.map(c => c.callee.name).join(', ')}]`;
-          }
-          return text;
-        }).join('\n---\n');
-        context.globalContext = (context.globalContext || '') + '\n' + symbolicContext;
-      }
-
-      // Explicitly find structural files if asking about architecture/summary
-      if (prompt.toLowerCase().includes('architecture') || prompt.toLowerCase().includes('summary')) {
+      // A. STRUCTURAL LAYER (Always included for ARCHITECTURE or SUMMARY)
+      if (intent === 'architecture' || lowercasePrompt.includes('architecture') || lowercasePrompt.includes('summary')) {
         const structuralFiles = await prisma.file.findMany({
           where: {
             repoId,
             OR: [
               { path: { contains: 'README.md' } },
               { path: { contains: 'package.json' } },
-              { path: { contains: 'composer.json' } }
+              { path: { contains: 'composer.json' } },
+              { path: { contains: 'routes/' } }
             ]
+          },
+          take: 4
+        });
+        
+        const structuralContext = structuralFiles
+          .map(f => `[Structural File: ${f.path}]\n${f.content?.slice(0, 3000)}`)
+          .join('\n---\n');
+        if (structuralContext) globalContextParts.push(structuralContext);
+      }
+
+      // B. EXACT PATH LAYER (Prioritized match on files named after keywords)
+      if (words.length > 0) {
+        const keywordFiles = await prisma.file.findMany({
+          where: {
+            repoId,
+            OR: words.map(w => ({ path: { contains: w } }))
           },
           take: 3
         });
-        
-        const structuralContext = structuralFiles.map(f => `[Structural File: ${f.path}]\n${f.content?.slice(0, 2000)}`).join('\n---\n');
-        context.globalContext = (context.globalContext || '') + '\n' + structuralContext;
+
+        if (keywordFiles.length > 0) {
+          const fileContext = keywordFiles
+            .filter(f => f.content && (f.path.endsWith('.tsx') || f.path.endsWith('.jsx') || f.path.endsWith('.ts') || f.path.endsWith('.js') || f.path.endsWith('.php')))
+            .map(f => `[Source File: ${f.path}]\n${f.content.slice(0, 5000)}`)
+            .join('\n---\n');
+          if (fileContext) globalContextParts.push(fileContext);
+        }
       }
 
-      if (semanticResults.length > 0) {
-        const resultsContext = semanticResults.map(r => `[File: ${r.path}]\n${r.text}`).join('\n---\n');
-        context.globalContext = (context.globalContext || '') + '\n' + resultsContext;
+      // C. SYMBOLIC & CALL GRAPH LAYER (GRAPH EXPANSION)
+      if (words.length > 0) {
+        const symbolMatches = await prisma.symbol.findMany({
+          where: {
+            repoId,
+            name: { in: words }
+          },
+          include: {
+            file: true
+          },
+          take: 5
+        });
+
+        if (symbolMatches.length > 0) {
+          let symbolicTextParts = [];
+          for (const sym of symbolMatches) {
+            let part = `[Symbol Definition: ${sym.name} (${sym.type}) in ${sym.file.path}]\n`;
+            if (sym.file.content) {
+              const lines = sym.file.content.split('\n');
+              part += lines.slice(Math.max(0, sym.lineStart - 1), sym.lineEnd).join('\n');
+            }
+
+            // GRAPH EXPANSION (Trace Downstream and Upstream relationships)
+            const relationships = await prisma.symbolRelationship.findMany({
+              where: {
+                OR: [
+                  { callerId: sym.id },
+                  { calleeId: sym.id }
+                ]
+              },
+              include: {
+                caller: { include: { file: true } },
+                callee: { include: { file: true } }
+              },
+              take: 6
+            });
+
+            if (relationships.length > 0) {
+              const calls = relationships
+                .filter(r => r.callerId === sym.id && r.relationship === 'calls')
+                .map(r => `${r.callee.name} (${r.callee.type} in ${r.callee.file.path})`);
+              
+              const calledBy = relationships
+                .filter(r => r.calleeId === sym.id && r.relationship === 'calls')
+                .map(r => `${r.caller.name} (${r.caller.type} in ${r.caller.file.path})`);
+
+              if (calls.length > 0) part += `\n- This ${sym.type} calls: ${calls.join(', ')}`;
+              if (calledBy.length > 0) part += `\n- This ${sym.type} is called by: ${calledBy.join(', ')}`;
+
+              // For execution flows, grab the first line of the child implementations
+              for (const rel of relationships.slice(0, 3)) {
+                if (rel.callerId === sym.id && rel.callee.file.content) {
+                  const childLines = rel.callee.file.content.split('\n');
+                  const childSnippet = childLines.slice(Math.max(0, rel.callee.lineStart - 1), rel.callee.lineEnd).join('\n');
+                  part += `\n\n[Called Symbol Implementation: ${rel.callee.name}]\n${childSnippet.slice(0, 1000)}`;
+                }
+              }
+            }
+            symbolicTextParts.push(part);
+          }
+          globalContextParts.push(symbolicTextParts.join('\n---\n'));
+        }
       }
+
+      // D. SEMANTIC LAYER (Fallback / Broad Context)
+      if (globalContextParts.length === 0 || intent === 'conceptual') {
+        const semanticResults = await searchRepo(repoId, prompt, 10);
+        if (semanticResults.length > 0) {
+          const resultsContext = semanticResults.map(r => `[Semantic Chunk: ${r.path}]\n${r.text}`).join('\n---\n');
+          globalContextParts.push(resultsContext);
+        }
+      }
+
+      // E. ROUTE FLOW INJECTION (If execution intent)
+      if (intent === 'execution') {
+        const routes = await prisma.symbol.findMany({
+          where: {
+            repoId,
+            type: 'route'
+          },
+          include: {
+            file: true,
+            callees: {
+              include: {
+                callee: { include: { file: true } }
+              }
+            }
+          },
+          take: 4
+        });
+
+        if (routes.length > 0) {
+          const routeContext = routes.map(r => {
+            let text = `[API Route: ${r.name} in ${r.file.path}]\n`;
+            if (r.callees.length > 0) {
+              text += `- Traces to Handler(s): ${r.callees.map(c => `${c.callee.name} (${c.callee.type} defined in ${c.callee.file.path})`).join(', ')}`;
+            }
+            return text;
+          }).join('\n---\n');
+          globalContextParts.push(routeContext);
+        }
+      }
+
+      // Compile orchestrated context
+      context.globalContext = globalContextParts.join('\n\n=================================\n\n');
     }
 
     const answer = await generateResponse(prompt, context);
