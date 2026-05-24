@@ -13,7 +13,8 @@ const parseCode = (content, filename) => {
       classes: [],
       imports: [],
       exports: [],
-      calls: []
+      calls: [],
+      routes: []
     };
 
   try {
@@ -76,6 +77,41 @@ const parseCode = (content, filename) => {
             name: calleeName,
             line: path.node.loc.start.line
           });
+        }
+
+        // --- Express Route Detection ---
+        const callee = path.node.callee;
+        if (callee.type === 'MemberExpression' && callee.property.type === 'Identifier') {
+          const objName = callee.object.type === 'Identifier' ? callee.object.name : null;
+          const methodName = callee.property.name;
+          if ((objName === 'router' || objName === 'app') && 
+              ['get', 'post', 'put', 'delete', 'patch', 'use'].includes(methodName)) {
+            
+            const firstArg = path.node.arguments[0];
+            if (firstArg && (firstArg.type === 'StringLiteral' || firstArg.type === 'TemplateLiteral')) {
+              const routePath = firstArg.type === 'StringLiteral' ? firstArg.value : '[Dynamic]';
+              
+              const handlers = [];
+              for (let i = 1; i < path.node.arguments.length; i++) {
+                const arg = path.node.arguments[i];
+                if (arg.type === 'Identifier') {
+                  handlers.push(arg.name);
+                } else if (arg.type === 'MemberExpression' && arg.property.type === 'Identifier') {
+                  handlers.push(arg.property.name);
+                } else if (arg.type === 'ArrowFunctionExpression' || arg.type === 'FunctionExpression') {
+                  handlers.push(`inline_${path.node.loc.start.line}`);
+                }
+              }
+
+              metadata.routes.push({
+                method: methodName.toUpperCase(),
+                path: routePath,
+                handlers,
+                lineStart: path.node.loc.start.line,
+                lineEnd: path.node.loc.end.line
+              });
+            }
+          }
         }
       },
       ImportDeclaration(path) {
