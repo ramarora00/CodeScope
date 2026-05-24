@@ -350,6 +350,56 @@ router.get('/:id/dependencies', async (req, res) => {
   res.json({ nodes, edges });
 });
 
+// @route   GET /api/repo/:id/symbols/graph
+// @desc    Get the function-to-function and route execution call graph nodes and edges
+router.get('/:id/symbols/graph', async (req, res) => {
+  try {
+    const repoId = req.params.id;
+    
+    // Fetch all symbols with their files
+    const symbols = await prisma.symbol.findMany({
+      where: { repoId },
+      include: { file: true }
+    });
+    
+    // Fetch all call graph relationships
+    const relationships = await prisma.symbolRelationship.findMany({
+      where: {
+        caller: { repoId },
+        callee: { repoId }
+      },
+      include: {
+        caller: true,
+        callee: true
+      }
+    });
+
+    const nodes = symbols.map(s => ({
+      id: s.id,
+      data: { 
+        label: `${s.name} (${s.type})`, 
+        name: s.name,
+        type: s.type, 
+        filePath: s.file.path 
+      },
+      position: { x: 0, y: 0 }
+    }));
+
+    const edges = relationships.map(r => ({
+      id: `e-${r.callerId}--${r.calleeId}`,
+      source: r.callerId,
+      target: r.calleeId,
+      animated: r.relationship === 'calls',
+      style: { stroke: '#EC4899', strokeWidth: 2 } // Vibrant hot pink for execution tracing
+    }));
+
+    res.json({ nodes, edges });
+  } catch (error) {
+    console.error('Symbols graph error:', error);
+    res.status(500).json({ error: 'Failed to fetch symbols graph' });
+  }
+});
+
 // @route   GET /api/repo/:id/impact
 router.get('/:id/impact', async (req, res) => {
   const { filePath } = req.query;
