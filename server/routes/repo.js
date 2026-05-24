@@ -68,7 +68,8 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
             const parsedMeta = JSON.parse(metadata);
             const symbolsToCreate = [
               ...parsedMeta.functions.map(f => ({ name: f.name, type: 'function', lineStart: f.lineStart, lineEnd: f.lineEnd, fileId: fileRecord.id, repoId })),
-              ...parsedMeta.classes.map(c => ({ name: c.name, type: 'class', lineStart: c.lineStart, lineEnd: c.lineEnd, fileId: fileRecord.id, repoId }))
+              ...parsedMeta.classes.map(c => ({ name: c.name, type: 'class', lineStart: c.lineStart, lineEnd: c.lineEnd, fileId: fileRecord.id, repoId })),
+              ...(parsedMeta.routes || []).map(r => ({ name: `${r.method} ${r.path}`, type: 'route', lineStart: r.lineStart, lineEnd: r.lineEnd, fileId: fileRecord.id, repoId }))
             ];
             if (symbolsToCreate.length > 0) {
               await prisma.symbol.createMany({ data: symbolsToCreate });
@@ -145,6 +146,76 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
               create: {
                 callerId: callerSymbol.id,
                 calleeId: targetSymbol.id,
+                relationship: 'calls'
+              },
+              update: {}
+            });
+          }
+        }
+      }
+    }
+
+    // --- PASS 2b: Route Flow Mapping ---
+    console.log(`[Background] Starting PASS 2b: Route Flow Analysis for ${repoId}`);
+    
+    // Fetch updated lists including route symbols
+    const allFilesWithRoutes = await prisma.file.findMany({ where: { repoId }, include: { symbols: true } });
+    const allSymbolsWithRoutes = await prisma.symbol.findMany({ where: { repoId } });
+    
+    for (const file of allFilesWithRoutes) {
+      if (!file.metadata) continue;
+      const meta = JSON.parse(file.metadata);
+      if (!meta.routes || meta.routes.length === 0) continue;
+      
+      for (const route of meta.routes) {
+        const routeSymbol = file.symbols.find(s => s.name === `${route.method} ${route.path}` && s.type === 'route');
+        if (!routeSymbol) continue;
+        
+        for (const handlerName of route.handlers) {
+          let handlerSymbol = file.symbols.find(s => s.name === handlerName);
+          
+          if (!handlerSymbol && meta.imports) {
+            for (const imp of meta.imports) {
+              const specifier = imp.specifiers?.find(spec => spec.local === handlerName);
+              if (specifier && imp.source.startsWith('.')) {
+                const resolvedPrefix = path.join(path.dirname(file.path), imp.source).replace(/\\/g, '/');
+                const importedFile = allFilesWithRoutes.find(f => 
+                  f.path === resolvedPrefix || 
+                  f.path.startsWith(resolvedPrefix + '.') ||
+                  f.path === resolvedPrefix + '/index.js' ||
+                  f.path === resolvedPrefix + '/index.ts' ||
+                  f.path === resolvedPrefix + '/index.jsx' ||
+                  f.path === resolvedPrefix + '/index.tsx'
+                );
+                
+                if (importedFile && importedFile.symbols) {
+                  handlerSymbol = importedFile.symbols.find(s => 
+                    s.name === specifier.imported || 
+                    (specifier.imported === 'default' && s.name === 'default') || 
+                    s.name === handlerName
+                  );
+                }
+                break;
+              }
+            }
+          }
+          
+          if (!handlerSymbol) {
+            handlerSymbol = allSymbolsWithRoutes.find(s => s.name === handlerName);
+          }
+          
+          if (handlerSymbol) {
+            await prisma.symbolRelationship.upsert({
+              where: {
+                callerId_calleeId_relationship: {
+                  callerId: routeSymbol.id,
+                  calleeId: handlerSymbol.id,
+                  relationship: 'calls'
+                }
+              },
+              create: {
+                callerId: routeSymbol.id,
+                calleeId: handlerSymbol.id,
                 relationship: 'calls'
               },
               update: {}
