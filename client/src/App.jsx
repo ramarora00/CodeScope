@@ -222,29 +222,32 @@ function App() {
 
         <div className="panel-body">
           {activeTab === 'dashboard' && (
-            <div className="animate-in fade-in duration-500">
+            <div className="h-full flex flex-col p-8 animate-in fade-in duration-500 overflow-y-auto">
               {!selectedRepo ? (
-                <div className="h-full flex flex-col items-center justify-center py-12">
+                <div className="flex-1 flex flex-col items-center justify-center py-12">
                   <div className="relative mb-8">
                     <div className="absolute inset-0 bg-accent/20 blur-[80px] rounded-full animate-pulse" />
                     <div className="relative glass p-6 rounded-[2rem] border-silver shadow-2xl">
-                      <Cpu size={64} className="text-accent" />
+                      <Zap className="text-accent" size={32} fill="currentColor" />
                     </div>
                   </div>
-                  <h2 className="text-4xl font-bold text-gradient-silver mb-4 tracking-tight">Nexus Intelligence</h2>
-                  <p className="text-text-secondary text-center max-w-md mb-8 leading-relaxed">
-                    Connect your repository to begin deep architectural analysis.
+                  <h2 className="text-2xl font-bold text-gradient-silver mb-2">Connect to Intelligence</h2>
+                  <p className="text-text-secondary text-sm mb-8 text-center max-w-md">
+                    Paste a GitHub URL to start the deep semantic indexing process.
                   </p>
+                  <RepoUpload onUploadSuccess={handleUploadSuccess} />
                 </div>
               ) : (
-                <div className="welcome-card-futuristic mb-8">
+                <div className="mb-12">
                   <h1 className="text-4xl font-bold mb-2 text-gradient-silver">{selectedRepo.name.split('-')[0]}</h1>
-                  <p className="text-text-secondary">Architectural insights ready for analysis.</p>
+                  <p className="text-text-secondary text-sm">Architectural insights ready for analysis.</p>
                 </div>
               )}
               
-              {/* Always show the list so you can select/switch repos */}
-              <RepoList repos={repos} fetchRepos={fetchRepos} onSelect={handleRepoSelect} />
+              <div className="mt-4">
+                <h3 className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-6">Connected Projects</h3>
+                <RepoList repos={repos} fetchRepos={fetchRepos} onSelect={handleRepoSelect} />
+              </div>
             </div>
           )}
 

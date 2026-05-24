@@ -1,9 +1,14 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+console.log(`[INIT] Loading .env from: ${path.join(__dirname, '.env')}`);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Debug: confirm API key is loaded
+console.log(`[ENV] GEMINI_API_KEY: ${process.env.GEMINI_API_KEY ? '✅ Loaded' : '❌ MISSING – add it to server/.env'}`);
 
 app.use(cors());
 app.use(express.json());

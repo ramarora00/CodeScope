@@ -15,6 +15,7 @@ model Repo {
   name      String
   url       String?
   localPath String
+  status    String   @default("ready") // cloning, indexing, ready, error
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   files     File[]
@@ -23,11 +24,42 @@ model Repo {
 model File {
   id        String   @id @default(uuid())
   path      String
-  content   String?  // Can be null for binary files
+  content   String?
   language  String?
+  metadata  String?
   repoId    String
   repo      Repo     @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  symbols   Symbol[]
   createdAt DateTime @default(now())
 
   @@unique([repoId, path])
+}
+
+model Symbol {
+  id           String   @id @default(uuid())
+  name         String
+  type         String   // function, class, interface, route, etc.
+  lineStart    Int?
+  lineEnd      Int?
+  fileId       String
+  file         File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  repoId       String
+  
+  // Relationships for Call Graph
+  callers      SymbolRelationship[] @relation("CalledSymbol")
+  callees      SymbolRelationship[] @relation("CallerSymbol")
+
+  createdAt DateTime @default(now())
+}
+
+model SymbolRelationship {
+  id              String @id @default(uuid())
+  callerId        String
+  calleeId        String
+  relationship    String // calls, extends, uses
+  
+  caller          Symbol @relation("CallerSymbol", fields: [callerId], references: [id], onDelete: Cascade)
+  callee          Symbol @relation("CalledSymbol", fields: [calleeId], references: [id], onDelete: Cascade)
+
+  @@unique([callerId, calleeId, relationship])
 }

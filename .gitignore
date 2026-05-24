@@ -1,0 +1,8 @@
+node_modules/
+.env
+repos/
+*.db
+*.db-journal
+client/dist/
+client/build/
+server/data/
