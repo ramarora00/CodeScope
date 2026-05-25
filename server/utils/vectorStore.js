@@ -16,6 +16,25 @@ const getEmbedding = async (text) => {
 };
 
 /**
+ * Gets embeddings for a batch of text strings using Gemini
+ */
+const getEmbeddingsBatch = async (texts) => {
+  if (!genAI || texts.length === 0) return [];
+  try {
+    const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+    const result = await model.embedContents({
+      requests: texts.map(text => ({
+        content: { parts: [{ text }] }
+      }))
+    });
+    return result.embeddings.map(e => e.values);
+  } catch (err) {
+    console.warn("[Batch Embedding] Batch failed, falling back to individual embedding:", err.message);
+    return null;
+  }
+};
+
+/**
  * Indexes files into the vector database
  */
 const indexRepo = async (repoId, files) => {
@@ -25,24 +44,54 @@ const indexRepo = async (repoId, files) => {
   const tableName = `repo_${repoId.replace(/-/g, '_')}`;
   
   const data = [];
+  const allChunks = [];
 
+  // Gather all chunks
   for (const file of files) {
     if (!file.content) continue;
 
     // Chunking: Split large files into smaller pieces (approx 1000 chars)
     const chunks = file.content.match(/[\s\S]{1,1000}/g) || [];
+    chunks.forEach((chunk, i) => {
+      allChunks.push({
+        text: chunk,
+        path: file.path,
+        chunkIndex: i
+      });
+    });
+  }
+
+  console.log(`[Batch Indexing] Total chunks to index for ${repoId}: ${allChunks.length}`);
+
+  // Process in batches of 50
+  const batchSize = 50;
+  for (let i = 0; i < allChunks.length; i += batchSize) {
+    const batch = allChunks.slice(i, i + batchSize);
+    const texts = batch.map(b => b.text);
     
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      const vector = await getEmbedding(chunk);
-      
-      if (vector) {
+    const vectors = await getEmbeddingsBatch(texts);
+    
+    if (vectors && vectors.length === texts.length) {
+      vectors.forEach((vector, idx) => {
         data.push({
           vector,
-          text: chunk,
-          path: file.path,
-          chunkIndex: i
+          text: batch[idx].text,
+          path: batch[idx].path,
+          chunkIndex: batch[idx].chunkIndex
         });
+      });
+    } else {
+      // Fallback: Embed individually
+      for (const item of batch) {
+        const vector = await getEmbedding(item.text);
+        if (vector) {
+          data.push({
+            vector,
+            text: item.text,
+            path: item.path,
+            chunkIndex: item.chunkIndex
+          });
+        }
       }
     }
   }
