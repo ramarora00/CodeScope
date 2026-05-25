@@ -3,6 +3,7 @@ const router = express.Router();
 const simpleGit = require('simple-git');
 const path = require('path');
 const fs = require('fs');
+const { Worker } = require('worker_threads');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -16,6 +17,23 @@ if (!fs.existsSync(REPOS_DIR)) {
 const { parseCode } = require('../utils/parser');
 const { indexRepo } = require('../utils/vectorStore');
 
+/**
+ * Runs AST parsing in a worker thread to avoid blocking the main event loop.
+ * Accepts a batch of raw file objects, returns parsed results.
+ */
+const runParserWorker = (files) => {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(path.join(__dirname, '../utils/parseWorker.js'), {
+      workerData: { files }
+    });
+    worker.on('message', resolve);
+    worker.on('error', reject);
+    worker.on('exit', (code) => {
+      if (code !== 0) reject(new Error(`Parser worker exited with code ${code}`));
+    });
+  });
+};
+
 // Helper: Background Indexing
 const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
   try {
@@ -24,64 +42,90 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
     await simpleGit().clone(repoUrl, repoPath);
     
     console.log(`[Background] Starting PASS 1: Symbol Extraction for ${repoId}`);
-    
-    const indexFiles = async (dirPath, relativePath = '') => {
-      await prisma.repo.update({ where: { id: repoId }, data: { status: 'indexing' } });
-      const files = fs.readdirSync(dirPath);
+    const pass1Start = Date.now();
+    await prisma.repo.update({ where: { id: repoId }, data: { status: 'indexing' } });
 
-      for (const file of files) {
-        if (file === '.git' || file === 'node_modules') continue;
-        const fullPath = path.join(dirPath, file);
-        const relPath = path.join(relativePath, file);
+    // STEP 1: Collect all raw files from disk (main thread, I/O only)
+    const rawFiles = [];
+    const textExtensions = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'cpp', 'css', 'html', 'json', 'md', 'php'];
+
+    const collectFiles = (dirPath, relativePath = '') => {
+      const entries = fs.readdirSync(dirPath);
+      for (const entry of entries) {
+        if (entry === '.git' || entry === 'node_modules') continue;
+        const fullPath = path.join(dirPath, entry);
+        const relPath = path.join(relativePath, entry);
         const stats = fs.statSync(fullPath);
 
         if (stats.isDirectory()) {
-          await indexFiles(fullPath, relPath);
+          collectFiles(fullPath, relPath);
         } else {
+          const language = path.extname(entry).slice(1);
           let content = null;
-          let metadata = null;
-          let language = path.extname(file).slice(1);
-          const textExtensions = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'cpp', 'css', 'html', 'json', 'md', 'php'];
-          
           if (textExtensions.includes(language)) {
             try {
               content = fs.readFileSync(fullPath, 'utf8');
-              const parsed = parseCode(content, file);
-              if (parsed) metadata = JSON.stringify(parsed);
             } catch (e) {
-              console.error(`Error reading ${file}:`, e.message);
+              console.error(`Error reading ${entry}:`, e.message);
             }
           }
-
-          const fileRecord = await prisma.file.create({
-            data: {
-              path: relPath,
-              content: content,
-              language: language,
-              metadata: metadata,
-              repoId: repoId
-            }
-          });
-
-          // Save Symbols from metadata
-          if (metadata) {
-            const parsedMeta = JSON.parse(metadata);
-            const symbolsToCreate = [
-              ...parsedMeta.functions.map(f => ({ name: f.name, type: 'function', lineStart: f.lineStart, lineEnd: f.lineEnd, fileId: fileRecord.id, repoId })),
-              ...parsedMeta.classes.map(c => ({ name: c.name, type: 'class', lineStart: c.lineStart, lineEnd: c.lineEnd, fileId: fileRecord.id, repoId })),
-              ...(parsedMeta.routes || []).map(r => ({ name: `${r.method} ${r.path}`, type: 'route', lineStart: r.lineStart, lineEnd: r.lineEnd, fileId: fileRecord.id, repoId }))
-            ];
-            if (symbolsToCreate.length > 0) {
-              await prisma.symbol.createMany({ data: symbolsToCreate });
-            }
-          }
+          rawFiles.push({ path: relPath, content, language, filename: entry });
         }
       }
     };
 
-    await indexFiles(repoPath);
+    collectFiles(repoPath);
+    console.log(`[Background] Collected ${rawFiles.length} files from disk.`);
+
+    // STEP 2: Parse files in a worker thread (CPU-intensive, off main thread)
+    const parsableFiles = rawFiles.filter(f => f.content && textExtensions.includes(f.language));
+    const nonParsableFiles = rawFiles.filter(f => !f.content || !textExtensions.includes(f.language));
+
+    let parsedResults = [];
+    if (parsableFiles.length > 0) {
+      // Split into worker batches of 100 files to avoid memory pressure
+      const workerBatchSize = 100;
+      for (let i = 0; i < parsableFiles.length; i += workerBatchSize) {
+        const batch = parsableFiles.slice(i, i + workerBatchSize);
+        const batchResults = await runParserWorker(batch);
+        parsedResults.push(...batchResults);
+      }
+    }
+
+    console.log(`[Background] Worker parsed ${parsedResults.length} files in ${Date.now() - pass1Start}ms.`);
+
+    // STEP 3: Write to database (main thread, I/O)
+    const allParsed = [...parsedResults, ...nonParsableFiles.map(f => ({ ...f, metadata: null }))];
+
+    for (const file of allParsed) {
+      const fileRecord = await prisma.file.create({
+        data: {
+          path: file.path,
+          content: file.content,
+          language: file.language,
+          metadata: file.metadata,
+          repoId: repoId
+        }
+      });
+
+      // Save Symbols from metadata
+      if (file.metadata) {
+        const parsedMeta = JSON.parse(file.metadata);
+        const symbolsToCreate = [
+          ...parsedMeta.functions.map(f => ({ name: f.name, type: 'function', lineStart: f.lineStart, lineEnd: f.lineEnd, fileId: fileRecord.id, repoId })),
+          ...parsedMeta.classes.map(c => ({ name: c.name, type: 'class', lineStart: c.lineStart, lineEnd: c.lineEnd, fileId: fileRecord.id, repoId })),
+          ...(parsedMeta.routes || []).map(r => ({ name: `${r.method} ${r.path}`, type: 'route', lineStart: r.lineStart, lineEnd: r.lineEnd, fileId: fileRecord.id, repoId }))
+        ];
+        if (symbolsToCreate.length > 0) {
+          await prisma.symbol.createMany({ data: symbolsToCreate });
+        }
+      }
+    }
+
+    console.log(`[Background] PASS 1 complete in ${Date.now() - pass1Start}ms. ${allParsed.length} files indexed.`);
     
     console.log(`[Background] Starting PASS 2: Relationship Mapping (Call Graph) for ${repoId}`);
+    const pass2Start = Date.now();
     await prisma.repo.update({ where: { id: repoId }, data: { status: 'mapping' } });
     
     const allFiles = await prisma.file.findMany({ where: { repoId }, include: { symbols: true } });
@@ -155,8 +199,11 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
       }
     }
 
+    console.log(`[Background] PASS 2 (Call Graph) complete in ${Date.now() - pass2Start}ms.`);
+
     // --- PASS 2b: Route Flow Mapping ---
     console.log(`[Background] Starting PASS 2b: Route Flow Analysis for ${repoId}`);
+    const pass2bStart = Date.now();
     
     // Fetch updated lists including route symbols
     const allFilesWithRoutes = await prisma.file.findMany({ where: { repoId }, include: { symbols: true } });
@@ -225,12 +272,17 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
       }
     }
 
-    console.log(`[Background] Indexing complete. Syncing vector embeddings...`);
+    console.log(`[Background] PASS 2b (Route Flow) complete in ${Date.now() - pass2bStart}ms.`);
+
+    console.log(`[Background] Starting PASS 3: Vector Embedding Sync...`);
+    const pass3Start = Date.now();
     await prisma.repo.update({ where: { id: repoId }, data: { status: 'syncing' } });
     await indexRepo(repoId, allFiles);
     
     await prisma.repo.update({ where: { id: repoId }, data: { status: 'ready' } });
-    console.log(`[Background] Knowledge Graph built for ${repoId}.`);
+    const totalTime = Date.now() - pass1Start;
+    console.log(`[Background] PASS 3 (Embeddings) complete in ${Date.now() - pass3Start}ms.`);
+    console.log(`[Background] ✅ Full pipeline complete for ${repoId} in ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s).`);
   } catch (err) {
     console.error(`[Background] Fatal Error indexing ${repoId}:`, err);
     await prisma.repo.update({ where: { id: repoId }, data: { status: 'error' } });
