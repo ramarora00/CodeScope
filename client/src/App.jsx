@@ -109,7 +109,11 @@ function App() {
       })
 
       const data = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', text: data.answer || "I'm sorry, I couldn't process that." }])
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        text: data.answer || "I'm sorry, I couldn't process that.",
+        contextMeta: data.contextMeta
+      }])
     } catch (err) {
       setMessages(prev => [...prev, { role: 'assistant', text: "Error: Failed to connect to AI service." }])
     } finally {
@@ -286,12 +290,30 @@ function App() {
         <div className="chat-messages flex-1 overflow-y-auto custom-scrollbar">
           {messages.map((msg, i) => (
             <div key={i} className={`mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300 ${msg.role === 'user' ? 'flex flex-col items-end' : ''}`}>
-              <div className={`p-4 rounded-2xl text-xs max-w-[90%] ${
+              <div className={`p-4 rounded-2xl text-xs max-w-[90%] whitespace-pre-wrap ${
                 msg.role === 'user' 
                   ? 'bg-accent text-white rounded-tr-none' 
                   : 'bg-bg-hover text-text-primary border border-border rounded-tl-none'
               }`}>
                 {msg.text}
+                
+                {msg.contextMeta && (
+                  <div className="mt-4 pt-3 border-t border-border/50">
+                    <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-accent mb-2">
+                      <Network size={12} />
+                      Context Injected ({msg.contextMeta.intent})
+                    </div>
+                    {msg.contextMeta.files && msg.contextMeta.files.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {msg.contextMeta.files.map((f, idx) => (
+                          <span key={idx} className="px-1.5 py-0.5 bg-bg-main border border-border rounded text-[9px] text-text-muted font-mono truncate max-w-[150px]">
+                            {f}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <span className="text-[9px] text-text-muted mt-1 px-1 uppercase tracking-tighter">
                 {msg.role === 'user' ? 'You' : 'Nexus AI'}
