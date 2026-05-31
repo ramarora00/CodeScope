@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { generateResponse } = require('../utils/ai');
 const { searchRepo } = require('../utils/vectorStore');
+const { traverseGraph } = require('../utils/graphTraversal');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -170,39 +171,57 @@ router.post('/', async (req, res) => {
       // E. ROUTE FLOW INJECTION (If execution intent)
       if (intent === 'execution') {
         const routes = await prisma.symbol.findMany({
-          where: {
-            repoId,
-            type: 'route'
-          },
-          include: {
-            file: true,
-            callees: {
-              include: {
-                callee: { include: { file: true } }
-              }
-            }
-          },
+          where: { repoId, type: 'route' },
+          include: { file: true },
           take: 4
         });
 
         if (routes.length > 0) {
-          const routeContext = routes.map(r => {
-            let text = `[API Route: ${r.name} in ${r.file.path}]\n`;
-            if (r.callees.length > 0) {
-              text += `- Traces to Handler(s): ${r.callees.map(c => `${c.callee.name} (${c.callee.type} defined in ${c.callee.file.path})`).join(', ')}`;
+          const routeContextParts = [];
+          for (const route of routes) {
+            const paths = await traverseGraph(repoId, route.id, 'down', 4);
+            
+            if (paths.length > 0) {
+              let text = `[API Route: ${route.name} in ${route.file.path}]\nExecution Flow Traces:\n`;
+              paths.forEach((p, idx) => {
+                const traceStr = p.map(sym => `${sym.name} (${sym.type})`).join('  ->  ');
+                text += `  Trace ${idx + 1}: ${traceStr}\n`;
+              });
+              routeContextParts.push(text);
             }
-            return text;
-          }).join('\n---\n');
-          globalContextParts.push(routeContext);
+          }
+          if (routeContextParts.length > 0) {
+            globalContextParts.push(routeContextParts.join('\n---\n'));
+          }
         }
       }
 
       // Compile orchestrated context
       context.globalContext = globalContextParts.join('\n\n=================================\n\n');
+      context.intent = intent;
     }
 
     const answer = await generateResponse(prompt, context);
-    res.json({ answer });
+    
+    // Extract file paths from context parts for the UI
+    const usedFiles = [];
+    if (context.globalContext) {
+       const regex = /\[(?:Source File|Structural File|Symbol Definition|API Route): (.*?)\]/g;
+       let match;
+       while ((match = regex.exec(context.globalContext)) !== null) {
+          // extract filename from path or name
+          let f = match[1].split('(')[0].trim().split(' ').pop(); 
+          if (!usedFiles.includes(f)) usedFiles.push(f);
+       }
+    }
+
+    res.json({ 
+      answer, 
+      contextMeta: { 
+        intent: context.intent || 'general', 
+        files: usedFiles.slice(0, 5) 
+      } 
+    });
   } catch (error) {
     console.error('Chat Route Error:', error);
     res.status(500).json({ error: 'Failed to generate AI response' });
