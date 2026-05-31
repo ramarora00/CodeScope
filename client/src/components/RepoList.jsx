@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Folder, ArrowRight, Calendar, GitBranch, Loader2, Trash2 } from 'lucide-react'
+import { Folder, ArrowRight, Calendar, GitBranch, Loader2, Trash2, RefreshCw } from 'lucide-react'
 
 const RepoList = ({ repos, fetchRepos, onSelect }) => {
   useEffect(() => {
@@ -7,6 +7,16 @@ const RepoList = ({ repos, fetchRepos, onSelect }) => {
     const interval = setInterval(fetchRepos, 3000); // Poll every 3s to catch background indexing
     return () => clearInterval(interval);
   }, []);
+
+  const handleReindex = async (e, repoId) => {
+    e.stopPropagation(); // Don't navigate to repo
+    try {
+      await fetch(`http://localhost:5000/api/repo/${repoId}/reindex`, { method: 'POST' });
+      fetchRepos(); // Trigger a refresh to show syncing status
+    } catch (err) {
+      console.error('Reindex failed:', err);
+    }
+  };
 
   if (!repos || repos.length === 0) {
     return (
@@ -70,8 +80,19 @@ const RepoList = ({ repos, fetchRepos, onSelect }) => {
                   </div>
                 </div>
                 
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
-                  {repo.status === 'ready' ? <ArrowRight size={16} /> : <Loader2 size={14} className="animate-spin" />}
+                <div className="flex items-center gap-2">
+                  {repo.status === 'ready' && (
+                    <button
+                      onClick={(e) => handleReindex(e, repo.id)}
+                      className="p-1.5 rounded-lg text-text-muted hover:text-cyan-400 hover:bg-cyan-400/10 transition-all opacity-0 group-hover:opacity-100"
+                      title="Re-sync (Incremental Reindex)"
+                    >
+                      <RefreshCw size={13} />
+                    </button>
+                  )}
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
+                    {repo.status === 'ready' ? <ArrowRight size={16} /> : <Loader2 size={14} className="animate-spin" />}
+                  </div>
                 </div>
               </div>
           </div>
