@@ -22,15 +22,17 @@ model Repo {
 }
 
 model File {
-  id        String   @id @default(uuid())
-  path      String
-  content   String?
-  language  String?
-  metadata  String?
-  repoId    String
-  repo      Repo     @relation(fields: [repoId], references: [id], onDelete: Cascade)
-  symbols   Symbol[]
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  path        String
+  content     String?
+  contentHash String?  // SHA-256 hash for incremental reindex delta detection
+  language    String?
+  metadata    String?
+  repoId      String
+  repo        Repo     @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  symbols     Symbol[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@unique([repoId, path])
 }
