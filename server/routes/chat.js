@@ -3,6 +3,7 @@ const router = express.Router();
 const { generateResponse } = require('../utils/ai');
 const { searchRepo } = require('../utils/vectorStore');
 const { traverseGraph } = require('../utils/graphTraversal');
+const GraphQueryService = require('../utils/graphQuery');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -39,10 +40,25 @@ router.post('/', async (req, res) => {
     if (repoId) {
       // 1. INTENT CLASSIFICATION
       let intent = 'conceptual';
+      let graphQueryType = null;
+      let graphQueryTarget = null;
+      
       const lowercasePrompt = prompt.toLowerCase();
-      if (lowercasePrompt.includes('architecture') || lowercasePrompt.includes('summary') || lowercasePrompt.includes('overview') || lowercasePrompt.includes('folder') || lowercasePrompt.includes('tech stack')) {
+      
+      // Check for Graph Queries First
+      if (lowercasePrompt.match(/who calls|callers of|where is (.*) called/)) {
+        intent = 'graph_query'; graphQueryType = 'upstream';
+      } else if (lowercasePrompt.match(/what routes use|routes reaching|routes hitting/)) {
+        intent = 'graph_query'; graphQueryType = 'routes_reaching';
+      } else if (lowercasePrompt.match(/what does .* call|callees of/)) {
+        intent = 'graph_query'; graphQueryType = 'downstream';
+      } else if (lowercasePrompt.match(/models touched by|dependencies of route/)) {
+        intent = 'graph_query'; graphQueryType = 'route_dependencies';
+      } else if (lowercasePrompt.match(/blast radius|if .* changes/)) {
+        intent = 'graph_query'; graphQueryType = 'blast_radius';
+      } else if (lowercasePrompt.includes('architecture') || lowercasePrompt.includes('summary') || lowercasePrompt.includes('overview') || lowercasePrompt.includes('folder') || lowercasePrompt.includes('tech stack')) {
         intent = 'architecture';
-      } else if (lowercasePrompt.includes('flow') || lowercasePrompt.includes('execute') || lowercasePrompt.includes('call') || lowercasePrompt.includes('how does') || lowercasePrompt.includes('route') || lowercasePrompt.includes('middleware')) {
+      } else if (lowercasePrompt.includes('flow') || lowercasePrompt.includes('execute') || lowercasePrompt.includes('how does') || lowercasePrompt.includes('route') || lowercasePrompt.includes('middleware')) {
         intent = 'execution';
       } else if (lowercasePrompt.includes('where is') || lowercasePrompt.includes('function') || lowercasePrompt.includes('class') || lowercasePrompt.includes('component')) {
         intent = 'symbolic';
@@ -54,6 +70,42 @@ router.post('/', async (req, res) => {
 
       // Extract keywords for lookup
       const words = prompt.split(/\W+/).filter(w => w.length > 3);
+      if (intent === 'graph_query') {
+        // Try to guess the target symbol from the capitalized words or last words
+        const possibleTargets = prompt.replace(/[?]/g, '').split(' ').filter(w => w.length > 3);
+        graphQueryTarget = possibleTargets[possibleTargets.length - 1]; // naive target extraction
+      }
+
+      // A0. DETERMINISTIC GRAPH QUERY LAYER
+      if (intent === 'graph_query' && graphQueryTarget) {
+        console.log(`[Graph Query] Type: ${graphQueryType}, Target: ${graphQueryTarget}`);
+        let graphResults = [];
+        let queryDescription = '';
+
+        if (graphQueryType === 'upstream') {
+          graphResults = await GraphQueryService.whoCalls(repoId, graphQueryTarget);
+          queryDescription = `Callers of ${graphQueryTarget}`;
+        } else if (graphQueryType === 'downstream') {
+          graphResults = await GraphQueryService.whatDoesCall(repoId, graphQueryTarget);
+          queryDescription = `Callees of ${graphQueryTarget}`;
+        } else if (graphQueryType === 'routes_reaching') {
+          graphResults = await GraphQueryService.routesReaching(repoId, graphQueryTarget);
+          queryDescription = `Routes that eventually call ${graphQueryTarget}`;
+        } else if (graphQueryType === 'route_dependencies') {
+          graphResults = await GraphQueryService.dependenciesTouchedBy(repoId, graphQueryTarget);
+          queryDescription = `Deep dependencies and models touched by route ${graphQueryTarget}`;
+        } else if (graphQueryType === 'blast_radius') {
+          graphResults = await GraphQueryService.blastRadius(repoId, graphQueryTarget);
+          queryDescription = `Blast radius if ${graphQueryTarget} changes`;
+        }
+
+        if (graphResults.length > 0) {
+          const resultText = graphResults.map(r => `- ${r.name} (${r.type})`).join('\n');
+          globalContextParts.push(`[DETERMINISTIC GRAPH QUERY RESULT: ${queryDescription}]\n${resultText}`);
+        } else {
+          globalContextParts.push(`[DETERMINISTIC GRAPH QUERY RESULT: ${queryDescription}]\nNo results found in the Knowledge Graph for exact symbol name '${graphQueryTarget}'.`);
+        }
+      }
 
       // A. STRUCTURAL LAYER (Always included for ARCHITECTURE or SUMMARY)
       if (intent === 'architecture' || lowercasePrompt.includes('architecture') || lowercasePrompt.includes('summary')) {
