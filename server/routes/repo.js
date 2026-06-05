@@ -141,9 +141,15 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
 
       for (const call of meta.calls) {
         let targetSymbol = null;
+        let resolutionMethod = 'unknown';
+        let confidence = 0.0;
 
         // 1. Local Resolution (Function called within the same file)
         targetSymbol = file.symbols.find(s => s.name === call.name);
+        if (targetSymbol) {
+          resolutionMethod = 'local_scope';
+          confidence = 1.0;
+        }
 
         // 2. Import-Based Resolution (Cross-file call)
         if (!targetSymbol && meta.imports) {
@@ -166,6 +172,10 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
                   (specifier.imported === 'default' && s.name === 'default') || 
                   s.name === call.name
                 );
+                if (targetSymbol) {
+                  resolutionMethod = 'named_import';
+                  confidence = 1.0;
+                }
               }
               break;
             }
@@ -175,6 +185,10 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
         // 3. Global Fallback
         if (!targetSymbol) {
           targetSymbol = allSymbols.find(s => s.name === call.name);
+          if (targetSymbol) {
+            resolutionMethod = 'global_name_match';
+            confidence = 0.35;
+          }
         }
 
         if (targetSymbol) {
@@ -193,9 +207,14 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
               create: {
                 callerId: callerSymbol.id,
                 calleeId: targetSymbol.id,
-                relationship: 'calls'
+                relationship: 'calls',
+                confidence,
+                resolutionMethod
               },
-              update: {}
+              update: {
+                confidence,
+                resolutionMethod
+              }
             });
           }
         }
@@ -222,7 +241,15 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
         if (!routeSymbol) continue;
         
         for (const handlerName of route.handlers) {
-          let handlerSymbol = file.symbols.find(s => s.name === handlerName);
+          let handlerSymbol = null;
+          let resolutionMethod = 'unknown';
+          let confidence = 0.0;
+          
+          handlerSymbol = file.symbols.find(s => s.name === handlerName);
+          if (handlerSymbol) {
+            resolutionMethod = 'local_scope';
+            confidence = 1.0;
+          }
           
           if (!handlerSymbol && meta.imports) {
             for (const imp of meta.imports) {
@@ -244,6 +271,10 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
                     (specifier.imported === 'default' && s.name === 'default') || 
                     s.name === handlerName
                   );
+                  if (handlerSymbol) {
+                    resolutionMethod = 'named_import';
+                    confidence = 1.0;
+                  }
                 }
                 break;
               }
@@ -252,6 +283,10 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
           
           if (!handlerSymbol) {
             handlerSymbol = allSymbolsWithRoutes.find(s => s.name === handlerName);
+            if (handlerSymbol) {
+              resolutionMethod = 'global_name_match';
+              confidence = 0.35;
+            }
           }
           
           if (handlerSymbol) {
@@ -266,9 +301,14 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
               create: {
                 callerId: routeSymbol.id,
                 calleeId: handlerSymbol.id,
-                relationship: 'calls'
+                relationship: 'calls',
+                confidence,
+                resolutionMethod
               },
-              update: {}
+              update: {
+                confidence,
+                resolutionMethod
+              }
             });
           }
         }
