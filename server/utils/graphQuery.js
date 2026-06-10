@@ -16,7 +16,11 @@ class GraphQueryService {
         caller: { include: { file: true } }
       }
     });
-    return relationships.map(r => r.caller);
+    return relationships.map(r => ({
+      ...r.caller,
+      confidence: r.confidence,
+      resolutionMethod: r.resolutionMethod
+    }));
   }
 
   /**
@@ -32,7 +36,11 @@ class GraphQueryService {
         callee: { include: { file: true } }
       }
     });
-    return relationships.map(r => r.callee);
+    return relationships.map(r => ({
+      ...r.callee,
+      confidence: r.confidence,
+      resolutionMethod: r.resolutionMethod
+    }));
   }
 
   /**
@@ -50,8 +58,8 @@ class GraphQueryService {
       const paths = await traverseGraph(repoId, sym.id, 'up', 10);
       
       for (const path of paths) {
-        const upstreamRoot = path[path.length - 1];
-        if (upstreamRoot.type === 'route') {
+        const upstreamRoot = path.nodes[path.nodes.length - 1];
+        if (upstreamRoot && upstreamRoot.type === 'route') {
           routeSet.set(upstreamRoot.id, upstreamRoot);
         }
       }
@@ -75,8 +83,8 @@ class GraphQueryService {
       
       for (const path of paths) {
         // Add all downstream nodes (excluding the route itself)
-        for (let i = 1; i < path.length; i++) {
-          const dep = path[i];
+        for (let i = 1; i < path.nodes.length; i++) {
+          const dep = path.nodes[i];
           if (!dependencySet.has(dep.id)) {
             dependencySet.set(dep.id, dep);
           }
@@ -101,8 +109,8 @@ class GraphQueryService {
       const paths = await traverseGraph(repoId, sym.id, 'up', 10);
       
       for (const path of paths) {
-        for (let i = 1; i < path.length; i++) {
-          const upstream = path[i];
+        for (let i = 1; i < path.nodes.length; i++) {
+          const upstream = path.nodes[i];
           if (!affectedSet.has(upstream.id)) {
             affectedSet.set(upstream.id, upstream);
           }
