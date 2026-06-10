@@ -525,8 +525,8 @@ router.get('/:id/impact', async (req, res) => {
     
     allPaths.forEach(pathArr => {
       // Path array goes: [modified_symbol, caller_1, caller_2, ...]
-      for (let i = 1; i < pathArr.length; i++) {
-        const upstreamSym = pathArr[i];
+      for (let i = 1; i < pathArr.nodes.length; i++) {
+        const upstreamSym = pathArr.nodes[i];
         affectedSymbolNames.add(`${upstreamSym.name} (${upstreamSym.type})`);
         if (upstreamSym.file) {
           affectedFilesSet.add(upstreamSym.file.path);
