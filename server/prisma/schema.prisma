@@ -63,5 +63,8 @@ model SymbolRelationship {
   caller          Symbol @relation("CallerSymbol", fields: [callerId], references: [id], onDelete: Cascade)
   callee          Symbol @relation("CalledSymbol", fields: [calleeId], references: [id], onDelete: Cascade)
 
+  confidence       Float  @default(1.0)
+  resolutionMethod String @default("unknown")
+
   @@unique([callerId, calleeId, relationship])
 }
