@@ -76,6 +76,8 @@ router.post('/', async (req, res) => {
         graphQueryTarget = possibleTargets[possibleTargets.length - 1]; // naive target extraction
       }
 
+      let lowConfidenceDetected = false;
+
       // A0. DETERMINISTIC GRAPH QUERY LAYER
       if (intent === 'graph_query' && graphQueryTarget) {
         console.log(`[Graph Query] Type: ${graphQueryType}, Target: ${graphQueryTarget}`);
@@ -100,9 +102,21 @@ router.post('/', async (req, res) => {
         }
 
         if (graphResults.length > 0) {
-          const resultText = graphResults.map(r => `- ${r.name} (${r.type})`).join('\n');
+          const validConfidences = graphResults.filter(r => r.confidence !== undefined);
+          if (validConfidences.length > 0) {
+            const avgConf = validConfidences.reduce((sum, r) => sum + r.confidence, 0) / validConfidences.length;
+            if (avgConf < 0.4) {
+              lowConfidenceDetected = true;
+            }
+          }
+          
+          const resultText = graphResults.map(r => {
+            const confStr = r.confidence !== undefined ? ` [Confidence: ${r.confidence}, Method: ${r.resolutionMethod}]` : '';
+            return `- ${r.name} (${r.type})${confStr}`;
+          }).join('\n');
           globalContextParts.push(`[DETERMINISTIC GRAPH QUERY RESULT: ${queryDescription}]\n${resultText}`);
         } else {
+          lowConfidenceDetected = true;
           globalContextParts.push(`[DETERMINISTIC GRAPH QUERY RESULT: ${queryDescription}]\nNo results found in the Knowledge Graph for exact symbol name '${graphQueryTarget}'.`);
         }
       }
@@ -185,13 +199,18 @@ router.post('/', async (req, res) => {
             });
 
             if (relationships.length > 0) {
+              const avgConf = relationships.reduce((sum, r) => sum + (r.confidence ?? 1.0), 0) / relationships.length;
+              if (avgConf < 0.4) {
+                lowConfidenceDetected = true;
+              }
+
               const calls = relationships
                 .filter(r => r.callerId === sym.id && r.relationship === 'calls')
-                .map(r => `${r.callee.name} (${r.callee.type} in ${r.callee.file.path})`);
+                .map(r => `${r.callee.name} (${r.callee.type} in ${r.callee.file.path}) [Confidence: ${r.confidence ?? 1.0}]`);
               
               const calledBy = relationships
                 .filter(r => r.calleeId === sym.id && r.relationship === 'calls')
-                .map(r => `${r.caller.name} (${r.caller.type} in ${r.caller.file.path})`);
+                .map(r => `${r.caller.name} (${r.caller.type} in ${r.caller.file.path}) [Confidence: ${r.confidence ?? 1.0}]`);
 
               if (calls.length > 0) part += `\n- This ${sym.type} calls: ${calls.join(', ')}`;
               if (calledBy.length > 0) part += `\n- This ${sym.type} is called by: ${calledBy.join(', ')}`;
@@ -211,15 +230,6 @@ router.post('/', async (req, res) => {
         }
       }
 
-      // D. SEMANTIC LAYER (Fallback / Broad Context)
-      if (globalContextParts.length === 0 || intent === 'conceptual') {
-        const semanticResults = await searchRepo(repoId, prompt, 10);
-        if (semanticResults.length > 0) {
-          const resultsContext = semanticResults.map(r => `[Semantic Chunk: ${r.path}]\n${r.text}`).join('\n---\n');
-          globalContextParts.push(resultsContext);
-        }
-      }
-
       // E. ROUTE FLOW INJECTION (If execution intent)
       if (intent === 'execution') {
         const routes = await prisma.symbol.findMany({
@@ -236,8 +246,11 @@ router.post('/', async (req, res) => {
             if (paths.length > 0) {
               let text = `[API Route: ${route.name} in ${route.file.path}]\nExecution Flow Traces:\n`;
               paths.forEach((p, idx) => {
-                const traceStr = p.map(sym => `${sym.name} (${sym.type})`).join('  ->  ');
-                text += `  Trace ${idx + 1}: ${traceStr}\n`;
+                const traceStr = p.nodes.map(sym => `${sym.name} (${sym.type})`).join('  ->  ');
+                text += `  Trace ${idx + 1}: ${traceStr} [Path Confidence: ${p.pathConfidence.toFixed(2)}, Min Confidence: ${p.minConfidence.toFixed(2)}]\n`;
+                if (p.minConfidence < 0.4) {
+                  lowConfidenceDetected = true;
+                }
               });
               routeContextParts.push(text);
             }
@@ -245,6 +258,20 @@ router.post('/', async (req, res) => {
           if (routeContextParts.length > 0) {
             globalContextParts.push(routeContextParts.join('\n---\n'));
           }
+        }
+      }
+
+      // D. SEMANTIC LAYER (Fallback / Broad Context / Confidence Expansion)
+      if (globalContextParts.length === 0 || intent === 'conceptual' || lowConfidenceDetected) {
+        const searchLimit = lowConfidenceDetected ? 15 : 10;
+        const semanticResults = await searchRepo(repoId, prompt, searchLimit);
+        if (semanticResults.length > 0) {
+          let resultsContext = '';
+          if (lowConfidenceDetected) {
+            resultsContext += `[SYSTEM NOTICE: Low confidence or missing references were detected in the Knowledge Graph query. The following broad semantic code search is provided with elevated priority to prevent model hallucination.]\n\n`;
+          }
+          resultsContext += semanticResults.map(r => `[Semantic Chunk: ${r.path}]\n${r.text}`).join('\n---\n');
+          globalContextParts.push(resultsContext);
         }
       }
 
