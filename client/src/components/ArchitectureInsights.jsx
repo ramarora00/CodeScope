@@ -81,21 +81,47 @@ const ArchitectureInsights = ({ repo }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Module Breakdown */}
+        {/* Bounded Contexts (Deterministic Clusters) */}
         <div className="lg:col-span-1 flex flex-col gap-6">
           <div className="glass p-6 rounded-3xl border-silver">
             <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-6 flex items-center gap-2">
               <FolderTree size={14} className="text-accent" />
-              Module Structure
+              Bounded Contexts (DDD)
             </h4>
-            <div className="space-y-4">
-              {Object.entries(data?.folders || {}).map(([name, count], i) => (
-                <div key={i} className="flex items-center justify-between group">
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-accent/40 group-hover:bg-accent transition-all" />
-                    <span className="text-xs font-medium text-text-secondary group-hover:text-text-primary transition-all">/{name}</span>
+            <div className="space-y-6 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
+              {data?.clusters?.map((cluster, i) => (
+                <div key={i} className="p-4 bg-bg-surface/50 border border-border/80 rounded-2xl flex flex-col gap-3 group hover:border-accent/40 transition-all">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-text-primary group-hover:text-accent transition-all">{cluster.inferredName} Domain</span>
+                    <span className="text-[9px] font-mono bg-accent/10 text-accent px-2 py-0.5 rounded-full font-bold">
+                      {cluster.files.length} files
+                    </span>
                   </div>
-                  <span className="text-[10px] font-mono text-text-muted">{count} files</span>
+                  
+                  {cluster.routes.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Endpoints:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {cluster.routes.map((route, idx) => (
+                          <span key={idx} className="text-[9px] font-mono bg-bg-surface border border-border px-1.5 py-0.5 rounded text-text-secondary">
+                            {route}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Core Entities & Actions:</span>
+                    <div className="text-[10px] text-text-secondary flex flex-wrap gap-1">
+                      {cluster.symbols.slice(0, 5).map((sym, idx) => (
+                        <span key={idx} className="bg-bg-hover/40 border border-border/40 px-1 py-0.5 rounded text-text-muted">
+                          {sym.split(' ')[0]}
+                        </span>
+                      ))}
+                      {cluster.symbols.length > 5 && <span className="text-[10px] text-text-muted">+{cluster.symbols.length - 5} more</span>}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -110,6 +136,7 @@ const ArchitectureInsights = ({ repo }) => {
               <li>Component-Based UI</li>
               <li>RESTful API Endpoints</li>
               <li>Relational Data Modeling</li>
+              <li>Bounded Context Clustering</li>
             </ul>
           </div>
         </div>
@@ -118,7 +145,7 @@ const ArchitectureInsights = ({ repo }) => {
         <div className="lg:col-span-2 glass p-8 rounded-3xl border-silver relative">
           <div className="flex items-center gap-2 mb-6">
             <div className="w-8 h-[1px] bg-accent/50" />
-            <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Architectural Summary</h4>
+            <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Architectural Analysis</h4>
           </div>
           <div className="prose prose-invert prose-sm max-w-none">
             <div className="text-[13px] leading-relaxed text-text-secondary whitespace-pre-wrap font-sans">
