@@ -567,7 +567,7 @@ router.get('/:id/architecture', async (req, res) => {
     const repoId = req.params.id;
     const files = await prisma.file.findMany({ 
       where: { repoId }, 
-      select: { path: true, language: true, symbols: { select: { name: true, type: true } } } 
+      select: { path: true } 
     });
 
     const stack = [];
@@ -577,29 +577,37 @@ router.get('/:id/architecture', async (req, res) => {
     if (paths.some(p => p.includes('composer.json'))) stack.push('PHP/Laravel');
     if (paths.some(p => p.includes('requirements.txt'))) stack.push('Python');
 
-    // Prepare data for Domain Detection
-    const structuralData = files.map(f => {
-      const syms = f.symbols.length > 0 ? ` [Symbols: ${f.symbols.map(s => s.name).join(', ')}]` : '';
-      return `${f.path}${syms}`;
-    }).join('\n');
+    // 1. Perform Deterministic Domain Detection
+    const { detectDeterministicDomains } = require('../utils/domainClustering');
+    const clusters = await detectDeterministicDomains(repoId);
+
+    // 2. Format clustered domains for the LLM
+    const clusterSummaryData = clusters.map((c, idx) => {
+      return `Domain Candidate ${idx + 1}: [Inferred Name: ${c.inferredName}]
+- Routes: ${c.routes.length > 0 ? c.routes.join(', ') : 'None'}
+- Files: ${c.files.join(', ')}
+- Core Symbols: ${c.symbols.slice(0, 15).join(', ')} ${c.symbols.length > 15 ? '...' : ''}`;
+    }).join('\n\n---\n\n');
 
     const promptContext = `
-      You are an elite Software Architect. Analyze the following repository structure and symbols.
-      Your task is to perform "Domain Detection" (Domain Driven Design).
+      You are an elite Software Architect. Analyze the following deterministically clustered codebase components.
+      Your task is to refine these groupings into Domain Driven Design (DDD) Bounded Contexts / Domains.
       
-      Group the files and symbols into high-level DOMAINS (e.g., AUTH DOMAIN, PAYMENT DOMAIN, DASHBOARD DOMAIN).
-      For each domain, briefly list what routes, middleware, services, and models belong to it.
+      For each domain candidate:
+      1. Assign a professional Domain Name.
+      2. Synthesize its architectural responsibility (Auth, Data Ingestion, User Management, etc.).
+      3. List the key Routes, Files, and Symbols that form its boundaries.
       
-      Repository Data:
-      ${structuralData.slice(0, 15000)} // Capped to avoid token limits
+      Clustered Domain Data:
+      ${clusterSummaryData.slice(0, 15000)}
       
-      Output a clean, structured Markdown response detailing the inferred domains and the overall architecture.
+      Output a clean, structured Markdown response detailing these domains, boundary rules, and recommendations.
     `;
 
     const { generateResponse } = require('../utils/ai');
     const summary = await generateResponse(promptContext, {});
     
-    res.json({ stack, summary });
+    res.json({ stack, summary, clusters });
   } catch (err) {
     console.error('Architecture Analysis Error:', err);
     res.status(500).json({ error: 'Failed to analyze architecture' });
@@ -781,8 +789,14 @@ router.post('/:id/reindex', async (req, res) => {
 
             for (const call of meta.calls) {
               let targetSymbol = null;
-              targetSymbol = file.symbols.find(s => s.name === call.name);
+              let resolutionMethod = 'unknown';
+              let confidence = 0.0;
 
+              // 1. Local Resolution
+              targetSymbol = file.symbols.find(s => s.name === call.name);
+              if (targetSymbol) { resolutionMethod = 'local_scope'; confidence = 1.0; }
+
+              // 2. Named Import Resolution
               if (!targetSymbol && meta.imports) {
                 for (const imp of meta.imports) {
                   const specifier = imp.specifiers?.find(spec => spec.local === call.name);
@@ -802,14 +816,17 @@ router.post('/:id/reindex', async (req, res) => {
                         (specifier.imported === 'default' && s.name === 'default') ||
                         s.name === call.name
                       );
+                      if (targetSymbol) { resolutionMethod = 'named_import'; confidence = 1.0; }
                     }
                     break;
                   }
                 }
               }
 
+              // 3. Global Fallback
               if (!targetSymbol) {
                 targetSymbol = allSymbols.find(s => s.name === call.name);
+                if (targetSymbol) { resolutionMethod = 'global_name_match'; confidence = 0.35; }
               }
 
               if (targetSymbol) {
@@ -817,8 +834,8 @@ router.post('/:id/reindex', async (req, res) => {
                 if (callerSymbol) {
                   await prisma.symbolRelationship.upsert({
                     where: { callerId_calleeId_relationship: { callerId: callerSymbol.id, calleeId: targetSymbol.id, relationship: 'calls' } },
-                    create: { callerId: callerSymbol.id, calleeId: targetSymbol.id, relationship: 'calls' },
-                    update: {}
+                    create: { callerId: callerSymbol.id, calleeId: targetSymbol.id, relationship: 'calls', confidence, resolutionMethod },
+                    update: { confidence, resolutionMethod }
                   });
                 }
               }
@@ -840,6 +857,225 @@ router.post('/:id/reindex', async (req, res) => {
   } catch (error) {
     console.error('Reindex Error:', error);
     res.status(500).json({ error: 'Reindex failed', details: error.message });
+  }
+});
+
+// @route   GET /api/repo/:id/stats
+// @desc    Repository Intelligence Health Report.
+//          Returns graph quality metrics, confidence distribution, symbol counts, and resolution rates.
+router.get('/:id/stats', async (req, res) => {
+  const repoId = req.params.id;
+
+  try {
+    const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+    if (!repo) return res.status(404).json({ error: 'Repo not found' });
+
+    // --- Symbol Stats ---
+    const symbolCounts = await prisma.symbol.groupBy({
+      by: ['type'],
+      where: { repoId },
+      _count: { _all: true }
+    });
+    const totalSymbols = symbolCounts.reduce((s, g) => s + g._count._all, 0);
+    const symbolsByType = Object.fromEntries(symbolCounts.map(g => [g.type, g._count._all]));
+
+    // --- Relationship Stats ---
+    const totalRelationships = await prisma.symbolRelationship.count({
+      where: { caller: { repoId } }
+    });
+
+    // Resolution method breakdown
+    const resolutionGroups = await prisma.symbolRelationship.groupBy({
+      by: ['resolutionMethod'],
+      where: { caller: { repoId } },
+      _count: { _all: true }
+    });
+    const resolutionBreakdown = Object.fromEntries(
+      resolutionGroups.map(g => [g.resolutionMethod || 'unknown', g._count._all])
+    );
+
+    // Confidence tiers
+    const highConf = await prisma.symbolRelationship.count({
+      where: { caller: { repoId }, confidence: { gte: 0.8 } }
+    });
+    const medConf = await prisma.symbolRelationship.count({
+      where: { caller: { repoId }, confidence: { gte: 0.4, lt: 0.8 } }
+    });
+    const lowConf = await prisma.symbolRelationship.count({
+      where: { caller: { repoId }, confidence: { lt: 0.4 } }
+    });
+
+    // Average confidence
+    const avgResult = await prisma.symbolRelationship.aggregate({
+      where: { caller: { repoId } },
+      _avg: { confidence: true }
+    });
+    const avgConfidence = avgResult._avg.confidence;
+
+    // --- File Stats ---
+    const fileCount = await prisma.file.count({ where: { repoId } });
+    const languageGroups = await prisma.file.groupBy({
+      by: ['language'],
+      where: { repoId, language: { not: null } },
+      _count: { _all: true }
+    });
+    const languageBreakdown = Object.fromEntries(
+      languageGroups.map(g => [g.language, g._count._all])
+    );
+
+    // --- Routes ---
+    const routeCount = await prisma.symbol.count({
+      where: { repoId, type: 'route' }
+    });
+
+    // --- Domain detection ---
+    const { detectDeterministicDomains } = require('../utils/domainClustering');
+    const clusters = await detectDeterministicDomains(repoId);
+
+    // --- Unresolved call sites (calls in metadata not resolved to a symbol) ---
+    // Count call sites in raw metadata
+    const filesWithMeta = await prisma.file.findMany({
+      where: { repoId, metadata: { not: null } },
+      select: { metadata: true }
+    });
+    let totalCallSites = 0;
+    for (const f of filesWithMeta) {
+      try {
+        const meta = JSON.parse(f.metadata);
+        if (meta.calls) totalCallSites += meta.calls.length;
+      } catch {}
+    }
+    const unresolvedCount = Math.max(0, totalCallSites - totalRelationships);
+
+    // Build resolved percentage
+    const resolvedPct = totalCallSites > 0
+      ? ((totalRelationships / totalCallSites) * 100).toFixed(1)
+      : '100.0';
+    const highConfPct = totalRelationships > 0
+      ? ((highConf / totalRelationships) * 100).toFixed(1)
+      : '0.0';
+    const lowConfPct = totalRelationships > 0
+      ? ((lowConf / totalRelationships) * 100).toFixed(1)
+      : '0.0';
+
+    res.json({
+      repoId,
+      repoName: repo.name,
+      status: repo.status,
+      summary: {
+        files: fileCount,
+        symbols: totalSymbols,
+        relationships: totalRelationships,
+        routes: routeCount,
+        domains: clusters.length,
+        callSites: totalCallSites,
+        resolvedCallSites: totalRelationships,
+        unresolvedCallSites: unresolvedCount,
+        resolvedPercentage: parseFloat(resolvedPct),
+      },
+      symbolsByType,
+      languageBreakdown,
+      graphQuality: {
+        averageConfidence: avgConfidence ? parseFloat(avgConfidence.toFixed(3)) : null,
+        highConfidenceEdges: highConf,
+        mediumConfidenceEdges: medConf,
+        lowConfidenceEdges: lowConf,
+        highConfidencePercentage: parseFloat(highConfPct),
+        lowConfidencePercentage: parseFloat(lowConfPct),
+        healthGrade: avgConfidence >= 0.85 ? 'A' : avgConfidence >= 0.7 ? 'B' : avgConfidence >= 0.5 ? 'C' : 'D',
+        warning: lowConf > 0 ? `${lowConf} edge(s) resolved via global name fallback (confidence ≤ 0.35). These may be inaccurate.` : null,
+      },
+      resolutionBreakdown,
+      domains: clusters.map(c => ({
+        name: c.inferredName,
+        routeCount: c.routes.length,
+        fileCount: c.files.length,
+        routes: c.routes.slice(0, 5)
+      }))
+    });
+  } catch (error) {
+    console.error('[Stats] Error:', error);
+    res.status(500).json({ error: 'Failed to compute repo stats', details: error.message });
+  }
+});
+
+// @route   GET /api/repo/:id/graph/query
+// @desc    Deterministic graph query endpoint.
+//          Query types: upstream | downstream | routes_reaching | blast_radius | route_dependencies
+//          ?type=upstream&symbol=login
+router.get('/:id/graph/query', async (req, res) => {
+  const repoId = req.params.id;
+  const { type, symbol } = req.query;
+
+  const SUPPORTED_TYPES = ['upstream', 'downstream', 'routes_reaching', 'blast_radius', 'route_dependencies'];
+
+  if (!type || !symbol) {
+    return res.status(400).json({
+      error: 'Missing required query parameters: type and symbol',
+      supportedTypes: SUPPORTED_TYPES
+    });
+  }
+
+  if (!SUPPORTED_TYPES.includes(type)) {
+    return res.status(400).json({
+      error: `Unsupported query type: "${type}"`,
+      supportedTypes: SUPPORTED_TYPES
+    });
+  }
+
+  try {
+    const GraphQueryService = require('../utils/graphQuery');
+    let results = [];
+    let description = '';
+
+    if (type === 'upstream') {
+      results = await GraphQueryService.whoCalls(repoId, symbol);
+      description = `Symbols that directly call "${symbol}"`;
+    } else if (type === 'downstream') {
+      results = await GraphQueryService.whatDoesCall(repoId, symbol);
+      description = `Symbols directly called by "${symbol}"`;
+    } else if (type === 'routes_reaching') {
+      results = await GraphQueryService.routesReaching(repoId, symbol);
+      description = `API routes that eventually execute "${symbol}"`;
+    } else if (type === 'blast_radius') {
+      results = await GraphQueryService.blastRadius(repoId, symbol);
+      description = `All upstream symbols affected if "${symbol}" changes`;
+    } else if (type === 'route_dependencies') {
+      results = await GraphQueryService.dependenciesTouchedBy(repoId, symbol);
+      description = `All downstream dependencies executed by route "${symbol}"`;
+    }
+
+    // Compute confidence summary
+    const withConf = results.filter(r => r.confidence !== undefined);
+    const avgConfidence = withConf.length > 0
+      ? (withConf.reduce((s, r) => s + r.confidence, 0) / withConf.length).toFixed(3)
+      : null;
+
+    const highConf = withConf.filter(r => r.confidence >= 0.8).length;
+    const lowConf  = withConf.filter(r => r.confidence < 0.4).length;
+
+    res.json({
+      query: { type, symbol, repoId },
+      description,
+      resultCount: results.length,
+      confidenceSummary: avgConfidence !== null ? {
+        average: parseFloat(avgConfidence),
+        highConfidenceEdges: highConf,
+        lowConfidenceEdges: lowConf,
+        warning: lowConf > 0 ? `${lowConf} result(s) resolved via global fallback (confidence ≤ 0.35). Treat as approximate.` : null
+      } : null,
+      results: results.map(r => ({
+        id: r.id,
+        name: r.name,
+        type: r.type,
+        filePath: r.file?.path || null,
+        confidence: r.confidence ?? null,
+        resolutionMethod: r.resolutionMethod ?? null
+      }))
+    });
+  } catch (error) {
+    console.error('[Graph Query API] Error:', error);
+    res.status(500).json({ error: 'Graph query failed', details: error.message });
   }
 });
 
