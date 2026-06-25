@@ -23,6 +23,7 @@ import FileViewer from './components/FileViewer'
 import DependencyGraph from './components/DependencyGraph'
 import ImpactAnalysis from './components/ImpactAnalysis'
 import ArchitectureInsights from './components/ArchitectureInsights'
+import IntelligenceDashboard from './components/IntelligenceDashboard'
 import './App.css'
 
 function App() {
@@ -221,6 +222,13 @@ function App() {
             >
               Arch
             </button>
+            <button 
+              className={`toggle-btn ${viewMode === 'intel' ? 'active' : ''}`}
+              onClick={() => setViewMode('intel')}
+              title="Intelligence Dashboard — Graph Health & Observability"
+            >
+              Intel
+            </button>
           </div>
         </header>
 
@@ -272,6 +280,9 @@ function App() {
               )}
               {viewMode === 'arch' && (
                 <ArchitectureInsights repo={selectedRepo} />
+              )}
+              {viewMode === 'intel' && (
+                <IntelligenceDashboard repo={selectedRepo} />
               )}
             </div>
           )}
