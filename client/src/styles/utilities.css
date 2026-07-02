@@ -1,0 +1,92 @@
+/* ─────────────────────────────────────────
+   GLASS & SURFACES
+───────────────────────────────────────── */
+
+.util-glass-panel {
+  background-color: var(--color-glass-base);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid var(--color-border-base);
+}
+
+.util-glass-border {
+  border: 1px solid var(--color-border-subtle);
+  border-top-color: var(--color-glass-highlight);
+}
+
+/* ─────────────────────────────────────────
+   BACKGROUND TEXTURES
+───────────────────────────────────────── */
+
+.util-grid-background {
+  background-image: 
+    linear-gradient(to right, var(--color-border-subtle) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-border-subtle) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.util-noise-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.04"/%3E%3C/svg%3E');
+  z-index: var(--z-index-bg);
+}
+
+/* ─────────────────────────────────────────
+   AMBIENT EFFECTS
+───────────────────────────────────────── */
+
+.util-ambient-glow {
+  position: relative;
+}
+.util-ambient-glow::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background: radial-gradient(circle at 50% 0%, var(--color-accent-aurora-blue), transparent 60%);
+  opacity: 0.1;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.util-shadow-depth-1 { box-shadow: var(--elevation-1); }
+.util-shadow-depth-2 { box-shadow: var(--elevation-2); }
+.util-shadow-depth-3 { box-shadow: var(--elevation-3); }
+
+.util-focus-ring {
+  outline: none;
+}
+.util-focus-ring:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-surface-void), 0 0 0 4px var(--color-accent-aurora-blue);
+}
+
+/* ─────────────────────────────────────────
+   TYPOGRAPHY FX
+───────────────────────────────────────── */
+
+.util-text-gradient {
+  background: linear-gradient(160deg, var(--color-base-white) 0%, var(--color-base-silver) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ─────────────────────────────────────────
+   SCROLLBAR
+───────────────────────────────────────── */
+
+.util-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.util-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.util-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-pill);
+}
+.util-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
