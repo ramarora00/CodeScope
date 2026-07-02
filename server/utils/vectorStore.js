@@ -9,6 +9,7 @@ const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GE
  * Gets embeddings for a text string using Gemini
  */
 const getEmbedding = async (text) => {
+  if (process.env.NODE_ENV === 'test') return Array(768).fill(0.1);
   if (!genAI) return null;
   const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
   const result = await model.embedContent(text);
@@ -19,6 +20,7 @@ const getEmbedding = async (text) => {
  * Gets embeddings for a batch of text strings using Gemini
  */
 const getEmbeddingsBatch = async (texts) => {
+  if (process.env.NODE_ENV === 'test') return texts.map(() => Array(768).fill(0.1));
   if (!genAI || texts.length === 0) return [];
   try {
     const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
