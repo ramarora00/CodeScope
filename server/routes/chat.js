@@ -67,9 +67,61 @@ router.post('/', async (req, res) => {
       console.log(`[Context Orchestrator] Classified Query Intent: ${intent.toUpperCase()}`);
 
       let globalContextParts = [];
+      const duplicateSnippets = new Set();
+
+      // Helper for safe context compression
+      const compressContext = (content, type) => {
+        if (!content) return '';
+        if (type === 'execution_flow' || type === 'symbol_definition') return content;
+        
+        let lines = content.split('\n');
+        
+        // Compress boilerplate/license at the top
+        let inBlockComment = false;
+        let headerCommentEnd = -1;
+        for (let i = 0; i < Math.min(20, lines.length); i++) {
+          const line = lines[i].trim();
+          if (line.startsWith('/*')) inBlockComment = true;
+          if (line.endsWith('*/') && inBlockComment) { headerCommentEnd = i; break; }
+          if (line.startsWith('//')) headerCommentEnd = i;
+          else if (!inBlockComment && line !== '') break;
+        }
+        if (headerCommentEnd > 4) {
+          lines.splice(0, headerCommentEnd + 1, `[... ${headerCommentEnd + 1} lines of boilerplate compressed ...]`);
+        }
+
+        // Compress large import blocks
+        let importStart = -1;
+        let importCount = 0;
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (line.startsWith('import ') || (line.startsWith('const ') && line.includes('require('))) {
+            if (importStart === -1) importStart = i;
+            importCount++;
+          } else if (line !== '') {
+            if (importCount > 8) {
+              lines.splice(importStart, importCount, `[... ${importCount} lines of imports compressed ...]`);
+              i = importStart;
+            }
+            importStart = -1;
+            importCount = 0;
+          }
+        }
+        return lines.join('\n');
+      };
 
       // Extract keywords for lookup
       const words = prompt.split(/\W+/).filter(w => w.length > 3);
+      let keywordFiles = [];
+      if (words.length > 0) {
+        keywordFiles = await prisma.file.findMany({
+          where: {
+            repoId,
+            OR: words.map(w => ({ path: { contains: w } }))
+          },
+          take: 3
+        });
+      }
       if (intent === 'graph_query') {
         // Try to guess the target symbol from the capitalized words or last words
         const possibleTargets = prompt.replace(/[?]/g, '').split(' ').filter(w => w.length > 3);
@@ -137,27 +189,51 @@ router.post('/', async (req, res) => {
         });
         
         const structuralContext = structuralFiles
-          .map(f => `[Structural File: ${f.path}]\n${f.content?.slice(0, 3000)}`)
+          .map(f => `[Structural File: ${f.path}]\n${compressContext(f.content?.slice(0, 3000), 'file')}`)
           .join('\n---\n');
         if (structuralContext) globalContextParts.push(structuralContext);
       }
 
       // B. EXACT PATH LAYER (Prioritized match on files named after keywords)
-      if (words.length > 0) {
-        const keywordFiles = await prisma.file.findMany({
-          where: {
-            repoId,
-            OR: words.map(w => ({ path: { contains: w } }))
-          },
-          take: 3
-        });
+      if (keywordFiles.length > 0) {
+        const fileContext = keywordFiles
+          .filter(f => f.content && (f.path.endsWith('.tsx') || f.path.endsWith('.jsx') || f.path.endsWith('.ts') || f.path.endsWith('.js') || f.path.endsWith('.php')))
+          .map(f => `[Source File: ${f.path}]\n${compressContext(f.content.slice(0, 5000), 'file')}`)
+          .join('\n---\n');
+        if (fileContext) globalContextParts.push(fileContext);
+      }
 
-        if (keywordFiles.length > 0) {
-          const fileContext = keywordFiles
-            .filter(f => f.content && (f.path.endsWith('.tsx') || f.path.endsWith('.jsx') || f.path.endsWith('.ts') || f.path.endsWith('.js') || f.path.endsWith('.php')))
-            .map(f => `[Source File: ${f.path}]\n${f.content.slice(0, 5000)}`)
-            .join('\n---\n');
-          if (fileContext) globalContextParts.push(fileContext);
+      // B2. IMPORT GRAPH CONTEXT LAYER
+      if (intent === 'architecture' || intent === 'execution') {
+        const filesToGraph = new Set(keywordFiles.map(f => f.id));
+        if (filePath) {
+           const f = await prisma.file.findUnique({ where: { repoId_path: { repoId, path: filePath } } });
+           if (f) filesToGraph.add(f.id);
+        }
+
+        if (filesToGraph.size > 0) {
+            const importRelations = await prisma.symbolRelationship.findMany({
+                where: {
+                    caller: { fileId: { in: Array.from(filesToGraph) } },
+                    relationship: 'imports'
+                },
+                include: {
+                    caller: { include: { file: true } },
+                    callee: { include: { file: true } }
+                }
+            });
+
+            if (importRelations.length > 0) {
+                const depMap = {};
+                importRelations.forEach(r => {
+                    const fPath = r.caller.file.path;
+                    if (!depMap[fPath]) depMap[fPath] = [];
+                    depMap[fPath].push(`- Imports ${r.callee.name} from ${r.callee.file?.path || 'external'}`);
+                });
+
+                let importGraphParts = Object.keys(depMap).map(fPath => `[Import Dependencies for ${fPath}]\n` + [...new Set(depMap[fPath])].join('\n'));
+                globalContextParts.push(`[MODULE DEPENDENCY GRAPH]\n` + importGraphParts.join('\n\n'));
+            }
         }
       }
 
@@ -270,7 +346,15 @@ router.post('/', async (req, res) => {
           if (lowConfidenceDetected) {
             resultsContext += `[SYSTEM NOTICE: Low confidence or missing references were detected in the Knowledge Graph query. The following broad semantic code search is provided with elevated priority to prevent model hallucination.]\n\n`;
           }
-          resultsContext += semanticResults.map(r => `[Semantic Chunk: ${r.path}]\n${r.text}`).join('\n---\n');
+          const uniqueChunks = [];
+          for (const r of semanticResults) {
+             const hash = require('crypto').createHash('md5').update(r.text).digest('hex');
+             if (!duplicateSnippets.has(hash)) {
+                duplicateSnippets.add(hash);
+                uniqueChunks.push(`[Semantic Chunk: ${r.path}]\n${compressContext(r.text, 'chunk')}`);
+             }
+          }
+          resultsContext += uniqueChunks.join('\n---\n');
           globalContextParts.push(resultsContext);
         }
       }
