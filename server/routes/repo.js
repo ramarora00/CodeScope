@@ -18,6 +18,9 @@ if (!fs.existsSync(REPOS_DIR)) {
 const { parseCode } = require('../utils/parser');
 const { indexRepo } = require('../utils/vectorStore');
 
+const TEXT_EXTENSIONS = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'cpp', 'css', 'html', 'json', 'md', 'php'];
+const IGNORE_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', 'coverage', '.next', '__pycache__', 'vendor']);
+
 /**
  * Runs AST parsing in a worker thread to avoid blocking the main event loop.
  * Accepts a batch of raw file objects, returns parsed results.
@@ -35,56 +38,102 @@ const runParserWorker = (files) => {
   });
 };
 
-// Helper: Background Indexing
+/**
+ * Normalize a file path for consistent comparison (forward slashes, no trailing slash).
+ */
+const normalizePath = (p) => p.replace(/\\/g, '/').replace(/\/$/, '');
+
+/**
+ * Resolve an import source against a file's directory, trying common extensions and index files.
+ * Returns the matching File record from allFiles, or null.
+ */
+const resolveImportPath = (importSource, importingFilePath, allFilesMap) => {
+  const importDir = path.dirname(importingFilePath);
+  const resolvedPrefix = normalizePath(path.join(importDir, importSource));
+
+  // Try exact match, then with extensions, then index files
+  const candidates = [
+    resolvedPrefix,
+    resolvedPrefix + '.js',
+    resolvedPrefix + '.jsx',
+    resolvedPrefix + '.ts',
+    resolvedPrefix + '.tsx',
+    resolvedPrefix + '/index.js',
+    resolvedPrefix + '/index.ts',
+    resolvedPrefix + '/index.jsx',
+    resolvedPrefix + '/index.tsx',
+  ];
+
+  for (const candidate of candidates) {
+    const file = allFilesMap.get(candidate);
+    if (file) return file;
+  }
+
+  return null;
+};
+
+/**
+ * Collect all files recursively from a directory.
+ */
+const collectFilesFromDisk = (dirPath, relativePath = '') => {
+  const rawFiles = [];
+  const entries = fs.readdirSync(dirPath);
+  for (const entry of entries) {
+    if (IGNORE_DIRS.has(entry)) continue;
+    const fullPath = path.join(dirPath, entry);
+    const relPath = path.join(relativePath, entry);
+    const stats = fs.statSync(fullPath);
+
+    if (stats.isDirectory()) {
+      rawFiles.push(...collectFilesFromDisk(fullPath, relPath));
+    } else {
+      const language = path.extname(entry).slice(1);
+      let content = null;
+      if (TEXT_EXTENSIONS.includes(language)) {
+        try {
+          content = fs.readFileSync(fullPath, 'utf8');
+        } catch (e) {
+          console.error(`Error reading ${entry}:`, e.message);
+        }
+      }
+      rawFiles.push({ path: relPath, content, language, filename: entry });
+    }
+  }
+  return rawFiles;
+};
+
+
+// ============================================================================
+//  MAIN INDEXING PIPELINE
+// ============================================================================
+
 const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
   try {
-    console.log(`[Background] Cloning ${repoUrl}...`);
-    await prisma.repo.update({ where: { id: repoId }, data: { status: 'cloning' } });
-    await simpleGit().clone(repoUrl, repoPath);
-    
+    // --- CLONE ---
+    if (repoUrl.startsWith('local://')) {
+      console.log(`[Background] Using local directory ${repoPath}, skipping clone.`);
+    } else {
+      console.log(`[Background] Cloning ${repoUrl}...`);
+      await prisma.repo.update({ where: { id: repoId }, data: { status: 'cloning' } });
+      await simpleGit().clone(repoUrl, repoPath);
+    }
+
+    // =========================================================================
+    //  PASS 1: File Scanning + AST Symbol Extraction
+    // =========================================================================
     console.log(`[Background] Starting PASS 1: Symbol Extraction for ${repoId}`);
     const pass1Start = Date.now();
     await prisma.repo.update({ where: { id: repoId }, data: { status: 'indexing' } });
 
-    // STEP 1: Collect all raw files from disk (main thread, I/O only)
-    const rawFiles = [];
-    const textExtensions = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'cpp', 'css', 'html', 'json', 'md', 'php'];
-
-    const collectFiles = (dirPath, relativePath = '') => {
-      const entries = fs.readdirSync(dirPath);
-      for (const entry of entries) {
-        if (entry === '.git' || entry === 'node_modules') continue;
-        const fullPath = path.join(dirPath, entry);
-        const relPath = path.join(relativePath, entry);
-        const stats = fs.statSync(fullPath);
-
-        if (stats.isDirectory()) {
-          collectFiles(fullPath, relPath);
-        } else {
-          const language = path.extname(entry).slice(1);
-          let content = null;
-          if (textExtensions.includes(language)) {
-            try {
-              content = fs.readFileSync(fullPath, 'utf8');
-            } catch (e) {
-              console.error(`Error reading ${entry}:`, e.message);
-            }
-          }
-          rawFiles.push({ path: relPath, content, language, filename: entry });
-        }
-      }
-    };
-
-    collectFiles(repoPath);
+    const rawFiles = collectFilesFromDisk(repoPath);
     console.log(`[Background] Collected ${rawFiles.length} files from disk.`);
 
-    // STEP 2: Parse files in a worker thread (CPU-intensive, off main thread)
-    const parsableFiles = rawFiles.filter(f => f.content && textExtensions.includes(f.language));
-    const nonParsableFiles = rawFiles.filter(f => !f.content || !textExtensions.includes(f.language));
+    // Parse files in worker thread (CPU-intensive, off main thread)
+    const parsableFiles = rawFiles.filter(f => f.content && TEXT_EXTENSIONS.includes(f.language));
+    const nonParsableFiles = rawFiles.filter(f => !f.content || !TEXT_EXTENSIONS.includes(f.language));
 
     let parsedResults = [];
     if (parsableFiles.length > 0) {
-      // Split into worker batches of 100 files to avoid memory pressure
       const workerBatchSize = 100;
       for (let i = 0; i < parsableFiles.length; i += workerBatchSize) {
         const batch = parsableFiles.slice(i, i + workerBatchSize);
@@ -95,14 +144,15 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
 
     console.log(`[Background] Worker parsed ${parsedResults.length} files in ${Date.now() - pass1Start}ms.`);
 
-    // STEP 3: Write to database (main thread, I/O)
+    // Write to database
     const allParsed = [...parsedResults, ...nonParsableFiles.map(f => ({ ...f, metadata: null }))];
 
     for (const file of allParsed) {
       const contentHash = file.content ? crypto.createHash('sha256').update(file.content).digest('hex') : null;
+      const normalizedPath = normalizePath(file.path);
       const fileRecord = await prisma.file.create({
         data: {
-          path: file.path,
+          path: normalizedPath,
           content: file.content,
           contentHash: contentHash,
           language: file.language,
@@ -111,13 +161,44 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
         }
       });
 
-      // Save Symbols from metadata
+      // Save Symbols from metadata with qualifiedName
       if (file.metadata) {
         const parsedMeta = JSON.parse(file.metadata);
         const symbolsToCreate = [
-          ...parsedMeta.functions.map(f => ({ name: f.name, type: 'function', lineStart: f.lineStart, lineEnd: f.lineEnd, fileId: fileRecord.id, repoId })),
-          ...parsedMeta.classes.map(c => ({ name: c.name, type: 'class', lineStart: c.lineStart, lineEnd: c.lineEnd, fileId: fileRecord.id, repoId })),
-          ...(parsedMeta.routes || []).map(r => ({ name: `${r.method} ${r.path}`, type: 'route', lineStart: r.lineStart, lineEnd: r.lineEnd, fileId: fileRecord.id, repoId }))
+          {
+            name: file.filename,
+            qualifiedName: `${normalizedPath}#module`,
+            type: 'module',
+            fileId: fileRecord.id,
+            repoId
+          },
+          ...parsedMeta.functions.map(f => ({
+            name: f.name,
+            qualifiedName: `${normalizedPath}#${f.name}`,
+            type: 'function',
+            lineStart: f.lineStart,
+            lineEnd: f.lineEnd,
+            fileId: fileRecord.id,
+            repoId
+          })),
+          ...parsedMeta.classes.map(c => ({
+            name: c.name,
+            qualifiedName: `${normalizedPath}#${c.name}`,
+            type: 'class',
+            lineStart: c.lineStart,
+            lineEnd: c.lineEnd,
+            fileId: fileRecord.id,
+            repoId
+          })),
+          ...(parsedMeta.routes || []).map(r => ({
+            name: `${r.method} ${r.path}`,
+            qualifiedName: `${normalizedPath}#${r.method} ${r.path}`,
+            type: 'route',
+            lineStart: r.lineStart,
+            lineEnd: r.lineEnd,
+            fileId: fileRecord.id,
+            repoId
+          }))
         ];
         if (symbolsToCreate.length > 0) {
           await prisma.symbol.createMany({ data: symbolsToCreate });
@@ -126,18 +207,213 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
     }
 
     console.log(`[Background] PASS 1 complete in ${Date.now() - pass1Start}ms. ${allParsed.length} files indexed.`);
-    
-    console.log(`[Background] Starting PASS 2: Relationship Mapping (Call Graph) for ${repoId}`);
-    const pass2Start = Date.now();
-    await prisma.repo.update({ where: { id: repoId }, data: { status: 'mapping' } });
-    
+
+    // =========================================================================
+    //  PASS 1b: Import Graph Formalization
+    //  Creates IMPORTS, EXPORTS, REEXPORTS relationships + External Dependencies
+    // =========================================================================
+    console.log(`[Background] Starting PASS 1b: Import Graph Construction for ${repoId}`);
+    const pass1bStart = Date.now();
+
     const allFiles = await prisma.file.findMany({ where: { repoId }, include: { symbols: true } });
+    const allFilesMap = new Map(allFiles.map(f => [normalizePath(f.path), f]));
     const allSymbols = await prisma.symbol.findMany({ where: { repoId } });
+    const externalSymbolCache = new Map(); // source -> Symbol record
 
     for (const file of allFiles) {
       if (!file.metadata) continue;
       const meta = JSON.parse(file.metadata);
+      const normalizedFilePath = normalizePath(file.path);
+
+      // --- Process ES6 imports ---
+      if (meta.imports) {
+        for (const imp of meta.imports) {
+          if (imp.isRelative) {
+            const targetFile = resolveImportPath(imp.source, normalizedFilePath, allFilesMap);
+            if (targetFile) {
+              const importerSymbol = file.symbols.find(s => s.type === 'module');
+              // Create IMPORTS relationships for each specifier
+              for (const spec of imp.specifiers) {
+                // Find the target symbol (the exported name in the target file)
+                const targetSymbol = targetFile.symbols.find(s =>
+                  s.name === spec.imported ||
+                  (spec.imported === 'default' && s.name === 'default') ||
+                  s.name === spec.local
+                );
+
+                if (importerSymbol && targetSymbol) {
+                  try {
+                    await prisma.symbolRelationship.create({
+                      data: {
+                        callerId: importerSymbol.id,
+                        calleeId: targetSymbol.id,
+                        relationship: 'imports',
+                        confidence: 1.0,
+                        resolutionMethod: 'es6_import'
+                      }
+                    });
+                  } catch (e) { /* unique constraint = already exists */ }
+                }
+              }
+            }
+          } else {
+            // External dependency (e.g., import Stripe from 'stripe')
+            const externalSource = imp.source;
+            if (!externalSymbolCache.has(externalSource)) {
+              const extSymbol = await prisma.symbol.create({
+                data: {
+                  name: externalSource,
+                  qualifiedName: `external#${externalSource}`,
+                  type: 'external_service',
+                  isExternal: true,
+                  fileId: file.id, // Associate with the first file that imports it
+                  repoId
+                }
+              });
+              externalSymbolCache.set(externalSource, extSymbol);
+            }
+
+            // Link the importing module to the external dependency
+            const importerSymbol = file.symbols.find(s => s.type === 'module');
+            for (const spec of imp.specifiers) {
+              const extSymbol = externalSymbolCache.get(externalSource);
+              if (importerSymbol && extSymbol) {
+                try {
+                  await prisma.symbolRelationship.create({
+                    data: {
+                      callerId: importerSymbol.id,
+                      calleeId: extSymbol.id,
+                      relationship: 'imports',
+                      confidence: 1.0,
+                      resolutionMethod: 'external_import'
+                    }
+                  });
+                } catch (e) { /* unique constraint */ }
+              }
+            }
+          }
+        }
+      }
+
+      // --- Process CommonJS requires ---
+      if (meta.requires) {
+        for (const req of meta.requires) {
+          if (req.isRelative) {
+            const targetFile = resolveImportPath(req.source, normalizedFilePath, allFilesMap);
+            if (targetFile) {
+              const importerSymbol = file.symbols.find(s => s.type === 'module');
+              const targetSymbol = targetFile.symbols.find(s =>
+                s.name === req.imported ||
+                (req.imported === 'default' && s.name === 'default') ||
+                s.name === req.local
+              );
+              if (importerSymbol && targetSymbol) {
+                try {
+                  await prisma.symbolRelationship.create({
+                    data: {
+                      callerId: importerSymbol.id,
+                      calleeId: targetSymbol.id,
+                      relationship: 'imports',
+                      confidence: 1.0,
+                      resolutionMethod: 'commonjs_require'
+                    }
+                  });
+                } catch (e) { /* unique constraint */ }
+              }
+            }
+          } else {
+            // External CommonJS require
+            const externalSource = req.source;
+            if (!externalSymbolCache.has(externalSource)) {
+              const extSymbol = await prisma.symbol.create({
+                data: {
+                  name: externalSource,
+                  qualifiedName: `external#${externalSource}`,
+                  type: 'external_service',
+                  isExternal: true,
+                  fileId: file.id,
+                  repoId
+                }
+              });
+              externalSymbolCache.set(externalSource, extSymbol);
+            }
+          }
+        }
+      }
+
+      // --- Process Re-exports: export { login } from './auth' ---
+      if (meta.exports) {
+        for (const exp of meta.exports) {
+          if (exp.type === 'reexport' && exp.source) {
+            const targetFile = resolveImportPath(exp.source, normalizedFilePath, allFilesMap);
+            if (targetFile) {
+              const reexportSymbol = file.symbols.find(s => s.name === exp.name) ||
+                targetFile.symbols.find(s => s.name === (exp.originalName || exp.name));
+
+              const originalSymbol = targetFile.symbols.find(s => s.name === (exp.originalName || exp.name));
+
+              if (reexportSymbol && originalSymbol && reexportSymbol.id !== originalSymbol.id) {
+                try {
+                  await prisma.symbolRelationship.create({
+                    data: {
+                      callerId: reexportSymbol.id,
+                      calleeId: originalSymbol.id,
+                      relationship: 'reexports',
+                      confidence: 1.0,
+                      resolutionMethod: 'reexport_chain'
+                    }
+                  });
+                } catch (e) { /* unique constraint */ }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    console.log(`[Background] PASS 1b (Import Graph) complete in ${Date.now() - pass1bStart}ms. External deps: ${externalSymbolCache.size}`);
+
+    // =========================================================================
+    //  PASS 2: Call Graph Resolution (Cross-File, Alias-Aware)
+    // =========================================================================
+    console.log(`[Background] Starting PASS 2: Call Graph Resolution for ${repoId}`);
+    const pass2Start = Date.now();
+    await prisma.repo.update({ where: { id: repoId }, data: { status: 'mapping' } });
+
+    // Refresh data after Pass 1b (new symbols may have been created)
+    const allFilesPass2 = await prisma.file.findMany({ where: { repoId }, include: { symbols: true } });
+    const allFilesMapPass2 = new Map(allFilesPass2.map(f => [normalizePath(f.path), f]));
+    const allSymbolsPass2 = await prisma.symbol.findMany({ where: { repoId } });
+
+    for (const file of allFilesPass2) {
+      if (!file.metadata) continue;
+      const meta = JSON.parse(file.metadata);
       if (!meta.calls || meta.calls.length === 0) continue;
+      const normalizedFilePath = normalizePath(file.path);
+
+      // Build import alias map for this file: localName -> { importedName, resolvedFile }
+      const aliasMap = new Map();
+      if (meta.imports) {
+        for (const imp of meta.imports) {
+          if (!imp.isRelative) continue;
+          const targetFile = resolveImportPath(imp.source, normalizedFilePath, allFilesMapPass2);
+          if (targetFile) {
+            for (const spec of imp.specifiers) {
+              aliasMap.set(spec.local, { imported: spec.imported, targetFile });
+            }
+          }
+        }
+      }
+      // CommonJS alias map
+      if (meta.requires) {
+        for (const req of meta.requires) {
+          if (!req.isRelative) continue;
+          const targetFile = resolveImportPath(req.source, normalizedFilePath, allFilesMapPass2);
+          if (targetFile) {
+            aliasMap.set(req.local, { imported: req.imported, targetFile });
+          }
+        }
+      }
 
       for (const call of meta.calls) {
         let targetSymbol = null;
@@ -145,46 +421,43 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
         let confidence = 0.0;
 
         // 1. Local Resolution (Function called within the same file)
-        targetSymbol = file.symbols.find(s => s.name === call.name);
+        targetSymbol = file.symbols.find(s => s.name === call.name && !s.isExternal);
         if (targetSymbol) {
           resolutionMethod = 'local_scope';
           confidence = 1.0;
         }
 
-        // 2. Import-Based Resolution (Cross-file call)
-        if (!targetSymbol && meta.imports) {
-          for (const imp of meta.imports) {
-            const specifier = imp.specifiers?.find(spec => spec.local === call.name);
-            if (specifier && imp.source.startsWith('.')) {
-              const resolvedPrefix = path.join(path.dirname(file.path), imp.source).replace(/\\/g, '/');
-              const importedFile = allFiles.find(f => 
-                f.path === resolvedPrefix || 
-                f.path.startsWith(resolvedPrefix + '.') ||
-                f.path === resolvedPrefix + '/index.js' ||
-                f.path === resolvedPrefix + '/index.ts' ||
-                f.path === resolvedPrefix + '/index.jsx' ||
-                f.path === resolvedPrefix + '/index.tsx'
-              );
-              
-              if (importedFile && importedFile.symbols) {
-                targetSymbol = importedFile.symbols.find(s => 
-                  s.name === specifier.imported || 
-                  (specifier.imported === 'default' && s.name === 'default') || 
-                  s.name === call.name
-                );
-                if (targetSymbol) {
-                  resolutionMethod = 'named_import';
-                  confidence = 1.0;
-                }
+        // 2. Alias-Aware Import Resolution (Cross-file call)
+        if (!targetSymbol) {
+          // Check: is call.name a direct import alias?
+          const alias = aliasMap.get(call.name);
+          if (alias) {
+            const symbolName = alias.imported === 'default' ? call.name : alias.imported;
+            targetSymbol = alias.targetFile.symbols.find(s =>
+              s.name === symbolName || s.name === call.name
+            );
+            if (targetSymbol) {
+              resolutionMethod = 'named_import';
+              confidence = 1.0;
+            }
+          }
+
+          // Check: is call.objectName an imported module? (e.g., authService.login())
+          if (!targetSymbol && call.objectName) {
+            const moduleAlias = aliasMap.get(call.objectName);
+            if (moduleAlias) {
+              targetSymbol = moduleAlias.targetFile.symbols.find(s => s.name === call.name);
+              if (targetSymbol) {
+                resolutionMethod = 'member_access_import';
+                confidence = 0.95;
               }
-              break;
             }
           }
         }
 
-        // 3. Global Fallback
+        // 3. Global Fallback (lowest confidence)
         if (!targetSymbol) {
-          targetSymbol = allSymbols.find(s => s.name === call.name);
+          targetSymbol = allSymbolsPass2.find(s => s.name === call.name && !s.isExternal);
           if (targetSymbol) {
             resolutionMethod = 'global_name_match';
             confidence = 0.35;
@@ -192,30 +465,34 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
         }
 
         if (targetSymbol) {
-          // Find the symbol THAT IS CALLING (contextual lookup)
-          const callerSymbol = file.symbols.find(s => call.line >= s.lineStart && call.line <= s.lineEnd);
-          
-          if (callerSymbol) {
-            await prisma.symbolRelationship.upsert({
-              where: {
-                callerId_calleeId_relationship: {
+          // Find the symbol THAT IS CALLING (contextual lookup by line range)
+          const callerSymbol = file.symbols.find(s =>
+            s.lineStart && s.lineEnd && call.line >= s.lineStart && call.line <= s.lineEnd
+          );
+
+          if (callerSymbol && callerSymbol.id !== targetSymbol.id) {
+            try {
+              await prisma.symbolRelationship.upsert({
+                where: {
+                  callerId_calleeId_relationship: {
+                    callerId: callerSymbol.id,
+                    calleeId: targetSymbol.id,
+                    relationship: 'calls'
+                  }
+                },
+                create: {
                   callerId: callerSymbol.id,
                   calleeId: targetSymbol.id,
-                  relationship: 'calls'
+                  relationship: 'calls',
+                  confidence,
+                  resolutionMethod
+                },
+                update: {
+                  confidence: Math.max(confidence, 0), // Keep highest confidence
+                  resolutionMethod
                 }
-              },
-              create: {
-                callerId: callerSymbol.id,
-                calleeId: targetSymbol.id,
-                relationship: 'calls',
-                confidence,
-                resolutionMethod
-              },
-              update: {
-                confidence,
-                resolutionMethod
-              }
-            });
+              });
+            } catch (e) { /* constraint */ }
           }
         }
       }
@@ -223,93 +500,115 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
 
     console.log(`[Background] PASS 2 (Call Graph) complete in ${Date.now() - pass2Start}ms.`);
 
-    // --- PASS 2b: Route Flow Mapping ---
+    // =========================================================================
+    //  PASS 2b: Route Flow Mapping with Sequential Middleware Chains
+    // =========================================================================
     console.log(`[Background] Starting PASS 2b: Route Flow Analysis for ${repoId}`);
     const pass2bStart = Date.now();
-    
-    // Fetch updated lists including route symbols
+
     const allFilesWithRoutes = await prisma.file.findMany({ where: { repoId }, include: { symbols: true } });
-    const allSymbolsWithRoutes = await prisma.symbol.findMany({ where: { repoId } });
-    
+    const allFilesMapRoutes = new Map(allFilesWithRoutes.map(f => [normalizePath(f.path), f]));
+    const allSymbolsRoutes = await prisma.symbol.findMany({ where: { repoId } });
+
     for (const file of allFilesWithRoutes) {
       if (!file.metadata) continue;
       const meta = JSON.parse(file.metadata);
       if (!meta.routes || meta.routes.length === 0) continue;
-      
+      const normalizedFilePath = normalizePath(file.path);
+
+      // Build alias map for this file
+      const aliasMap = new Map();
+      if (meta.imports) {
+        for (const imp of meta.imports) {
+          if (!imp.isRelative) continue;
+          const targetFile = resolveImportPath(imp.source, normalizedFilePath, allFilesMapRoutes);
+          if (targetFile) {
+            for (const spec of imp.specifiers) {
+              aliasMap.set(spec.local, { imported: spec.imported, targetFile });
+            }
+          }
+        }
+      }
+      if (meta.requires) {
+        for (const req of meta.requires) {
+          if (!req.isRelative) continue;
+          const targetFile = resolveImportPath(req.source, normalizedFilePath, allFilesMapRoutes);
+          if (targetFile) {
+            aliasMap.set(req.local, { imported: req.imported, targetFile });
+          }
+        }
+      }
+
       for (const route of meta.routes) {
         const routeSymbol = file.symbols.find(s => s.name === `${route.method} ${route.path}` && s.type === 'route');
         if (!routeSymbol) continue;
-        
-        for (const handlerName of route.handlers) {
+
+        // Resolve each handler in order, creating sequential middleware chain
+        let previousSymbol = routeSymbol;
+
+        for (let handlerIdx = 0; handlerIdx < route.handlers.length; handlerIdx++) {
+          const handlerName = route.handlers[handlerIdx];
           let handlerSymbol = null;
           let resolutionMethod = 'unknown';
           let confidence = 0.0;
-          
+
+          // 1. Local scope
           handlerSymbol = file.symbols.find(s => s.name === handlerName);
           if (handlerSymbol) {
             resolutionMethod = 'local_scope';
             confidence = 1.0;
           }
-          
-          if (!handlerSymbol && meta.imports) {
-            for (const imp of meta.imports) {
-              const specifier = imp.specifiers?.find(spec => spec.local === handlerName);
-              if (specifier && imp.source.startsWith('.')) {
-                const resolvedPrefix = path.join(path.dirname(file.path), imp.source).replace(/\\/g, '/');
-                const importedFile = allFilesWithRoutes.find(f => 
-                  f.path === resolvedPrefix || 
-                  f.path.startsWith(resolvedPrefix + '.') ||
-                  f.path === resolvedPrefix + '/index.js' ||
-                  f.path === resolvedPrefix + '/index.ts' ||
-                  f.path === resolvedPrefix + '/index.jsx' ||
-                  f.path === resolvedPrefix + '/index.tsx'
-                );
-                
-                if (importedFile && importedFile.symbols) {
-                  handlerSymbol = importedFile.symbols.find(s => 
-                    s.name === specifier.imported || 
-                    (specifier.imported === 'default' && s.name === 'default') || 
-                    s.name === handlerName
-                  );
-                  if (handlerSymbol) {
-                    resolutionMethod = 'named_import';
-                    confidence = 1.0;
-                  }
-                }
-                break;
+
+          // 2. Import alias resolution
+          if (!handlerSymbol) {
+            const alias = aliasMap.get(handlerName);
+            if (alias) {
+              const symbolName = alias.imported === 'default' ? handlerName : alias.imported;
+              handlerSymbol = alias.targetFile.symbols.find(s => s.name === symbolName || s.name === handlerName);
+              if (handlerSymbol) {
+                resolutionMethod = 'named_import';
+                confidence = 1.0;
               }
             }
           }
-          
+
+          // 3. Global fallback
           if (!handlerSymbol) {
-            handlerSymbol = allSymbolsWithRoutes.find(s => s.name === handlerName);
+            handlerSymbol = allSymbolsRoutes.find(s => s.name === handlerName && !s.isExternal);
             if (handlerSymbol) {
               resolutionMethod = 'global_name_match';
               confidence = 0.35;
             }
           }
-          
+
           if (handlerSymbol) {
-            await prisma.symbolRelationship.upsert({
-              where: {
-                callerId_calleeId_relationship: {
-                  callerId: routeSymbol.id,
+            try {
+              await prisma.symbolRelationship.upsert({
+                where: {
+                  callerId_calleeId_relationship: {
+                    callerId: previousSymbol.id,
+                    calleeId: handlerSymbol.id,
+                    relationship: 'calls'
+                  }
+                },
+                create: {
+                  callerId: previousSymbol.id,
                   calleeId: handlerSymbol.id,
-                  relationship: 'calls'
+                  relationship: 'calls',
+                  confidence,
+                  resolutionMethod,
+                  executionOrder: handlerIdx
+                },
+                update: {
+                  confidence,
+                  resolutionMethod,
+                  executionOrder: handlerIdx
                 }
-              },
-              create: {
-                callerId: routeSymbol.id,
-                calleeId: handlerSymbol.id,
-                relationship: 'calls',
-                confidence,
-                resolutionMethod
-              },
-              update: {
-                confidence,
-                resolutionMethod
-              }
-            });
+              });
+            } catch (e) { /* constraint */ }
+
+            // Chain: next handler is called BY this handler (sequential execution)
+            previousSymbol = handlerSymbol;
           }
         }
       }
@@ -317,20 +616,29 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
 
     console.log(`[Background] PASS 2b (Route Flow) complete in ${Date.now() - pass2bStart}ms.`);
 
+    // =========================================================================
+    //  PASS 3: Vector Embedding Sync (LanceDB)
+    // =========================================================================
     console.log(`[Background] Starting PASS 3: Vector Embedding Sync...`);
     const pass3Start = Date.now();
     await prisma.repo.update({ where: { id: repoId }, data: { status: 'syncing' } });
-    await indexRepo(repoId, allFiles);
-    
+    const allFilesForEmbed = await prisma.file.findMany({ where: { repoId } });
+    await indexRepo(repoId, allFilesForEmbed);
+
     await prisma.repo.update({ where: { id: repoId }, data: { status: 'ready' } });
     const totalTime = Date.now() - pass1Start;
     console.log(`[Background] PASS 3 (Embeddings) complete in ${Date.now() - pass3Start}ms.`);
     console.log(`[Background] ✅ Full pipeline complete for ${repoId} in ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s).`);
   } catch (err) {
     console.error(`[Background] Fatal Error indexing ${repoId}:`, err);
-    await prisma.repo.update({ where: { id: repoId }, data: { status: 'error' } });
+    await prisma.repo.update({ where: { id: repoId }, data: { status: 'error' } }).catch(() => {});
   }
 };
+
+
+// ============================================================================
+//  API ROUTES
+// ============================================================================
 
 // @route   POST /api/repo/upload
 router.post('/upload', async (req, res) => {
@@ -340,9 +648,9 @@ router.post('/upload', async (req, res) => {
   try {
     const repoName = repoUrl.split('/').pop().replace('.git', '') + '-' + Date.now();
     const repoPath = path.join(REPOS_DIR, repoName);
-    
+
     console.log(`Initializing ${repoUrl} in background...`);
-    
+
     const repo = await prisma.repo.create({
       data: {
         name: repoName,
@@ -362,6 +670,31 @@ router.post('/upload', async (req, res) => {
   }
 });
 
+// @route   POST /api/repo/index-local
+// @desc    Test-only endpoint to index a local directory without cloning
+router.post('/index-local', async (req, res) => {
+  const { localPath, name } = req.body;
+  if (!localPath || !name) return res.status(400).json({ error: 'localPath and name required' });
+
+  try {
+    const repo = await prisma.repo.create({
+      data: {
+        name,
+        url: 'local://' + name,
+        localPath,
+        status: 'cloning'
+      }
+    });
+
+    // Fire and forget (skip clone, just index)
+    runBackgroundIndex(repo.id, 'local://' + name, localPath);
+
+    res.json(repo);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed', details: e.message });
+  }
+});
+
 // @route   GET /api/repo
 router.get('/', async (req, res) => {
   const repos = await prisma.repo.findMany({ orderBy: { createdAt: 'desc' } });
@@ -377,7 +710,7 @@ router.get('/:id/files', async (req, res) => {
     const files = fs.readdirSync(dirPath);
     let tree = [];
     files.forEach((file) => {
-      if (file === '.git' || file === 'node_modules') return;
+      if (IGNORE_DIRS.has(file)) return;
       const fullPath = path.join(dirPath, file);
       const relPath = path.join(relativePath, file);
       const stats = fs.statSync(fullPath);
@@ -431,7 +764,7 @@ router.get('/:id/dependencies', async (req, res) => {
       try { const meta = JSON.parse(file.metadata); if (meta.imports) importSources = meta.imports.map(i => i.source); } catch (e) {}
     }
     if (importSources.length === 0 && file.content && file.language === 'php') {
-      const phpImports = file.content.match(/(?:require|include)(?:_once)?\s*[\('"]([^'"]+)['"]\)?/g) || [];
+      const phpImports = file.content.match(/(?:require|include)(?:_once)?\s*\(?['"]([^'"]+)['"]\)?/g) || [];
       importSources = phpImports.map(m => { const match = m.match(/['"](.*?)['"]/); return match ? match[1] : null; }).filter(Boolean);
     }
     importSources.forEach(src => {
@@ -450,14 +783,12 @@ router.get('/:id/dependencies', async (req, res) => {
 router.get('/:id/symbols/graph', async (req, res) => {
   try {
     const repoId = req.params.id;
-    
-    // Fetch all symbols with their files
+
     const symbols = await prisma.symbol.findMany({
       where: { repoId },
       include: { file: true }
     });
-    
-    // Fetch all call graph relationships
+
     const relationships = await prisma.symbolRelationship.findMany({
       where: {
         caller: { repoId },
@@ -471,11 +802,13 @@ router.get('/:id/symbols/graph', async (req, res) => {
 
     const nodes = symbols.map(s => ({
       id: s.id,
-      data: { 
-        label: `${s.name} (${s.type})`, 
+      data: {
+        label: `${s.name} (${s.type})`,
         name: s.name,
-        type: s.type, 
-        filePath: s.file.path 
+        qualifiedName: s.qualifiedName,
+        type: s.type,
+        isExternal: s.isExternal,
+        filePath: s.file.path
       },
       position: { x: 0, y: 0 }
     }));
@@ -485,7 +818,14 @@ router.get('/:id/symbols/graph', async (req, res) => {
       source: r.callerId,
       target: r.calleeId,
       animated: r.relationship === 'calls',
-      style: { stroke: '#EC4899', strokeWidth: 2 } // Vibrant hot pink for execution tracing
+      label: r.relationship !== 'calls' ? r.relationship : undefined,
+      data: { executionOrder: r.executionOrder, relationship: r.relationship },
+      style: {
+        stroke: r.relationship === 'calls' ? '#EC4899' :
+                r.relationship === 'imports' ? '#3B82F6' :
+                r.relationship === 'reexports' ? '#F59E0B' : '#6B7280',
+        strokeWidth: 2
+      }
     }));
 
     res.json({ nodes, edges });
@@ -500,31 +840,28 @@ router.get('/:id/symbols/graph', async (req, res) => {
 router.get('/:id/impact', async (req, res) => {
   const { filePath } = req.query;
   const repoId = req.params.id;
-  
+
   try {
-    const targetFile = await prisma.file.findUnique({ 
+    const targetFile = await prisma.file.findUnique({
       where: { repoId_path: { repoId, path: filePath } },
       include: { symbols: true }
     });
-    
+
     if (!targetFile) return res.status(404).json({ error: 'File not found' });
 
     const { traverseGraph } = require('../utils/graphTraversal');
     const { generateResponse } = require('../utils/ai');
-    
-    // We want to trace UP from every symbol inside this file.
+
     let allPaths = [];
     for (const sym of targetFile.symbols) {
       const paths = await traverseGraph(repoId, sym.id, 'up', 4);
       allPaths.push(...paths);
     }
-    
-    // Flatten and deduplicate the list of uniquely affected files and symbols
+
     const affectedSymbolNames = new Set();
     const affectedFilesSet = new Set();
-    
+
     allPaths.forEach(pathArr => {
-      // Path array goes: [modified_symbol, caller_1, caller_2, ...]
       for (let i = 1; i < pathArr.nodes.length; i++) {
         const upstreamSym = pathArr.nodes[i];
         affectedSymbolNames.add(`${upstreamSym.name} (${upstreamSym.type})`);
@@ -540,19 +877,19 @@ router.get('/:id/impact', async (req, res) => {
     const promptContext = `
       The developer is modifying the file "${filePath}".
       Based on the deeply traced Knowledge Graph, this will potentially break or affect the following upstream systems:
-      
+
       Files affected: ${affectedFiles.length > 0 ? affectedFiles.join(', ') : 'None detected upstream.'}
       Specific Upstream Symbols affected: ${affectedSymbols.length > 0 ? affectedSymbols.join(', ') : 'None detected upstream.'}
-      
+
       Write a concise, professional Impact Analysis report for the developer warning them of what specific routes, controllers, or services they might break.
     `;
 
     const analysis = await generateResponse(promptContext, { fileName: filePath, content: targetFile.content });
-    
-    res.json({ 
-      dependants: affectedFiles, 
-      affectedSymbols, 
-      analysis 
+
+    res.json({
+      dependants: affectedFiles,
+      affectedSymbols,
+      analysis
     });
   } catch (error) {
     console.error('Impact Analysis Error:', error);
@@ -565,9 +902,9 @@ router.get('/:id/impact', async (req, res) => {
 router.get('/:id/architecture', async (req, res) => {
   try {
     const repoId = req.params.id;
-    const files = await prisma.file.findMany({ 
-      where: { repoId }, 
-      select: { path: true } 
+    const files = await prisma.file.findMany({
+      where: { repoId },
+      select: { path: true }
     });
 
     const stack = [];
@@ -592,21 +929,21 @@ router.get('/:id/architecture', async (req, res) => {
     const promptContext = `
       You are an elite Software Architect. Analyze the following deterministically clustered codebase components.
       Your task is to refine these groupings into Domain Driven Design (DDD) Bounded Contexts / Domains.
-      
+
       For each domain candidate:
       1. Assign a professional Domain Name.
       2. Synthesize its architectural responsibility (Auth, Data Ingestion, User Management, etc.).
       3. List the key Routes, Files, and Symbols that form its boundaries.
-      
+
       Clustered Domain Data:
       ${clusterSummaryData.slice(0, 15000)}
-      
+
       Output a clean, structured Markdown response detailing these domains, boundary rules, and recommendations.
     `;
 
     const { generateResponse } = require('../utils/ai');
     const summary = await generateResponse(promptContext, {});
-    
+
     res.json({ stack, summary, clusters });
   } catch (err) {
     console.error('Architecture Analysis Error:', err);
@@ -643,31 +980,11 @@ router.post('/:id/reindex', async (req, res) => {
         }
 
         // STEP 2: Collect current files from disk
-        const textExtensions = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'cpp', 'css', 'html', 'json', 'md', 'php'];
-        const diskFiles = [];
-
-        const collectFiles = (dirPath, relativePath = '') => {
-          const entries = fs.readdirSync(dirPath);
-          for (const entry of entries) {
-            if (entry === '.git' || entry === 'node_modules') continue;
-            const fullPath = path.join(dirPath, entry);
-            const relPath = path.join(relativePath, entry);
-            const stats = fs.statSync(fullPath);
-            if (stats.isDirectory()) {
-              collectFiles(fullPath, relPath);
-            } else {
-              const language = path.extname(entry).slice(1);
-              let content = null;
-              if (textExtensions.includes(language)) {
-                try { content = fs.readFileSync(fullPath, 'utf8'); } catch (e) {}
-              }
-              const hash = content ? crypto.createHash('sha256').update(content).digest('hex') : null;
-              diskFiles.push({ path: relPath, content, language, filename: entry, contentHash: hash });
-            }
-          }
-        };
-
-        collectFiles(repo.localPath);
+        const diskFiles = collectFilesFromDisk(repo.localPath);
+        diskFiles.forEach(f => {
+          f.path = normalizePath(f.path);
+          f.contentHash = f.content ? crypto.createHash('sha256').update(f.content).digest('hex') : null;
+        });
 
         // STEP 3: Load existing DB files
         const dbFiles = await prisma.file.findMany({
@@ -706,7 +1023,7 @@ router.post('/:id/reindex', async (req, res) => {
         }
 
         // STEP 5b: Parse new & modified files
-        const filesToParse = [...added, ...modified].filter(f => f.content && textExtensions.includes(f.language));
+        const filesToParse = [...added, ...modified].filter(f => f.content && TEXT_EXTENSIONS.includes(f.language));
         let parsedResults = [];
         if (filesToParse.length > 0) {
           const workerBatchSize = 100;
@@ -716,14 +1033,12 @@ router.post('/:id/reindex', async (req, res) => {
             parsedResults.push(...batchResults);
           }
         }
-        const parsedMap = new Map(parsedResults.map(p => [p.path, p]));
+        const parsedMap = new Map(parsedResults.map(p => [normalizePath(p.path), p]));
 
         // STEP 5c: Upsert modified files
         for (const mod of modified) {
           const parsed = parsedMap.get(mod.path);
-          // Delete old symbols for this file
           await prisma.symbol.deleteMany({ where: { fileId: mod.existingId } });
-          // Update file record
           await prisma.file.update({
             where: { id: mod.existingId },
             data: {
@@ -733,13 +1048,13 @@ router.post('/:id/reindex', async (req, res) => {
               language: mod.language
             }
           });
-          // Re-create symbols
           if (parsed?.metadata) {
             const meta = JSON.parse(parsed.metadata);
             const symbolsToCreate = [
-              ...meta.functions.map(f => ({ name: f.name, type: 'function', lineStart: f.lineStart, lineEnd: f.lineEnd, fileId: mod.existingId, repoId })),
-              ...meta.classes.map(c => ({ name: c.name, type: 'class', lineStart: c.lineStart, lineEnd: c.lineEnd, fileId: mod.existingId, repoId })),
-              ...(meta.routes || []).map(r => ({ name: `${r.method} ${r.path}`, type: 'route', lineStart: r.lineStart, lineEnd: r.lineEnd, fileId: mod.existingId, repoId }))
+              { name: mod.filename, qualifiedName: `${mod.path}#module`, type: 'module', fileId: mod.existingId, repoId },
+              ...meta.functions.map(f => ({ name: f.name, qualifiedName: `${mod.path}#${f.name}`, type: 'function', lineStart: f.lineStart, lineEnd: f.lineEnd, fileId: mod.existingId, repoId })),
+              ...meta.classes.map(c => ({ name: c.name, qualifiedName: `${mod.path}#${c.name}`, type: 'class', lineStart: c.lineStart, lineEnd: c.lineEnd, fileId: mod.existingId, repoId })),
+              ...(meta.routes || []).map(r => ({ name: `${r.method} ${r.path}`, qualifiedName: `${mod.path}#${r.method} ${r.path}`, type: 'route', lineStart: r.lineStart, lineEnd: r.lineEnd, fileId: mod.existingId, repoId }))
             ];
             if (symbolsToCreate.length > 0) {
               await prisma.symbol.createMany({ data: symbolsToCreate });
@@ -763,9 +1078,10 @@ router.post('/:id/reindex', async (req, res) => {
           if (parsed?.metadata) {
             const meta = JSON.parse(parsed.metadata);
             const symbolsToCreate = [
-              ...meta.functions.map(f => ({ name: f.name, type: 'function', lineStart: f.lineStart, lineEnd: f.lineEnd, fileId: fileRecord.id, repoId })),
-              ...meta.classes.map(c => ({ name: c.name, type: 'class', lineStart: c.lineStart, lineEnd: c.lineEnd, fileId: fileRecord.id, repoId })),
-              ...(meta.routes || []).map(r => ({ name: `${r.method} ${r.path}`, type: 'route', lineStart: r.lineStart, lineEnd: r.lineEnd, fileId: fileRecord.id, repoId }))
+              { name: add.filename, qualifiedName: `${add.path}#module`, type: 'module', fileId: fileRecord.id, repoId },
+              ...meta.functions.map(f => ({ name: f.name, qualifiedName: `${add.path}#${f.name}`, type: 'function', lineStart: f.lineStart, lineEnd: f.lineEnd, fileId: fileRecord.id, repoId })),
+              ...meta.classes.map(c => ({ name: c.name, qualifiedName: `${add.path}#${c.name}`, type: 'class', lineStart: c.lineStart, lineEnd: c.lineEnd, fileId: fileRecord.id, repoId })),
+              ...(meta.routes || []).map(r => ({ name: `${r.method} ${r.path}`, qualifiedName: `${add.path}#${r.method} ${r.path}`, type: 'route', lineStart: r.lineStart, lineEnd: r.lineEnd, fileId: fileRecord.id, repoId }))
             ];
             if (symbolsToCreate.length > 0) {
               await prisma.symbol.createMany({ data: symbolsToCreate });
@@ -775,68 +1091,72 @@ router.post('/:id/reindex', async (req, res) => {
 
         // STEP 6: Rebuild call graph (only if there were changes)
         if (added.length > 0 || modified.length > 0 || deleted.length > 0) {
-          console.log(`[Reindex] Rebuilding call graph...`);
-          // Clear old relationships and rebuild
+          console.log(`[Reindex] Rebuilding relationships...`);
           await prisma.symbolRelationship.deleteMany({ where: { caller: { repoId } } });
 
           const allFiles = await prisma.file.findMany({ where: { repoId }, include: { symbols: true } });
+          const allFilesMap = new Map(allFiles.map(f => [normalizePath(f.path), f]));
           const allSymbols = await prisma.symbol.findMany({ where: { repoId } });
 
           for (const file of allFiles) {
             if (!file.metadata) continue;
             const meta = JSON.parse(file.metadata);
-            if (!meta.calls || meta.calls.length === 0) continue;
+            const normalizedFilePath = normalizePath(file.path);
 
-            for (const call of meta.calls) {
-              let targetSymbol = null;
-              let resolutionMethod = 'unknown';
-              let confidence = 0.0;
-
-              // 1. Local Resolution
-              targetSymbol = file.symbols.find(s => s.name === call.name);
-              if (targetSymbol) { resolutionMethod = 'local_scope'; confidence = 1.0; }
-
-              // 2. Named Import Resolution
-              if (!targetSymbol && meta.imports) {
-                for (const imp of meta.imports) {
-                  const specifier = imp.specifiers?.find(spec => spec.local === call.name);
-                  if (specifier && imp.source.startsWith('.')) {
-                    const resolvedPrefix = path.join(path.dirname(file.path), imp.source).replace(/\\/g, '/');
-                    const importedFile = allFiles.find(f =>
-                      f.path === resolvedPrefix ||
-                      f.path.startsWith(resolvedPrefix + '.') ||
-                      f.path === resolvedPrefix + '/index.js' ||
-                      f.path === resolvedPrefix + '/index.ts' ||
-                      f.path === resolvedPrefix + '/index.jsx' ||
-                      f.path === resolvedPrefix + '/index.tsx'
-                    );
-                    if (importedFile && importedFile.symbols) {
-                      targetSymbol = importedFile.symbols.find(s =>
-                        s.name === specifier.imported ||
-                        (specifier.imported === 'default' && s.name === 'default') ||
-                        s.name === call.name
-                      );
-                      if (targetSymbol) { resolutionMethod = 'named_import'; confidence = 1.0; }
-                    }
-                    break;
-                  }
+            // Build alias map
+            const aliasMap = new Map();
+            const allImports = [...(meta.imports || []), ...(meta.requires || []).map(r => ({ source: r.source, isRelative: r.isRelative, specifiers: [{ local: r.local, imported: r.imported }] }))];
+            for (const imp of allImports) {
+              if (!imp.isRelative) continue;
+              const targetFile = resolveImportPath(imp.source, normalizedFilePath, allFilesMap);
+              if (targetFile) {
+                for (const spec of (imp.specifiers || [])) {
+                  aliasMap.set(spec.local, { imported: spec.imported, targetFile });
                 }
               }
+            }
 
-              // 3. Global Fallback
-              if (!targetSymbol) {
-                targetSymbol = allSymbols.find(s => s.name === call.name);
-                if (targetSymbol) { resolutionMethod = 'global_name_match'; confidence = 0.35; }
-              }
+            if (meta.calls && meta.calls.length > 0) {
+              for (const call of meta.calls) {
+                let targetSymbol = null;
+                let resolutionMethod = 'unknown';
+                let confidence = 0.0;
 
-              if (targetSymbol) {
-                const callerSymbol = file.symbols.find(s => call.line >= s.lineStart && call.line <= s.lineEnd);
-                if (callerSymbol) {
-                  await prisma.symbolRelationship.upsert({
-                    where: { callerId_calleeId_relationship: { callerId: callerSymbol.id, calleeId: targetSymbol.id, relationship: 'calls' } },
-                    create: { callerId: callerSymbol.id, calleeId: targetSymbol.id, relationship: 'calls', confidence, resolutionMethod },
-                    update: { confidence, resolutionMethod }
-                  });
+                targetSymbol = file.symbols.find(s => s.name === call.name && !s.isExternal);
+                if (targetSymbol) { resolutionMethod = 'local_scope'; confidence = 1.0; }
+
+                if (!targetSymbol) {
+                  const alias = aliasMap.get(call.name);
+                  if (alias) {
+                    const symbolName = alias.imported === 'default' ? call.name : alias.imported;
+                    targetSymbol = alias.targetFile.symbols.find(s => s.name === symbolName || s.name === call.name);
+                    if (targetSymbol) { resolutionMethod = 'named_import'; confidence = 1.0; }
+                  }
+                  if (!targetSymbol && call.objectName) {
+                    const moduleAlias = aliasMap.get(call.objectName);
+                    if (moduleAlias) {
+                      targetSymbol = moduleAlias.targetFile.symbols.find(s => s.name === call.name);
+                      if (targetSymbol) { resolutionMethod = 'member_access_import'; confidence = 0.95; }
+                    }
+                  }
+                }
+
+                if (!targetSymbol) {
+                  targetSymbol = allSymbols.find(s => s.name === call.name && !s.isExternal);
+                  if (targetSymbol) { resolutionMethod = 'global_name_match'; confidence = 0.35; }
+                }
+
+                if (targetSymbol) {
+                  const callerSymbol = file.symbols.find(s => s.lineStart && s.lineEnd && call.line >= s.lineStart && call.line <= s.lineEnd);
+                  if (callerSymbol && callerSymbol.id !== targetSymbol.id) {
+                    try {
+                      await prisma.symbolRelationship.upsert({
+                        where: { callerId_calleeId_relationship: { callerId: callerSymbol.id, calleeId: targetSymbol.id, relationship: 'calls' } },
+                        create: { callerId: callerSymbol.id, calleeId: targetSymbol.id, relationship: 'calls', confidence, resolutionMethod },
+                        update: { confidence, resolutionMethod }
+                      });
+                    } catch (e) {}
+                  }
                 }
               }
             }
@@ -851,7 +1171,7 @@ router.post('/:id/reindex', async (req, res) => {
         console.log(`[Reindex] ✅ Incremental reindex complete in ${Date.now() - reindexStart}ms. Δ +${added.length} ~${modified.length} -${deleted.length}`);
       } catch (err) {
         console.error(`[Reindex] Fatal Error:`, err);
-        await prisma.repo.update({ where: { id: repoId }, data: { status: 'error' } });
+        await prisma.repo.update({ where: { id: repoId }, data: { status: 'error' } }).catch(() => {});
       }
     })();
   } catch (error) {
@@ -860,9 +1180,168 @@ router.post('/:id/reindex', async (req, res) => {
   }
 });
 
+// @route   POST /api/repo/:id/reindex/full
+// @desc    Force full reindex — drops all intelligence and rebuilds from scratch.
+//          Use when parser/schema changes or embeddings are corrupted.
+router.post('/:id/reindex/full', async (req, res) => {
+  const repoId = req.params.id;
+  try {
+    const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+    if (!repo) return res.status(404).json({ error: 'Repo not found' });
+    if (repo.status !== 'ready' && repo.status !== 'error') {
+      return res.status(409).json({ error: `Repo is currently ${repo.status}. Wait for it to finish.` });
+    }
+
+    res.json({ message: 'Full reindex started — all intelligence will be rebuilt.', repoId });
+
+    (async () => {
+      try {
+        console.log(`[Full Reindex] Resetting intelligence for ${repo.name}...`);
+        await prisma.repo.update({ where: { id: repoId }, data: { status: 'indexing' } });
+
+        // Drop all symbols and relationships (cascade from files)
+        await prisma.file.deleteMany({ where: { repoId } });
+
+        // Drop vector table
+        try {
+          const lancedb = require("@lancedb/lancedb");
+          const DB_PATH = path.join(__dirname, "../data/vectors");
+          const db = await lancedb.connect(DB_PATH);
+          const tableName = `repo_${repoId.replace(/-/g, '_')}`;
+          await db.dropTable(tableName);
+        } catch (e) { /* table may not exist */ }
+
+        // Git pull latest
+        try {
+          const git = simpleGit(repo.localPath);
+          await git.pull();
+        } catch (e) {
+          console.warn(`[Full Reindex] Git pull failed: ${e.message}`);
+        }
+
+        // Re-run the full pipeline (Pass 1 through 3) using the same local path
+        // We reuse runBackgroundIndex but skip the clone step
+        const pass1Start = Date.now();
+        const rawFiles = collectFilesFromDisk(repo.localPath);
+        console.log(`[Full Reindex] Collected ${rawFiles.length} files from disk.`);
+
+        const parsableFiles = rawFiles.filter(f => f.content && TEXT_EXTENSIONS.includes(f.language));
+        const nonParsableFiles = rawFiles.filter(f => !f.content || !TEXT_EXTENSIONS.includes(f.language));
+
+        let parsedResults = [];
+        if (parsableFiles.length > 0) {
+          const workerBatchSize = 100;
+          for (let i = 0; i < parsableFiles.length; i += workerBatchSize) {
+            const batch = parsableFiles.slice(i, i + workerBatchSize);
+            const batchResults = await runParserWorker(batch);
+            parsedResults.push(...batchResults);
+          }
+        }
+
+        const allParsed = [...parsedResults, ...nonParsableFiles.map(f => ({ ...f, metadata: null }))];
+        for (const file of allParsed) {
+          const contentHash = file.content ? crypto.createHash('sha256').update(file.content).digest('hex') : null;
+          const normalizedPath = normalizePath(file.path);
+          const fileRecord = await prisma.file.create({
+            data: { path: normalizedPath, content: file.content, contentHash, language: file.language, metadata: file.metadata, repoId }
+          });
+          if (file.metadata) {
+            const parsedMeta = JSON.parse(file.metadata);
+            const symbolsToCreate = [
+              { name: file.filename, qualifiedName: `${normalizedPath}#module`, type: 'module', fileId: fileRecord.id, repoId },
+              ...parsedMeta.functions.map(f => ({ name: f.name, qualifiedName: `${normalizedPath}#${f.name}`, type: 'function', lineStart: f.lineStart, lineEnd: f.lineEnd, fileId: fileRecord.id, repoId })),
+              ...parsedMeta.classes.map(c => ({ name: c.name, qualifiedName: `${normalizedPath}#${c.name}`, type: 'class', lineStart: c.lineStart, lineEnd: c.lineEnd, fileId: fileRecord.id, repoId })),
+              ...(parsedMeta.routes || []).map(r => ({ name: `${r.method} ${r.path}`, qualifiedName: `${normalizedPath}#${r.method} ${r.path}`, type: 'route', lineStart: r.lineStart, lineEnd: r.lineEnd, fileId: fileRecord.id, repoId }))
+            ];
+            if (symbolsToCreate.length > 0) await prisma.symbol.createMany({ data: symbolsToCreate });
+          }
+        }
+
+        // Pass 1b, 2, 2b, 3 reuse same logic — trigger by re-running background index phases
+        // Import Graph
+        const allFiles = await prisma.file.findMany({ where: { repoId }, include: { symbols: true } });
+        const allFilesMap = new Map(allFiles.map(f => [normalizePath(f.path), f]));
+        const externalSymbolCache = new Map();
+
+        for (const file of allFiles) {
+          if (!file.metadata) continue;
+          const meta = JSON.parse(file.metadata);
+          const nfp = normalizePath(file.path);
+          if (meta.imports) {
+            for (const imp of meta.imports) {
+              if (!imp.isRelative) {
+                if (!externalSymbolCache.has(imp.source)) {
+                  const extSym = await prisma.symbol.create({ data: { name: imp.source, qualifiedName: `external#${imp.source}`, type: 'external_service', isExternal: true, fileId: file.id, repoId } });
+                  externalSymbolCache.set(imp.source, extSym);
+                }
+              }
+            }
+          }
+          if (meta.requires) {
+            for (const req of meta.requires) {
+              if (!req.isRelative && !externalSymbolCache.has(req.source)) {
+                const extSym = await prisma.symbol.create({ data: { name: req.source, qualifiedName: `external#${req.source}`, type: 'external_service', isExternal: true, fileId: file.id, repoId } });
+                externalSymbolCache.set(req.source, extSym);
+              }
+            }
+          }
+        }
+
+        // Call graph rebuild
+        await prisma.repo.update({ where: { id: repoId }, data: { status: 'mapping' } });
+        const allSymbols = await prisma.symbol.findMany({ where: { repoId } });
+        const allFilesRefresh = await prisma.file.findMany({ where: { repoId }, include: { symbols: true } });
+        const allFilesMapRefresh = new Map(allFilesRefresh.map(f => [normalizePath(f.path), f]));
+
+        for (const file of allFilesRefresh) {
+          if (!file.metadata) continue;
+          const meta = JSON.parse(file.metadata);
+          if (!meta.calls || meta.calls.length === 0) continue;
+          const nfp = normalizePath(file.path);
+          const aliasMap = new Map();
+          const allImports = [...(meta.imports || []), ...(meta.requires || []).map(r => ({ source: r.source, isRelative: r.isRelative, specifiers: [{ local: r.local, imported: r.imported }] }))];
+          for (const imp of allImports) {
+            if (!imp.isRelative) continue;
+            const tf = resolveImportPath(imp.source, nfp, allFilesMapRefresh);
+            if (tf) { for (const spec of (imp.specifiers || [])) { aliasMap.set(spec.local, { imported: spec.imported, targetFile: tf }); } }
+          }
+          for (const call of meta.calls) {
+            let ts = null, rm = 'unknown', conf = 0;
+            ts = file.symbols.find(s => s.name === call.name && !s.isExternal);
+            if (ts) { rm = 'local_scope'; conf = 1.0; }
+            if (!ts) {
+              const alias = aliasMap.get(call.name);
+              if (alias) { const sn = alias.imported === 'default' ? call.name : alias.imported; ts = alias.targetFile.symbols.find(s => s.name === sn || s.name === call.name); if (ts) { rm = 'named_import'; conf = 1.0; } }
+              if (!ts && call.objectName) { const ma = aliasMap.get(call.objectName); if (ma) { ts = ma.targetFile.symbols.find(s => s.name === call.name); if (ts) { rm = 'member_access_import'; conf = 0.95; } } }
+            }
+            if (!ts) { ts = allSymbols.find(s => s.name === call.name && !s.isExternal); if (ts) { rm = 'global_name_match'; conf = 0.35; } }
+            if (ts) {
+              const cs = file.symbols.find(s => s.lineStart && s.lineEnd && call.line >= s.lineStart && call.line <= s.lineEnd);
+              if (cs && cs.id !== ts.id) { try { await prisma.symbolRelationship.upsert({ where: { callerId_calleeId_relationship: { callerId: cs.id, calleeId: ts.id, relationship: 'calls' } }, create: { callerId: cs.id, calleeId: ts.id, relationship: 'calls', confidence: conf, resolutionMethod: rm }, update: { confidence: conf, resolutionMethod: rm } }); } catch (e) {} }
+            }
+          }
+        }
+
+        // Vector sync
+        await prisma.repo.update({ where: { id: repoId }, data: { status: 'syncing' } });
+        const embedFiles = await prisma.file.findMany({ where: { repoId } });
+        await indexRepo(repoId, embedFiles);
+
+        await prisma.repo.update({ where: { id: repoId }, data: { status: 'ready' } });
+        console.log(`[Full Reindex] ✅ Complete in ${Date.now() - pass1Start}ms.`);
+      } catch (err) {
+        console.error(`[Full Reindex] Fatal Error:`, err);
+        await prisma.repo.update({ where: { id: repoId }, data: { status: 'error' } }).catch(() => {});
+      }
+    })();
+  } catch (error) {
+    console.error('Full Reindex Error:', error);
+    res.status(500).json({ error: 'Full reindex failed', details: error.message });
+  }
+});
+
 // @route   GET /api/repo/:id/stats
 // @desc    Repository Intelligence Health Report.
-//          Returns graph quality metrics, confidence distribution, symbol counts, and resolution rates.
 router.get('/:id/stats', async (req, res) => {
   const repoId = req.params.id;
 
@@ -870,7 +1349,6 @@ router.get('/:id/stats', async (req, res) => {
     const repo = await prisma.repo.findUnique({ where: { id: repoId } });
     if (!repo) return res.status(404).json({ error: 'Repo not found' });
 
-    // --- Symbol Stats ---
     const symbolCounts = await prisma.symbol.groupBy({
       by: ['type'],
       where: { repoId },
@@ -879,12 +1357,10 @@ router.get('/:id/stats', async (req, res) => {
     const totalSymbols = symbolCounts.reduce((s, g) => s + g._count._all, 0);
     const symbolsByType = Object.fromEntries(symbolCounts.map(g => [g.type, g._count._all]));
 
-    // --- Relationship Stats ---
     const totalRelationships = await prisma.symbolRelationship.count({
       where: { caller: { repoId } }
     });
 
-    // Resolution method breakdown
     const resolutionGroups = await prisma.symbolRelationship.groupBy({
       by: ['resolutionMethod'],
       where: { caller: { repoId } },
@@ -894,7 +1370,15 @@ router.get('/:id/stats', async (req, res) => {
       resolutionGroups.map(g => [g.resolutionMethod || 'unknown', g._count._all])
     );
 
-    // Confidence tiers
+    const relationshipGroups = await prisma.symbolRelationship.groupBy({
+      by: ['relationship'],
+      where: { caller: { repoId } },
+      _count: { _all: true }
+    });
+    const relationshipBreakdown = Object.fromEntries(
+      relationshipGroups.map(g => [g.relationship, g._count._all])
+    );
+
     const highConf = await prisma.symbolRelationship.count({
       where: { caller: { repoId }, confidence: { gte: 0.8 } }
     });
@@ -905,14 +1389,12 @@ router.get('/:id/stats', async (req, res) => {
       where: { caller: { repoId }, confidence: { lt: 0.4 } }
     });
 
-    // Average confidence
     const avgResult = await prisma.symbolRelationship.aggregate({
       where: { caller: { repoId } },
       _avg: { confidence: true }
     });
     const avgConfidence = avgResult._avg.confidence;
 
-    // --- File Stats ---
     const fileCount = await prisma.file.count({ where: { repoId } });
     const languageGroups = await prisma.file.groupBy({
       by: ['language'],
@@ -923,17 +1405,17 @@ router.get('/:id/stats', async (req, res) => {
       languageGroups.map(g => [g.language, g._count._all])
     );
 
-    // --- Routes ---
     const routeCount = await prisma.symbol.count({
       where: { repoId, type: 'route' }
     });
 
-    // --- Domain detection ---
+    const externalCount = await prisma.symbol.count({
+      where: { repoId, isExternal: true }
+    });
+
     const { detectDeterministicDomains } = require('../utils/domainClustering');
     const clusters = await detectDeterministicDomains(repoId);
 
-    // --- Unresolved call sites (calls in metadata not resolved to a symbol) ---
-    // Count call sites in raw metadata
     const filesWithMeta = await prisma.file.findMany({
       where: { repoId, metadata: { not: null } },
       select: { metadata: true }
@@ -945,11 +1427,11 @@ router.get('/:id/stats', async (req, res) => {
         if (meta.calls) totalCallSites += meta.calls.length;
       } catch {}
     }
-    const unresolvedCount = Math.max(0, totalCallSites - totalRelationships);
+    const unresolvedCount = Math.max(0, totalCallSites - (relationshipBreakdown['calls'] || 0));
 
-    // Build resolved percentage
+    const callEdges = relationshipBreakdown['calls'] || 0;
     const resolvedPct = totalCallSites > 0
-      ? ((totalRelationships / totalCallSites) * 100).toFixed(1)
+      ? ((callEdges / totalCallSites) * 100).toFixed(1)
       : '100.0';
     const highConfPct = totalRelationships > 0
       ? ((highConf / totalRelationships) * 100).toFixed(1)
@@ -967,14 +1449,16 @@ router.get('/:id/stats', async (req, res) => {
         symbols: totalSymbols,
         relationships: totalRelationships,
         routes: routeCount,
+        externalDependencies: externalCount,
         domains: clusters.length,
         callSites: totalCallSites,
-        resolvedCallSites: totalRelationships,
+        resolvedCallSites: callEdges,
         unresolvedCallSites: unresolvedCount,
         resolvedPercentage: parseFloat(resolvedPct),
       },
       symbolsByType,
       languageBreakdown,
+      relationshipBreakdown,
       graphQuality: {
         averageConfidence: avgConfidence ? parseFloat(avgConfidence.toFixed(3)) : null,
         highConfidenceEdges: highConf,
@@ -1000,9 +1484,6 @@ router.get('/:id/stats', async (req, res) => {
 });
 
 // @route   GET /api/repo/:id/graph/query
-// @desc    Deterministic graph query endpoint.
-//          Query types: upstream | downstream | routes_reaching | blast_radius | route_dependencies
-//          ?type=upstream&symbol=login
 router.get('/:id/graph/query', async (req, res) => {
   const repoId = req.params.id;
   const { type, symbol } = req.query;
@@ -1045,7 +1526,6 @@ router.get('/:id/graph/query', async (req, res) => {
       description = `All downstream dependencies executed by route "${symbol}"`;
     }
 
-    // Compute confidence summary
     const withConf = results.filter(r => r.confidence !== undefined);
     const avgConfidence = withConf.length > 0
       ? (withConf.reduce((s, r) => s + r.confidence, 0) / withConf.length).toFixed(3)
@@ -1067,6 +1547,7 @@ router.get('/:id/graph/query', async (req, res) => {
       results: results.map(r => ({
         id: r.id,
         name: r.name,
+        qualifiedName: r.qualifiedName || null,
         type: r.type,
         filePath: r.file?.path || null,
         confidence: r.confidence ?? null,
@@ -1092,13 +1573,13 @@ router.delete('/:id', async (req, res) => {
     }
 
     // 2. Delete Vector Table (LanceDB)
-    const { searchRepo } = require('../utils/vectorStore'); // Import just to get DB path
-    const lancedb = require("@lancedb/lancedb");
-    const path = require("path");
-    const DB_PATH = path.join(__dirname, "../data/vectors");
-    const db = await lancedb.connect(DB_PATH);
-    const tableName = `repo_${id.replace(/-/g, '_')}`;
-    try { await db.dropTable(tableName); } catch (e) {}
+    try {
+      const lancedb = require("@lancedb/lancedb");
+      const DB_PATH = path.join(__dirname, "../data/vectors");
+      const db = await lancedb.connect(DB_PATH);
+      const tableName = `repo_${id.replace(/-/g, '_')}`;
+      await db.dropTable(tableName);
+    } catch (e) {}
 
     // 3. Delete from SQLite
     await prisma.repo.delete({ where: { id } });
