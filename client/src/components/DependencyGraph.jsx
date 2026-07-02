@@ -75,8 +75,8 @@ const KnowledgeGraph = ({ repoId }) => {
     setLoading(true);
     try {
       const endpoint = graphMode === 'import'
-        ? `http://localhost:5000/api/repo/${repoId}/graph?type=file`
-        : `http://localhost:5000/api/repo/${repoId}/graph?type=symbol`;
+        ? `http://localhost:5000/api/repo/${repoId}/dependencies`
+        : `http://localhost:5000/api/repo/${repoId}/symbols/graph`;
 
       const res = await fetch(endpoint);
       if (!res.ok) throw new Error(`${res.status}`);
@@ -89,18 +89,18 @@ const KnowledgeGraph = ({ repoId }) => {
           label: n.data?.label || n.data?.name || n.id,
           type: graphMode === 'import'
             ? 'file'
-            : (n.data?.symbolType || n.data?.type || 'symbol'),
+            : (n.data?.type || n.data?.symbolType || 'symbol'),
         },
         position: { x: 0, y: 0 },
       })) || [];
 
       const rawEdges = data.edges?.map(e => ({
-        id: `${e.source}-${e.target}`,
+        id: e.id || `${e.source}-${e.target}`,
         source: e.source,
         target: e.target,
         markerEnd: { type: MarkerType.ArrowClosed, color: '#283245', width: 14, height: 14 },
         style: { stroke: '#1C2331', strokeWidth: 1.5 },
-        animated: graphMode === 'execution',
+        animated: false,
       })) || [];
 
       let positioned;
