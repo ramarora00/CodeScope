@@ -1,378 +1,368 @@
-import { useState, useEffect, useRef } from 'react'
-import { 
-  LayoutDashboard, 
-  Upload, 
-  MessageSquare, 
-  Network, 
-  Settings, 
-  CheckCircle2, 
-  XCircle,
-  FileText,
-  Search,
-  Zap,
-  ChevronRight,
-  Terminal,
-  Cpu,
-  Loader2,
-  Send
+import { useState, useEffect, useRef, useMemo } from 'react'
+import {
+  Activity, Layers, PlayCircle, Share2, Network,
+  FolderTree, GitBranch, Sparkles, Database, Command, Search,
+  ChevronRight, BarChart2, Plus
 } from 'lucide-react'
+
 import RepoUpload from './components/RepoUpload'
 import RepoList from './components/RepoList'
 import FileExplorer from './components/FileExplorer'
 import FileViewer from './components/FileViewer'
-import DependencyGraph from './components/DependencyGraph'
-import ImpactAnalysis from './components/ImpactAnalysis'
-import ArchitectureInsights from './components/ArchitectureInsights'
-import IntelligenceDashboard from './components/IntelligenceDashboard'
+import KnowledgeGraph from './components/DependencyGraph'
+import ImpactScreen from './components/ImpactAnalysis'
+import ArchitectureScreen from './components/ArchitectureInsights'
+import OverviewScreen from './components/OverviewScreen'
+import AIObservatory from './components/AIObservatory'
+
 import './App.css'
 
+/* ─── Seeded star positions ─── */
+const STARS = Array.from({ length: 60 }, (_, i) => ({
+  top:      `${(i * 17.3) % 100}%`,
+  left:     `${(i * 23.7 + 11.1) % 100}%`,
+  duration: `${14 + (i % 7) * 3}s`,
+  delay:    `-${(i % 11) * 1.8}s`,
+  opacity:   0.08 + (i % 5) * 0.04,
+  size:      i % 4 === 0 ? 1.5 : 1,
+}));
+
+/* ─── Nav items ─── */
+const NAV = [
+  { id: 'overview',   label: 'Overview',        icon: Activity,  section: 'Observatory' },
+  { id: 'domains',    label: 'Domains',          icon: Layers,    section: 'Observatory' },
+  { id: 'execution',  label: 'Execution',        icon: PlayCircle, section: 'Observatory' },
+  { id: 'impact',     label: 'Impact',           icon: Share2,    section: 'Observatory' },
+  { id: 'knowledge',  label: 'Knowledge Graph',  icon: Network,   section: 'Observatory' },
+  { id: 'explorer',   label: 'Explorer',         icon: FolderTree, section: 'Implementation' },
+  { id: 'arch',       label: 'Architecture',     icon: BarChart2,  section: 'Implementation' },
+];
+
 function App() {
-  const [activeTab, setActiveTab] = useState('dashboard')
-  const [viewMode, setViewMode] = useState('code') // code, graph, impact
-  const [health, setHealth] = useState({ status: 'loading', message: '' })
+  const [activeTab, setActiveTab] = useState('overview')
+  const [health, setHealth] = useState({ status: 'loading' })
   const [repos, setRepos] = useState([])
   const [selectedRepo, setSelectedRepo] = useState(null)
   const [selectedFile, setSelectedFile] = useState(null)
-  
-  // Chat State
-  const [messages, setMessages] = useState([
-    { role: 'assistant', text: "Hello! I'm your Codebase Assistant. Connect a repository to get started with codebase-wide queries." }
-  ])
-  const [chatInput, setChatInput] = useState('')
-  const [isSending, setIsSending] = useState(false)
-  const chatEndRef = useRef(null)
+  const [showConnect, setShowConnect] = useState(false)
 
   useEffect(() => {
-    fetchHealth()
-    fetchRepos()
+    fetch('http://localhost:5000/api/health')
+      .then(r => r.json())
+      .then(d => setHealth({ status: 'ok', message: d.message }))
+      .catch(() => setHealth({ status: 'error' }))
+
+    fetch('http://localhost:5000/api/repo')
+      .then(r => r.json())
+      .then(d => setRepos(d))
+      .catch(() => {})
   }, [])
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
-  const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  const fetchHealth = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/health')
-      const data = await res.json()
-      setHealth({ status: 'ok', message: data.message })
-    } catch (err) {
-      setHealth({ status: 'error', message: 'Backend unreachable' })
-    }
-  }
-
-  const fetchRepos = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/repo')
-      const data = await res.json()
-      setRepos(data)
-    } catch (err) {
-      console.error('Failed to fetch repos')
-    }
-  }
-
   const handleUploadSuccess = (newRepo) => {
-    setRepos([newRepo, ...repos])
-    setActiveTab('dashboard')
+    setRepos(prev => [newRepo, ...prev])
+    setSelectedRepo(newRepo)
+    setShowConnect(false)
+    setActiveTab('overview')
   }
 
   const handleRepoSelect = (repo) => {
     setSelectedRepo(repo)
-    setActiveTab('explorer')
-    setMessages(prev => [...prev, { 
-      role: 'assistant', 
-      text: `Now analyzing ${repo.name.split('-')[0]}. You can ask me questions about this codebase!` 
-    }])
+    setActiveTab('overview')
   }
 
-  const handleSendMessage = async (e) => {
-    if (e) e.preventDefault()
-    if (!chatInput.trim() || isSending) return
-
-    const userMessage = chatInput.trim()
-    setMessages(prev => [...prev, { role: 'user', text: userMessage }])
-    setChatInput('')
-    setIsSending(true)
-
-    try {
-      const res = await fetch('http://localhost:5000/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: userMessage,
-          repoId: selectedRepo?.id,
-          filePath: selectedFile?.path
-        })
-      })
-
-      const data = await res.json()
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        text: data.answer || "I'm sorry, I couldn't process that.",
-        contextMeta: data.contextMeta
-      }])
-    } catch (err) {
-      setMessages(prev => [...prev, { role: 'assistant', text: "Error: Failed to connect to AI service." }])
-    } finally {
-      setIsSending(false)
-    }
-  }
+  /* Group nav items by section */
+  const sections = useMemo(() => {
+    const result = {};
+    NAV.forEach(n => {
+      if (!result[n.section]) result[n.section] = [];
+      result[n.section].push(n);
+    });
+    return result;
+  }, []);
 
   return (
-    <div className="app-container">
-      {/* Sidebar (Left) */}
-      <aside className="sidebar-left">
-        <div className="sidebar-header">
-          <div className="flex items-center gap-3">
-            <div className="logo-icon shadow-glow-subtle">
-              <Zap size={18} color="white" fill="white" />
-            </div>
-            <h2 className="text-lg font-bold tracking-tight text-gradient-silver">Copilot AI</h2>
-          </div>
-        </div>
-        
-        <div className="sidebar-content">
-          <nav className="flex flex-col">
-            <button 
-              className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-              onClick={() => setActiveTab('dashboard')}
-            >
-              <LayoutDashboard size={18} />
-              <div className="flex-1 flex items-center justify-between">
-                <span>Dashboard</span>
-                <div className={`w-2 h-2 rounded-full ${health.status === 'ok' ? 'bg-success animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-error'}`} />
-              </div>
-            </button>
-            <button 
-              className={`nav-item connect-btn ${activeTab === 'upload' ? 'active' : ''}`}
-              onClick={() => setActiveTab('upload')}
-            >
-              <Upload size={18} />
-              <span>Connect Repo</span>
-            </button>
+    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#05070B' }}>
 
-            {selectedRepo && (
-              <>
-                <div className="px-4 mt-6 mb-2 text-[10px] font-bold text-text-muted uppercase tracking-widest">
-                  Current Project
+      {/* ── Subtle Star Field ── */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
+        {STARS.map((s, i) => (
+          <div key={i} style={{
+            position: 'absolute',
+            top: s.top, left: s.left,
+            width: s.size, height: s.size,
+            borderRadius: '50%',
+            background: '#D8DCE6',
+            opacity: s.opacity,
+            animation: `starDrift ${s.duration} ease-in-out infinite`,
+            animationDelay: s.delay,
+          }} />
+        ))}
+        {/* Nebula blobs */}
+        <div style={{ position: 'absolute', top: '20%', left: '30%', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(74,85,104,0.04) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+        <div style={{ position: 'absolute', bottom: '15%', right: '20%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(74,99,88,0.04) 0%, transparent 70%)', filter: 'blur(50px)' }} />
+      </div>
+
+      {/* ── Grid Layout ── */}
+      <div style={{
+        position: 'relative', zIndex: 1,
+        display: 'grid',
+        gridTemplateColumns: '236px 1fr 320px',
+        gridTemplateRows: '52px 1fr',
+        gridTemplateAreas: '"sidebar topbar right" "sidebar main right"',
+        width: '100%', height: '100%',
+      }}>
+
+        {/* ── Left Navigation ── */}
+        <aside style={{ gridArea: 'sidebar', background: 'rgba(8,10,15,0.92)', borderRight: '1px solid #1C2331', display: 'flex', flexDirection: 'column', height: '100vh', backdropFilter: 'blur(12px)' }}>
+          
+          {/* Logo */}
+          <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #1C2331' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 8, background: '#10141C', border: '1px solid #1C2331', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Sparkles size={14} color="#8E97A8" />
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.02em', color: '#D8DCE6', fontFamily: 'Inter' }}>
+                Nexus OS
+              </span>
+            </div>
+          </div>
+
+          {/* Repository selector */}
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #1C2331' }}>
+            {selectedRepo ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C657A', marginBottom: 3 }}>Active Repository</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#D8DCE6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {selectedRepo.name?.replace(/repo-?/i, '') || selectedRepo.name}
+                  </div>
                 </div>
-                <button 
-                  className={`nav-item ${activeTab === 'explorer' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('explorer')}
+                <button
+                  onClick={() => setShowConnect(!showConnect)}
+                  style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 6, background: '#10141C', border: '1px solid #1C2331', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#5C657A' }}
                 >
-                  <FileText size={18} />
-                  <span>File Explorer</span>
+                  <Plus size={11} />
                 </button>
-              </>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowConnect(!showConnect)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#10141C', border: '1px solid #1C2331', borderRadius: 8, cursor: 'pointer', color: '#8E97A8', fontSize: 11 }}
+              >
+                <GitBranch size={13} />
+                <span>Connect Repository</span>
+              </button>
             )}
+          </div>
+
+          {/* Nav items */}
+          <nav style={{ flex: 1, padding: '12px 12px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {Object.entries(sections).map(([section, items]) => (
+              <div key={section} style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#3A4258', padding: '6px 8px 4px', marginBottom: 2 }}>
+                  {section}
+                </div>
+                {items.map(item => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id)}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', gap: 9,
+                        padding: '7px 9px', borderRadius: 7, marginBottom: 1,
+                        background: isActive ? '#10141C' : 'transparent',
+                        border: isActive ? '1px solid #1C2331' : '1px solid transparent',
+                        cursor: 'pointer',
+                        color: isActive ? '#D8DCE6' : '#5C657A',
+                        fontSize: 11, fontFamily: 'Inter', fontWeight: isActive ? 600 : 400,
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={e => { if (!isActive) { e.currentTarget.style.color = '#8E97A8'; e.currentTarget.style.background = '#0A0E15'; } }}
+                      onMouseLeave={e => { if (!isActive) { e.currentTarget.style.color = '#5C657A'; e.currentTarget.style.background = 'transparent'; } }}
+                    >
+                      <Icon size={13} />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
 
-          {activeTab === 'explorer' && selectedRepo && (
-            <div className="px-2 mt-4">
-              <FileExplorer repo={selectedRepo} onFileSelect={setSelectedFile} />
+          {/* Footer */}
+          <div style={{ padding: '12px 16px', borderTop: '1px solid #1C2331' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#0A0E15', border: '1px solid #1C2331', borderRadius: 8 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: health.status === 'ok' ? '#7A8F7B' : '#8B6B6B', flexShrink: 0, ...(health.status === 'ok' ? { boxShadow: '0 0 6px #7A8F7B' } : {}) }} />
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C657A' }}>
+                {health.status === 'ok' ? 'System Live' : health.status === 'loading' ? 'Connecting...' : 'System Down'}
+              </span>
             </div>
-          )}
-        </div>
-
-        <div className="sidebar-footer p-4 border-t border-border bg-bg-sidebar">
-          <div className={`status-badge-premium ${health.status} flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider`}>
-            <div className={`w-1.5 h-1.5 rounded-full ${health.status === 'ok' ? 'bg-success animate-pulse' : 'bg-error'}`} />
-            {health.status === 'ok' ? 'System Live' : 'System Down'}
           </div>
-        </div>
-      </aside>
+        </aside>
 
-      {/* Main Panel (Center) */}
-      <main className="main-panel">
-        <header className="panel-header">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-text-muted">Projects</span>
-            <ChevronRight size={12} className="text-text-muted" />
-            <span className="text-xs text-text-primary font-medium">
-              {selectedRepo ? selectedRepo.name.split('-')[0] : 'Overview'}
+        {/* ── Top Bar ── */}
+        <header style={{ gridArea: 'topbar', background: 'rgba(10,14,21,0.85)', borderBottom: '1px solid #1C2331', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', padding: '0 20px', gap: 16 }}>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#5C657A', marginRight: 'auto' }}>
+            <span>Projects</span>
+            <ChevronRight size={12} />
+            <span style={{ color: selectedRepo ? '#D8DCE6' : '#5C657A', fontWeight: selectedRepo ? 500 : 400 }}>
+              {selectedRepo ? (selectedRepo.name?.replace(/repo-?/i, '') || selectedRepo.name) : 'No Project'}
             </span>
+            {activeTab !== 'overview' && (
+              <>
+                <ChevronRight size={12} />
+                <span style={{ color: '#8E97A8', textTransform: 'capitalize' }}>{activeTab}</span>
+              </>
+            )}
           </div>
 
-          <div className="view-toggles">
-            <button 
-              className={`toggle-btn ${viewMode === 'code' ? 'active' : ''}`}
-              onClick={() => setViewMode('code')}
-            >
-              Code
-            </button>
-            <button 
-              className={`toggle-btn ${viewMode === 'graph' ? 'active' : ''}`}
-              onClick={() => setViewMode('graph')}
-            >
-              Graph
-            </button>
-            <button 
-              className={`toggle-btn ${viewMode === 'impact' ? 'active' : ''}`}
-              onClick={() => setViewMode('impact')}
-            >
-              Impact
-            </button>
-            <button 
-              className={`toggle-btn ${viewMode === 'arch' ? 'active' : ''}`}
-              onClick={() => setViewMode('arch')}
-            >
-              Arch
-            </button>
-            <button 
-              className={`toggle-btn ${viewMode === 'intel' ? 'active' : ''}`}
-              onClick={() => setViewMode('intel')}
-              title="Intelligence Dashboard — Graph Health & Observability"
-            >
-              Intel
-            </button>
+          {/* Command palette search */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 380 }}>
+            <div style={{ position: 'absolute', left: 10, color: '#3A4258', display: 'flex', alignItems: 'center' }}>
+              <Search size={13} />
+            </div>
+            <input
+              type="text"
+              placeholder="Search symbols, routes, files, domains..."
+              style={{
+                width: '100%', background: '#10141C', border: '1px solid #1C2331',
+                borderRadius: 8, padding: '6px 64px 6px 32px', fontSize: 11,
+                color: '#D8DCE6', fontFamily: 'Inter', outline: 'none',
+              }}
+              onFocus={e => { e.target.style.borderColor = '#283245'; }}
+              onBlur={e => { e.target.style.borderColor = '#1C2331'; }}
+            />
+            <div style={{ position: 'absolute', right: 8, display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ background: '#10141C', border: '1px solid #1C2331', borderRadius: 4, padding: '1px 5px', fontSize: 9, color: '#3A4258', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 2 }}>
+                ⌘K
+              </span>
+            </div>
           </div>
         </header>
 
-        <div className="panel-body">
-          {activeTab === 'dashboard' && (
-            <div className="h-full flex flex-col p-8 animate-in fade-in duration-500 overflow-y-auto">
-              {!selectedRepo ? (
-                <div className="flex-1 flex flex-col items-center justify-center py-12">
-                  <div className="relative mb-8">
-                    <div className="absolute inset-0 bg-accent/20 blur-[80px] rounded-full animate-pulse" />
-                    <div className="relative glass p-6 rounded-[2rem] border-silver shadow-2xl">
-                      <Zap className="text-accent" size={32} fill="currentColor" />
-                    </div>
-                  </div>
-                  <h2 className="text-2xl font-bold text-gradient-silver mb-2">Connect to Intelligence</h2>
-                  <p className="text-text-secondary text-sm mb-8 text-center max-w-md">
-                    Paste a GitHub URL to start the deep semantic indexing process.
-                  </p>
-                  <RepoUpload onUploadSuccess={handleUploadSuccess} />
-                </div>
-              ) : (
-                <div className="mb-12">
-                  <h1 className="text-4xl font-bold mb-2 text-gradient-silver">{selectedRepo.name.split('-')[0]}</h1>
-                  <p className="text-text-secondary text-sm">Architectural insights ready for analysis.</p>
-                </div>
-              )}
-              
-              <div className="mt-4">
-                <h3 className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-6">Connected Projects</h3>
-                <RepoList repos={repos} fetchRepos={fetchRepos} onSelect={handleRepoSelect} />
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'upload' && (
-            <RepoUpload onUploadSuccess={handleUploadSuccess} />
-          )}
-
-          {activeTab === 'explorer' && selectedRepo && (
-            <div className="flex-1 flex flex-col min-h-0 animate-in slide-in-from-right-4 duration-500">
-              {viewMode === 'code' && (
-                <FileViewer repo={selectedRepo} file={selectedFile} />
-              )}
-              {viewMode === 'graph' && (
-                <DependencyGraph repoId={selectedRepo.id} />
-              )}
-              {viewMode === 'impact' && (
-                <ImpactAnalysis repo={selectedRepo} selectedFile={selectedFile} />
-              )}
-              {viewMode === 'arch' && (
-                <ArchitectureInsights repo={selectedRepo} />
-              )}
-              {viewMode === 'intel' && (
-                <IntelligenceDashboard repo={selectedRepo} />
-              )}
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* Chat Panel (Right) */}
-      <aside className="chat-panel">
-        <div className="chat-header">
-          <div className="flex items-center gap-2">
-            <MessageSquare size={14} className="text-accent" />
-            <span>AI Copilot</span>
-          </div>
-        </div>
-
-        <div className="chat-messages flex-1 overflow-y-auto custom-scrollbar">
-          {messages.map((msg, i) => (
-            <div key={i} className={`mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300 ${msg.role === 'user' ? 'flex flex-col items-end' : ''}`}>
-              <div className={`p-4 rounded-2xl text-xs max-w-[90%] whitespace-pre-wrap ${
-                msg.role === 'user' 
-                  ? 'bg-accent text-white rounded-tr-none' 
-                  : 'bg-bg-hover text-text-primary border border-border rounded-tl-none'
-              }`}>
-                {msg.text}
-                
-                {msg.contextMeta && (
-                  <div className="mt-4 pt-3 border-t border-border/50">
-                    <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-accent mb-2">
-                      <Network size={12} />
-                      Context Injected ({msg.contextMeta.intent})
-                    </div>
-                    {msg.contextMeta.files && msg.contextMeta.files.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {msg.contextMeta.files.map((f, idx) => (
-                          <span key={idx} className="px-1.5 py-0.5 bg-bg-main border border-border rounded text-[9px] text-text-muted font-mono truncate max-w-[150px]">
-                            {f}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+        {/* ── Main Content ── */}
+        <main style={{ gridArea: 'main', background: '#0A0E15', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {showConnect && (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(5,7,11,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ background: '#10141C', border: '1px solid #1C2331', borderRadius: 16, padding: 32, width: 480, maxWidth: '90%' }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#D8DCE6', marginBottom: 8 }}>Connect Repository</h3>
+                <p style={{ fontSize: 12, color: '#5C657A', marginBottom: 24 }}>Paste a GitHub URL to initialize intelligence indexing.</p>
+                <RepoUpload onUploadSuccess={handleUploadSuccess} />
+                {repos.length > 0 && (
+                  <div style={{ marginTop: 24 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#3A4258', marginBottom: 12 }}>Indexed Projects</div>
+                    <RepoList repos={repos} fetchRepos={() => fetch('http://localhost:5000/api/repo').then(r => r.json()).then(setRepos)} onSelect={r => { handleRepoSelect(r); setShowConnect(false); }} />
                   </div>
                 )}
+                <button onClick={() => setShowConnect(false)} style={{ marginTop: 16, width: '100%', padding: '8px', background: 'transparent', border: '1px solid #1C2331', borderRadius: 8, color: '#5C657A', fontSize: 11, cursor: 'pointer' }}>
+                  Cancel
+                </button>
               </div>
-              <span className="text-[9px] text-text-muted mt-1 px-1 uppercase tracking-tighter">
-                {msg.role === 'user' ? 'You' : 'Nexus AI'}
-              </span>
-            </div>
-          ))}
-          {isSending && (
-            <div className="flex items-center gap-2 text-text-muted text-[10px] animate-pulse">
-              <Loader2 size={12} className="animate-spin" />
-              Processing code context...
             </div>
           )}
-          <div ref={chatEndRef} />
-        </div>
 
-        <div className="chat-input-area">
-          <form onSubmit={handleSendMessage} className="chat-input-container">
-            <textarea 
-              className="chat-input" 
-              placeholder={selectedRepo ? "Ask about the code..." : "Select a repo first"}
-              rows="2"
-              disabled={!selectedRepo || isSending}
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSendMessage()
-                }
-              }}
-            />
-            <div className="flex justify-between items-center mt-2 px-2">
-              <span className="text-[10px] text-text-muted">
-                {selectedFile ? `Context: ${selectedFile.name}` : "Context: Global Repo"}
-              </span>
-              <button 
-                type="submit"
-                disabled={!selectedRepo || isSending || !chatInput.trim()}
-                className="p-1.5 bg-accent/20 text-accent rounded-md hover:bg-accent hover:text-white transition-all disabled:opacity-30"
+          {!selectedRepo ? (
+            /* ── Welcome / Landing ── */
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 24 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 14, background: '#10141C', border: '1px solid #1C2331', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <GitBranch size={22} color="#5C657A" />
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <h2 style={{ fontSize: 28, fontWeight: 800, background: 'linear-gradient(160deg,#ffffff,#8E97A8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 10, letterSpacing: '-0.02em' }}>
+                  Code Intelligence Observatory
+                </h2>
+                <p style={{ fontSize: 12, color: '#5C657A', maxWidth: 400, lineHeight: 1.7 }}>
+                  Connect a repository to map its architecture, trace execution paths,
+                  and enter the intelligence command center.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowConnect(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: '#10141C', border: '1px solid #283245', borderRadius: 10, color: '#8E97A8', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'Inter' }}
               >
-                {isSending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                <GitBranch size={15} />
+                Connect First Repository
               </button>
+
+              {repos.length > 0 && (
+                <div style={{ width: '100%', maxWidth: 520 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#3A4258', marginBottom: 12 }}>Indexed Projects</div>
+                  <RepoList repos={repos} fetchRepos={() => fetch('http://localhost:5000/api/repo').then(r => r.json()).then(setRepos)} onSelect={handleRepoSelect} />
+                </div>
+              )}
             </div>
-          </form>
-        </div>
-      </aside>
+          ) : (
+            /* ── Active Views ── */
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              {activeTab === 'overview' && <OverviewScreen repo={selectedRepo} />}
+
+              {activeTab === 'knowledge' && (
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <KnowledgeGraph repoId={selectedRepo.id} />
+                </div>
+              )}
+
+              {activeTab === 'impact' && (
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <ImpactScreen repo={selectedRepo} selectedFile={selectedFile} />
+                </div>
+              )}
+
+              {activeTab === 'arch' && (
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <ArchitectureScreen repo={selectedRepo} />
+                </div>
+              )}
+
+              {activeTab === 'explorer' && (
+                <div style={{ flex: 1, overflow: 'hidden', display: 'flex', gap: 1, background: '#0A0E15' }}>
+                  <div style={{ width: 240, flexShrink: 0, borderRight: '1px solid #1C2331', overflow: 'auto' }}>
+                    <FileExplorer repo={selectedRepo} onFileSelect={setSelectedFile} />
+                  </div>
+                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <FileViewer repo={selectedRepo} file={selectedFile} />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'domains' && (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+                  <Layers size={28} color="#3A4258" />
+                  <p style={{ color: '#3A4258', fontSize: 12, fontFamily: 'monospace' }}>Domain Galaxy — Phase B full build coming next</p>
+                </div>
+              )}
+
+              {activeTab === 'execution' && (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+                  <PlayCircle size={28} color="#3A4258" />
+                  <p style={{ color: '#3A4258', fontSize: 12, fontFamily: 'monospace' }}>Execution Graph — Phase C full build coming next</p>
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+
+        {/* ── AI Observatory (Right) ── */}
+        <aside style={{ gridArea: 'right', height: '100vh', overflow: 'hidden' }}>
+          <AIObservatory selectedRepo={selectedRepo} selectedFile={selectedFile} />
+        </aside>
+      </div>
+
+      {/* CSS keyframes for stars */}
+      <style>{`
+        @keyframes starDrift {
+          0%, 100% { transform: translateY(0) translateX(0); opacity: var(--op, 0.1); }
+          50%       { transform: translateY(-8px) translateX(4px); opacity: calc(var(--op, 0.1) * 2); }
+        }
+        * { font-family: 'Inter', system-ui, sans-serif; }
+        button { font-family: 'Inter', system-ui, sans-serif; }
+        input, textarea { font-family: 'Inter', system-ui, sans-serif; }
+      `}</style>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

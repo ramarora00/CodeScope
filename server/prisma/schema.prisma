@@ -38,27 +38,33 @@ model File {
 }
 
 model Symbol {
-  id           String   @id @default(uuid())
-  name         String
-  type         String   // function, class, interface, route, etc.
-  lineStart    Int?
-  lineEnd      Int?
-  fileId       String
-  file         File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
-  repoId       String
+  id            String   @id @default(uuid())
+  name          String
+  qualifiedName String   // e.g. "src/auth/authService.js#login"
+  type          String   // function, class, interface, route, external_service
+  isExternal    Boolean  @default(false)
+  lineStart     Int?
+  lineEnd       Int?
+  fileId        String
+  file          File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  repoId        String
   
   // Relationships for Call Graph
   callers      SymbolRelationship[] @relation("CalledSymbol")
   callees      SymbolRelationship[] @relation("CallerSymbol")
 
   createdAt DateTime @default(now())
+
+  @@index([repoId, qualifiedName])
+  @@index([repoId, name])
 }
 
 model SymbolRelationship {
   id              String @id @default(uuid())
   callerId        String
   calleeId        String
-  relationship    String // calls, extends, uses
+  relationship    String // calls, imports, exports, reexports, extends, uses
+  executionOrder  Int?   // middleware chain ordering (0, 1, 2...)
   
   caller          Symbol @relation("CallerSymbol", fields: [callerId], references: [id], onDelete: Cascade)
   callee          Symbol @relation("CalledSymbol", fields: [calleeId], references: [id], onDelete: Cascade)

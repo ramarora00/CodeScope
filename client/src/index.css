@@ -1,144 +1,190 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,200..900;1,14..32,200..900&family=JetBrains+Mono:wght@300;400;500&display=swap');
+@import "tailwindcss";
 
 :root {
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-heading: 'Outfit', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Futuristic Space Black Palette */
-  --bg-main: #0A0A0A;      /* Deep Black */
-  --bg-surface: #111111;   /* Card Surface */
-  --bg-sidebar: #0F0F0F;   /* Sidebar */
-  --bg-hover: #1A1A1A;     /* Hover State */
+  /* ─── Observatory Palette (Vercel + Linear) ─── */
+  --bg-void:      #05070B;   /* Deepest black — void of space */
+  --bg-main:      #0A0E15;   /* Primary background */
+  --bg-surface:   #10141C;   /* Card / panel surface */
+  --bg-elevated:  #151A24;   /* Elevated surfaces */
+  --bg-sidebar:   #080A0F;   /* Sidebar */
+  --bg-hover:     #1A212D;   /* Hover state */
   
-  --text-primary: #E5E5E5; /* Off-white */
-  --text-secondary: #888888; /* Muted Grey */
-  --text-muted: #555555;   /* Darker Grey */
+  /* ─── Borders ─── */
+  --border:         #1C2331;
+  --border-strong:  #283245;
+
+  /* ─── Typography ─── */
+  --text-primary:   #D8DCE6; /* Clean off-white */
+  --text-secondary: #8E97A8; /* Muted grey for secondary text */
+  --text-muted:     #5C657A;
   
-  --accent: #3B82F6;       /* Soft Blue */
-  --accent-glow: rgba(59, 130, 246, 0.15);
-  
-  --border: #222222;       /* Silver/Grey Borders */
-  --border-focus: #444444; 
-  
-  --success: #10B981;
-  --error: #EF4444;
-  
-  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  /* ─── Accent — Subtle Professional ─── */
+  --accent:         #D8DCE6; /* Minimalist accent, mostly we rely on borders/glows */
+  --accent-glow:    rgba(216, 220, 230, 0.1);
+  --accent-border:  rgba(216, 220, 230, 0.2);
+
+  /* ─── Semantic (Muted) ─── */
+  --success:        #7A8F7B;
+  --error:          #8B6B6B;
+  --warning:        #8B8475;
+
+  /* ─── Transitions ─── */
+  --ease:           cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out:       cubic-bezier(0, 0, 0.2, 1);
+  --transition:     all 0.2s var(--ease);
 }
 
-* {
+*, *::before, *::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body {
-  font-family: var(--font-sans);
-  background-color: var(--bg-main);
-  color: var(--text-primary);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  overflow: hidden; /* App container will handle scrolling */
-}
-
-/* Glass & Glow Utilities */
-.glass {
-  background: rgba(17, 17, 17, 0.7);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border);
-}
-
-.border-silver {
-  border: 1px solid var(--border);
-}
-
-.shadow-glow-subtle {
-  box-shadow: 0 0 15px var(--accent-glow);
-}
-
-.stat-card-mysterious {
-  background: rgba(17, 17, 17, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 2rem;
-  border-radius: 24px;
-  backdrop-filter: blur(10px);
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
+html, body, #root {
+  height: 100%;
+  width: 100%;
   overflow: hidden;
 }
 
-.stat-card-mysterious::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  transform: translateX(-100%);
-  transition: transform 0.5s;
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-void);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.stat-card-mysterious:hover {
-  background: rgba(17, 17, 17, 0.6);
-  border-color: rgba(59, 130, 246, 0.2);
-  transform: translateY(-5px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+/* ─────────────────────────────────────────
+   SCROLLBAR
+───────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+.custom-scrollbar::-webkit-scrollbar { width: 3px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+/* ─────────────────────────────────────────
+   SURFACE PRIMITIVES
+───────────────────────────────────────── */
+.glass {
+  background: rgba(16, 20, 28, 0.6);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  border: 1px solid var(--border);
 }
 
-.stat-card-mysterious:hover::before {
-  transform: translateX(100%);
+.surface {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
 }
 
+/* ─────────────────────────────────────────
+   TEXT EFFECTS
+───────────────────────────────────────── */
 .text-gradient-silver {
-  background: linear-gradient(180deg, #FFFFFF 0%, #A1A1A1 100%);
+  background: linear-gradient(160deg, #FFFFFF 0%, #8E97A8 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-@keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-5px); }
-  100% { transform: translateY(0px); }
+/* ─────────────────────────────────────────
+   STAR FIELD BACKGROUND (Subtle)
+───────────────────────────────────────── */
+.star-field {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
 }
 
-@keyframes pulse-glow {
-  0% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.2); }
-  50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
-  100% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.2); }
+.star {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  background: #D8DCE6;
+  border-radius: 50%;
+  animation: drift var(--duration, 15s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+  opacity: var(--opacity, 0.15); /* Very subtle */
 }
 
-.animate-float {
-  animation: float 3s ease-in-out infinite;
+@keyframes drift {
+  0%   { transform: translateY(0px) translateX(0px); opacity: 0.1; }
+  50%  { transform: translateY(-10px) translateX(5px); opacity: 0.25; }
+  100% { transform: translateY(0px) translateX(0px); opacity: 0.1; }
 }
 
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
+/* ─────────────────────────────────────────
+   LAYOUT UTILITIES
+───────────────────────────────────────── */
+.app-container {
+  display: grid;
+  grid-template-columns: 240px 1fr 340px; /* Left Nav, Center, AI Observatory */
+  grid-template-rows: 56px 1fr; /* Top Bar, Main Content */
+  grid-template-areas: 
+    "sidebar topbar rightpanel"
+    "sidebar main   rightpanel";
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--bg-void);
+  overflow: hidden;
+  position: relative;
 }
 
-/* Custom Scrollbar (Minimalist) */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+.sidebar-left {
+  grid-area: sidebar;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  z-index: 10;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+.topbar-container {
+  grid-area: topbar;
+  background: rgba(10, 14, 21, 0.8);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  z-index: 10;
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 10px;
+.main-panel {
+  grid-area: main;
+  background-color: var(--bg-main);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+.right-panel {
+  grid-area: rightpanel;
+  background-color: var(--bg-sidebar);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  z-index: 10;
 }
 
-/* Layout Utilities */
-.h-full { height: 100%; }
-.w-full { width: 100%; }
-.flex-1 { flex: 1; }
-.min-h-0 { min-height: 0; }
+/* ─────────────────────────────────────────
+   ANIMATION
+───────────────────────────────────────── */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-rise { animation: rise 0.35s var(--ease-out) both; }
