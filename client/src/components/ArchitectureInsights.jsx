@@ -1,173 +1,247 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Layers, Code2, FolderTree, Cpu, Loader2, Info, CheckCircle2 } from 'lucide-react';
+import { Layers, GitBranch, Database, Globe, ChevronRight, RefreshCw, AlertTriangle, CheckCircle2, Server, Code2 } from 'lucide-react';
 
-const ArchitectureInsights = ({ repo }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+/* ─── Layer type → visual config ─── */
+const LAYER_CONFIG = {
+  'Frontend':      { color: '#7A8A9F', icon: Code2,   desc: 'UI components, pages, client-side logic' },
+  'Backend':       { color: '#7A8F7B', icon: Server,   desc: 'API routes, controllers, middleware' },
+  'Database':      { color: '#8B8475', icon: Database, desc: 'Models, schemas, data access layer' },
+  'External APIs': { color: '#9A8AAF', icon: Globe,    desc: 'Third-party integrations, external services' },
+  'Auth':          { color: '#8B6B6B', icon: GitBranch, desc: 'Authentication and authorization' },
+  default:         { color: '#5C657A', icon: Layers,   desc: 'System component' },
+};
 
-  useEffect(() => {
-    if (repo) fetchArchitecture();
-  }, [repo]);
-
-  const [error, setError] = useState(null);
-
-  const fetchArchitecture = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`http://localhost:5000/api/repo/${repo.id}/architecture`);
-      if (!res.ok) throw new Error('Google AI Service is currently busy. (503)');
-      const data = await res.json();
-      setData(data);
-    } catch (err) {
-      console.error(err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (error) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center text-text-muted glass rounded-3xl border-silver animate-in fade-in p-12">
-        <Cpu size={32} className="mb-4 text-error opacity-50" />
-        <p className="text-sm font-medium text-text-primary mb-2">Architectural Synthesis Failed</p>
-        <p className="text-xs text-text-muted text-center mb-6 max-w-xs">{error}</p>
-        <button 
-          onClick={fetchArchitecture}
-          className="px-6 py-2 bg-bg-surface border border-border rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-bg-hover hover:border-accent/30 transition-all"
-        >
-          Retry Synthesis
-        </button>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center text-text-muted glass rounded-3xl border-silver animate-in fade-in">
-        <Layers size={32} className="mb-4 animate-spin text-accent" />
-        <p className="text-sm font-medium uppercase tracking-widest">Synthesizing System Architecture...</p>
-      </div>
-    );
-  }
+/* ─── Domain boundary card ─── */
+const DomainCard = ({ cluster, index }) => {
+  const [expanded, setExpanded] = useState(false);
+  const cfg = LAYER_CONFIG[cluster.inferredName] || LAYER_CONFIG.default;
+  const Icon = cfg.icon;
 
   return (
-    <div className="h-full flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-500 overflow-y-auto custom-scrollbar pr-2">
-      {/* Header Card */}
-      <div className="glass p-8 rounded-3xl border-silver bg-accent/5 border-accent/20 relative overflow-hidden">
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-accent/10 blur-[100px] rounded-full" />
-        
-        <div className="relative z-10">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="p-3 bg-accent/10 rounded-2xl border border-accent/20">
-              <Layers className="text-accent" size={24} />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gradient-silver">System Blueprints</h2>
-              <p className="text-[10px] text-text-muted uppercase tracking-widest font-bold">Architectural Overview</p>
-            </div>
-          </div>
+    <div
+      style={{ background: '#10141C', border: '1px solid #1C2331', borderRadius: 12, overflow: 'hidden', borderLeft: `2px solid ${cfg.color}` }}
+    >
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', cursor: 'pointer' }}
+      >
+        <div style={{ width: 28, height: 28, borderRadius: 8, background: `${cfg.color}18`, border: `1px solid ${cfg.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon size={13} color={cfg.color} />
+        </div>
 
-          <div className="flex flex-wrap gap-3">
-            {data?.stack?.map((tech, i) => (
-              <div key={i} className="px-4 py-2 bg-bg-surface border border-border rounded-xl flex items-center gap-2 shadow-sm">
-                <CheckCircle2 size={14} className="text-success" />
-                <span className="text-xs font-bold text-text-primary">{tech}</span>
-              </div>
-            ))}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#D8DCE6', marginBottom: 2 }}>
+            {cluster.inferredName} Domain
+          </div>
+          <div style={{ display: 'flex', gap: 8, fontSize: 9, color: '#5C657A' }}>
+            <span>{cluster.routes?.length || 0} routes</span>
+            <span>·</span>
+            <span>{cluster.files?.length || 0} files</span>
+            <span>·</span>
+            <span>{cluster.symbols?.length || 0} symbols</span>
           </div>
         </div>
+
+        <ChevronRight size={13} color="#3A4258" style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s ease', flexShrink: 0 }} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Bounded Contexts (Deterministic Clusters) */}
-        <div className="lg:col-span-1 flex flex-col gap-6">
-          <div className="glass p-6 rounded-3xl border-silver">
-            <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-6 flex items-center gap-2">
-              <FolderTree size={14} className="text-accent" />
-              Bounded Contexts (DDD)
-            </h4>
-            <div className="space-y-6 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
-              {data?.clusters?.map((cluster, i) => (
-                <div key={i} className="p-4 bg-bg-surface/50 border border-border/80 rounded-2xl flex flex-col gap-3 group hover:border-accent/40 transition-all">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-text-primary group-hover:text-accent transition-all">{cluster.inferredName} Domain</span>
-                    <span className="text-[9px] font-mono bg-accent/10 text-accent px-2 py-0.5 rounded-full font-bold">
-                      {cluster.files.length} files
-                    </span>
-                  </div>
-                  
-                  {cluster.routes.length > 0 && (
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Endpoints:</span>
-                      <div className="flex flex-wrap gap-1">
-                        {cluster.routes.map((route, idx) => (
-                          <span key={idx} className="text-[9px] font-mono bg-bg-surface border border-border px-1.5 py-0.5 rounded text-text-secondary">
-                            {route}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Core Entities & Actions:</span>
-                    <div className="text-[10px] text-text-secondary flex flex-wrap gap-1">
-                      {cluster.symbols.slice(0, 5).map((sym, idx) => (
-                        <span key={idx} className="bg-bg-hover/40 border border-border/40 px-1 py-0.5 rounded text-text-muted">
-                          {sym.split(' ')[0]}
-                        </span>
-                      ))}
-                      {cluster.symbols.length > 5 && <span className="text-[10px] text-text-muted">+{cluster.symbols.length - 5} more</span>}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="glass p-6 rounded-3xl border-silver bg-success/5">
-            <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-4 flex items-center gap-2">
-              <Cpu size={14} className="text-success" />
-              Patterns Detected
-            </h4>
-            <ul className="text-[11px] text-text-secondary space-y-2 list-disc pl-4">
-              <li>Component-Based UI</li>
-              <li>RESTful API Endpoints</li>
-              <li>Relational Data Modeling</li>
-              <li>Bounded Context Clustering</li>
-            </ul>
-          </div>
-        </div>
-
-        {/* AI Architect Summary */}
-        <div className="lg:col-span-2 glass p-8 rounded-3xl border-silver relative">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="w-8 h-[1px] bg-accent/50" />
-            <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Architectural Analysis</h4>
-          </div>
-          <div className="prose prose-invert prose-sm max-w-none">
-            <div className="text-[13px] leading-relaxed text-text-secondary whitespace-pre-wrap font-sans">
-              {data?.summary || "Analyzing codebase patterns..."}
-            </div>
-          </div>
-          <div className="mt-8 pt-6 border-t border-border/50 flex justify-between items-center">
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2 text-[10px] text-text-muted">
-                <Code2 size={12} />
-                Clean Code Verified
-              </div>
-              <div className="flex items-center gap-2 text-[10px] text-text-muted">
-                <Info size={12} />
-                Modular Design
+      {expanded && (
+        <div style={{ borderTop: '1px solid #1C2331', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Routes */}
+          {cluster.routes?.length > 0 && (
+            <div>
+              <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#3A4258', marginBottom: 6 }}>Routes</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {cluster.routes.map((r, i) => (
+                  <span key={i} style={{ fontSize: 9, fontFamily: 'JetBrains Mono, monospace', padding: '3px 8px', background: '#0A0E15', border: '1px solid #1C2331', borderRadius: 4, color: '#7A8F7B' }}>
+                    {r}
+                  </span>
+                ))}
               </div>
             </div>
-          </div>
+          )}
+
+          {/* Files */}
+          {cluster.files?.length > 0 && (
+            <div>
+              <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#3A4258', marginBottom: 6 }}>Core Files</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {cluster.files.slice(0, 5).map((f, i) => (
+                  <div key={i} style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: '#8E97A8', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 3, height: 3, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
+                    {f.split('/').pop()}
+                  </div>
+                ))}
+                {cluster.files.length > 5 && (
+                  <div style={{ fontSize: 9, color: '#3A4258' }}>+{cluster.files.length - 5} more files</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Symbols */}
+          {cluster.symbols?.length > 0 && (
+            <div>
+              <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#3A4258', marginBottom: 6 }}>Core Entities & Actions</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {cluster.symbols.slice(0, 8).map((s, i) => (
+                  <span key={i} style={{ fontSize: 9, fontFamily: 'monospace', padding: '2px 7px', background: '#0A0E15', border: '1px solid #1C2331', borderRadius: 4, color: '#5C657A' }}>
+                    {s}
+                  </span>
+                ))}
+                {cluster.symbols.length > 8 && (
+                  <span style={{ fontSize: 9, color: '#3A4258', padding: '2px 7px' }}>+{cluster.symbols.length - 8}</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
+      )}
+    </div>
+  );
+};
+
+/* ─── System layer diagram ─── */
+const SystemLayers = ({ stack, clusters }) => {
+  const layers = [
+    { name: 'Frontend',      color: '#7A8A9F', files: clusters?.filter(c => c.inferredName?.toLowerCase().includes('frontend') || c.inferredName?.toLowerCase().includes('ui'))?.flatMap(c => c.files) || [] },
+    { name: 'API / Routes',  color: '#7A8F7B', files: clusters?.flatMap(c => c.routes) || [] },
+    { name: 'Services',      color: '#8B8475', files: clusters?.flatMap(c => c.symbols?.filter(s => s.includes('Service'))) || [] },
+    { name: 'Data / Models', color: '#9A8AAF', files: clusters?.flatMap(c => c.symbols?.filter(s => s.includes('Model'))) || [] },
+    { name: 'External APIs', color: '#5C657A', files: [] },
+  ];
+
+  return (
+    <div style={{ background: '#10141C', border: '1px solid #1C2331', borderRadius: 16, overflow: 'hidden' }}>
+      <div style={{ padding: '14px 18px', borderBottom: '1px solid #1C2331', fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C657A', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Layers size={12} />
+        System Layer Architecture
+      </div>
+      <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 3, position: 'relative' }}>
+        {/* Connecting line */}
+        <div style={{ position: 'absolute', left: 38, top: 36, bottom: 36, width: 1, background: '#1C2331', zIndex: 0 }} />
+
+        {layers.map((layer, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', background: '#0A0E15', border: '1px solid #1C2331', borderRadius: 10, position: 'relative', zIndex: 1 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: `${layer.color}18`, border: `1px solid ${layer.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: layer.color }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#D8DCE6' }}>{layer.name}</div>
+            </div>
+            <div style={{ fontSize: 9, color: '#3A4258', fontFamily: 'monospace' }}>
+              Layer {i + 1}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 };
 
-export default ArchitectureInsights;
+/* ═══ ARCHITECTURE SCREEN ═══ */
+const ArchitectureScreen = ({ repo }) => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => { if (repo) fetchArch(); }, [repo]);
+
+  const fetchArch = async () => {
+    setLoading(true); setError(null);
+    try {
+      const res = await fetch(`http://localhost:5000/api/repo/${repo.id}/architecture`);
+      if (!res.ok) throw new Error(`Server ${res.status}`);
+      const d = await res.json();
+      setData(d);
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  if (loading) return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+      <div style={{ width: 42, height: 42, borderRadius: 12, background: '#10141C', border: '1px solid #1C2331', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Layers size={18} color="#5C657A" style={{ animation: 'pulse 1.5s ease-in-out infinite' }} />
+      </div>
+      <p style={{ fontSize: 11, color: '#5C657A', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Mapping Architecture...</p>
+    </div>
+  );
+
+  if (error) return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+      <AlertTriangle size={24} color="#8B6B6B" style={{ opacity: 0.7 }} />
+      <p style={{ fontSize: 12, color: '#5C657A' }}>{error}</p>
+      <button onClick={fetchArch} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #1C2331', borderRadius: 8, color: '#8E97A8', fontSize: 11, cursor: 'pointer' }}>
+        Retry
+      </button>
+    </div>
+  );
+
+  const { stack, clusters, summary } = data || {};
+
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+      {/* Header */}
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid #1C2331', flexShrink: 0, background: '#0A0E15' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Layers size={16} color="#8E97A8" />
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#D8DCE6', letterSpacing: '-0.02em' }}>System Blueprints</h2>
+            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C657A' }}>Architectural Overview</span>
+          </div>
+          <button onClick={fetchArch} style={{ padding: 7, background: '#10141C', border: '1px solid #1C2331', borderRadius: 8, cursor: 'pointer', color: '#5C657A' }}>
+            <RefreshCw size={12} />
+          </button>
+        </div>
+
+        {/* Tech stack */}
+        {stack?.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
+            {stack.map(s => (
+              <span key={s} style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '3px 8px', background: '#10141C', border: '1px solid #283245', borderRadius: 5, color: '#8E97A8' }}>
+                {s}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+        {/* System Layers diagram */}
+        <SystemLayers stack={stack} clusters={clusters} />
+
+        {/* Bounded Contexts */}
+        {clusters?.length > 0 && (
+          <div>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C657A', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <GitBranch size={11} />
+              Bounded Contexts (DDD) — {clusters.length} detected
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {clusters.map((c, i) => <DomainCard key={i} cluster={c} index={i} />)}
+            </div>
+          </div>
+        )}
+
+        {/* AI Architectural Analysis */}
+        {summary && (
+          <div style={{ background: '#10141C', border: '1px solid #1C2331', borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #1C2331', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircle2 size={12} color="#7A8F7B" />
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C657A' }}>
+                AI Architectural Analysis
+              </span>
+            </div>
+            <div style={{ padding: 20, fontSize: 12, color: '#8E97A8', lineHeight: 1.8, whiteSpace: 'pre-wrap', maxHeight: 400, overflowY: 'auto' }}>
+              {summary}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ArchitectureScreen;
