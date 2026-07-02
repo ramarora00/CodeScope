@@ -1,0 +1,97 @@
+/* ─────────────────────────────────────────
+   ANIMATION KEYFRAMES
+───────────────────────────────────────── */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-up {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes panel-reveal {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes node-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(106, 142, 174, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(106, 142, 174, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(106, 142, 174, 0); }
+}
+
+@keyframes orbital-glow {
+  0% { transform: rotate(0deg); opacity: 0.4; }
+  50% { opacity: 0.8; }
+  100% { transform: rotate(360deg); opacity: 0.4; }
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes loading-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ─────────────────────────────────────────
+   MOTION PRIMITIVES
+───────────────────────────────────────── */
+
+.motion-fade {
+  animation: fade-in var(--transition-base) forwards;
+}
+
+.motion-scale {
+  animation: scale-up var(--transition-base) forwards;
+}
+
+.motion-panel-reveal {
+  animation: panel-reveal var(--transition-base) forwards;
+}
+
+.motion-node-pulse {
+  animation: node-pulse 2s infinite;
+}
+
+.motion-orbital-glow {
+  animation: orbital-glow 15s linear infinite;
+}
+
+.motion-skeleton-shimmer {
+  background: linear-gradient(
+    90deg, 
+    var(--color-surface-base) 0%, 
+    var(--color-surface-elevated) 50%, 
+    var(--color-surface-base) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 2s infinite linear;
+}
+
+.motion-loading-pulse {
+  animation: loading-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Interaction transitions */
+.motion-transition-base {
+  transition: all var(--transition-base);
+}
+
+.motion-transition-fast {
+  transition: all var(--transition-fast);
+}
+
+/* Glass hover transition */
+.motion-glass-hover {
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+.motion-glass-hover:hover {
+  background-color: var(--color-glass-hover);
+  border-color: var(--color-border-strong);
+}
