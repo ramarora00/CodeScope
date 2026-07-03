@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,200..900;1,14..32,200..900&family=JetBrains+Mono:wght@300;400;500&display=swap');
+/* Font import is handled by index.css to satisfy CSS @import ordering rules. */
 
 :root {
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
