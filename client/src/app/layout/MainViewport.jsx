@@ -20,6 +20,7 @@ export default function MainViewport({ className, children }) {
       aria-label="Main content area"
     >
       {children}
+      <MissionControl />
     </main>
   );
 }
