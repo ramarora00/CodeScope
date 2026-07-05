@@ -27,3 +27,32 @@ feat(repos): migrate repository‑graph feature to pure JavaScript
 - Updated imports and barrel export.  
 - Verified with `npm run dev`, `npm run build`, and manual UI smoke test.  
 - Audit confirms **0** TypeScript remnants.
+
+## Sprint 3.0 — AI Observatory Shell Foundation
+
+**Commit**
+feat(observatory): implement AI Observatory shell foundation
+
+**Status**
+✅ Completed
+
+**Summary**
+- Built structural layout (CSS Grid) for the AI Observatory.
+- Implemented `ObservatoryShell`, `WorkspaceTabBar`, `InvestigationViewport`, `ContextRail`, `PromptComposerPanel`, and `StatusFooter`.
+- Integrated `ObservatoryShell` into the application.
+- Utilized shared primitives (`GlassPanel`, `SectionHeader`, etc.).
+- Kept UI completely structural (no AI logic, no backend, no state).
+
+## Sprint 3.1 — Investigation Lifecycle Foundation
+
+**Commit**
+feat(investigation): implement investigation workspace foundation
+
+**Status**
+✅ Completed
+
+**Summary**
+- Established `InvestigationWorkspace` foundation adhering strictly to FSD.
+- Implemented purely structural components (`ArchiveTray`, `DeleteConfirmationDialog`, `ReopenToast`, `InvestigationTab`, etc.).
+- Created `placeholderInvestigations.js` model to represent static entities.
+- Composed the layout without any internal state hooks, network calls, or interactions.
