@@ -13,7 +13,7 @@ import KnowledgeGraph from './components/DependencyGraph'
 import ImpactScreen from './components/ImpactAnalysis'
 import ArchitectureScreen from './components/ArchitectureInsights'
 import OverviewScreen from './components/OverviewScreen'
-import AIObservatory from './components/AIObservatory'
+import { ObservatoryShell } from './features/observatory';
 
 import './App.css'
 
@@ -347,7 +347,7 @@ function App() {
 
         {/* ── AI Observatory (Right) ── */}
         <aside style={{ gridArea: 'right', height: '100vh', overflow: 'hidden' }}>
-          <AIObservatory selectedRepo={selectedRepo} selectedFile={selectedFile} />
+          <ObservatoryShell />
         </aside>
       </div>
 
