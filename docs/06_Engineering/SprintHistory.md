@@ -85,3 +85,18 @@ feat(persistence): add investigation persistence abstraction and in‑memory ada
 - Added persistence‑related events (`persistenceEvents.js`).
 - Exported API via `index.js`.
 - Implemented persistence adapter as an independent reusable component without side-effects.
+
+## Sprint 3.5 — Investigation Application Service
+
+**Commit**
+feat(investigation-service): add application service layer, factory, and command wrappers
+
+**Status**
+✅ Completed
+
+**Summary**
+- Added pure factory `investigationFactory.js` with injectable ID support.
+- Created `investigationService.js` to orchestrate validation, state machine transitions, persistence, and event bus emissions.
+- Extracted shared transition logic into a private `applyTransition` helper.
+- Exposed thin, camelCase wrappers in `investigationCommands.js`.
+- Synchronous API, decoupled from React, routers, and external side-effects.

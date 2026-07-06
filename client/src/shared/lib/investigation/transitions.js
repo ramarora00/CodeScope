@@ -1,4 +1,4 @@
-import { InvestigationState, InvestigationEvent } from './constants';
+import { InvestigationState, InvestigationEvent } from './constants.js';
 
 export const transitions = {
   [InvestigationState.CREATED]: {

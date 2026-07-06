@@ -1,5 +1,5 @@
-import { InvestigationState, InvestigationEvent } from './constants';
-import { transitions } from './transitions';
+import { InvestigationState, InvestigationEvent } from './constants.js';
+import { transitions } from './transitions.js';
 
 export function canTransition(currentState, event) {
   if (!currentState || !event) return false;

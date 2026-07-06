@@ -1,6 +1,6 @@
-import { InvestigationState, InvestigationEvent } from './constants';
-import { transitions } from './transitions';
-import { canTransition, requiresPreviousState, isTerminal } from './validators';
+import { InvestigationState, InvestigationEvent } from './constants.js';
+import { transitions } from './transitions.js';
+import { canTransition, requiresPreviousState, isTerminal } from './validators.js';
 
 export function transition(currentState, event, previousState = null) {
   if (isTerminal(currentState)) {
