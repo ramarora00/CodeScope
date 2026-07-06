@@ -56,3 +56,17 @@ feat(investigation): implement investigation workspace foundation
 - Implemented purely structural components (`ArchiveTray`, `DeleteConfirmationDialog`, `ReopenToast`, `InvestigationTab`, etc.).
 - Created `placeholderInvestigations.js` model to represent static entities.
 - Composed the layout without any internal state hooks, network calls, or interactions.
+
+## Sprint 3.3 — Investigation Event Bus Foundation
+
+**Commit**  
+feat(events): add lightweight event bus infrastructure
+
+**Status**  
+✅ Completed
+
+**Summary**  
+- Implemented event bus in `shared/lib/events/` with Map/Set storage.
+- Added API: emit, subscribe, unsubscribe, clear, hasSubscribers, getSubscriberCount.
+- Defined investigation lifecycle event types.
+- Ensured emit iterates over copy of handlers.
