@@ -1,18 +1,28 @@
 import { cn } from '@/shared/utils';
 import NewInvestigationAffordance from './NewInvestigationAffordance';
 import InvestigationTab from './InvestigationTab';
-import { placeholderInvestigations } from '../model/placeholderInvestigations';
 
-export default function WorkspaceTabBar({ className }) {
+export default function WorkspaceTabBar({ 
+  className, 
+  investigations = [], 
+  activeTabId, 
+  onTabSelect, 
+  onCreate,
+  onRename,
+  onArchive
+}) {
   return (
     <div className={cn('flex items-center gap-1 border-b border-[var(--color-border-base)] px-2 py-1', className)}>
-      <NewInvestigationAffordance />
+      <NewInvestigationAffordance onClick={onCreate} />
       <div className="flex items-center gap-1 overflow-x-auto flex-1 custom-scrollbar">
-        {placeholderInvestigations.map((inv, idx) => (
+        {investigations.map((inv) => (
           <InvestigationTab 
             key={inv.id} 
             investigation={inv} 
-            isActive={idx === 0} 
+            isActive={inv.id === activeTabId}
+            onClick={() => onTabSelect(inv.id)}
+            onRename={(newTitle) => onRename(inv.id, newTitle)}
+            onArchive={() => onArchive(inv.id)}
           />
         ))}
       </div>
