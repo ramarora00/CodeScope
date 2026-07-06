@@ -100,3 +100,21 @@ feat(investigation-service): add application service layer, factory, and command
 - Extracted shared transition logic into a private `applyTransition` helper.
 - Exposed thin, camelCase wrappers in `investigationCommands.js`.
 - Synchronous API, decoupled from React, routers, and external side-effects.
+
+## Sprint 3.6 — Investigation Workspace Integration
+
+**Commit**
+feat(investigation-workspace): integrate UI with application service
+
+**Status**
+✅ Completed
+
+**Summary**
+- Wired `InvestigationWorkspace` to the `eventBus` and `persistenceAdapter` to manage local React state.
+- Connected `WorkspaceTabBar` to `createInvestigationCommand`.
+- Wired `InvestigationTab` rename (on blur/enter) to `renameInvestigationCommand`.
+- Wired `InvestigationTab` close button to `archiveInvestigationCommand`.
+- Connected `ArchiveTray` to display archived investigations and hooked up restore/delete buttons.
+- Wired `DeleteConfirmationDialog` to `deleteInvestigationCommand`.
+- Cleaned up event bus subscriptions on component unmount.
+- Verified build and integration.
