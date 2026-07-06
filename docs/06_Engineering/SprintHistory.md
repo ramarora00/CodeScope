@@ -70,3 +70,18 @@ feat(events): add lightweight event bus infrastructure
 - Added API: emit, subscribe, unsubscribe, clear, hasSubscribers, getSubscriberCount.
 - Defined investigation lifecycle event types.
 - Ensured emit iterates over copy of handlers.
+
+## Sprint 3.4 — Investigation Persistence Foundation
+
+**Commit**
+feat(persistence): add investigation persistence abstraction and in‑memory adapter
+
+**Status**
+✅ Completed
+
+**Summary**
+- Defined persistence contract (`persistenceAdapter.js`).
+- Implemented in‑memory adapter using `Map` (`memoryAdapter.js`).
+- Added persistence‑related events (`persistenceEvents.js`).
+- Exported API via `index.js`.
+- Implemented persistence adapter as an independent reusable component without side-effects.
