@@ -118,3 +118,18 @@ feat(investigation-workspace): integrate UI with application service
 - Wired `DeleteConfirmationDialog` to `deleteInvestigationCommand`.
 - Cleaned up event bus subscriptions on component unmount.
 - Verified build and integration.
+
+## Sprint 4.0 — Architecture Freeze & M2/M3 Implementation
+
+**Commit**
+feat(ui): implement CodeScope Home and Repository Connection (M2 & M3)
+
+**Status**
+? Completed
+
+**Summary**
+- Terminology reset across architecture documentation.
+- Completed M2: Replaced OverviewScreen with CodeScopeHome.
+- Completed M3: Replaced RepoUpload with deterministic RepositoryConnection pipeline.
+- Implemented strict Runtime Verification rules.
+- Successfully decommissioned legacy components.
