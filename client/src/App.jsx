@@ -5,15 +5,14 @@ import {
   ChevronRight, BarChart2, Plus
 } from 'lucide-react'
 
-import RepoUpload from './components/RepoUpload'
+import RepositoryConnection from './features/repository/ui/RepositoryConnection'
 import RepoList from './components/RepoList'
 import FileExplorer from './components/FileExplorer'
 import FileViewer from './components/FileViewer'
 import KnowledgeGraph from './components/DependencyGraph'
 import ImpactScreen from './components/ImpactAnalysis'
 import ArchitectureScreen from './components/ArchitectureInsights'
-import OverviewScreen from './components/OverviewScreen'
-import { ObservatoryShell } from './features/observatory';
+import CodeScopeHome from './features/codescope/ui/CodeScopeHome'
 
 import './App.css'
 
@@ -81,7 +80,7 @@ function App() {
   }, []);
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#05070B' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: '#05070B' }}>
 
       {/* ── Subtle Star Field ── */}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
@@ -106,9 +105,9 @@ function App() {
       <div style={{
         position: 'relative', zIndex: 1,
         display: 'grid',
-        gridTemplateColumns: '236px 1fr 320px',
+        gridTemplateColumns: '236px 1fr',
         gridTemplateRows: '52px 1fr',
-        gridTemplateAreas: '"sidebar topbar right" "sidebar main right"',
+        gridTemplateAreas: '"sidebar topbar" "sidebar main"',
         width: '100%', height: '100%',
       }}>
 
@@ -246,49 +245,24 @@ function App() {
         {/* ── Main Content ── */}
         <main style={{ gridArea: 'main', background: '#0A0E15', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {showConnect && (
-            <div style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(5,7,11,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ background: '#10141C', border: '1px solid #1C2331', borderRadius: 16, padding: 32, width: 480, maxWidth: '90%' }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#D8DCE6', marginBottom: 8 }}>Connect Repository</h3>
-                <p style={{ fontSize: 12, color: '#5C657A', marginBottom: 24 }}>Paste a GitHub URL to initialize intelligence indexing.</p>
-                <RepoUpload onUploadSuccess={handleUploadSuccess} />
-                {repos.length > 0 && (
-                  <div style={{ marginTop: 24 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#3A4258', marginBottom: 12 }}>Indexed Projects</div>
-                    <RepoList repos={repos} fetchRepos={() => fetch('http://localhost:5000/api/repo').then(r => r.json()).then(setRepos)} onSelect={r => { handleRepoSelect(r); setShowConnect(false); }} />
-                  </div>
-                )}
-                <button onClick={() => setShowConnect(false)} style={{ marginTop: 16, width: '100%', padding: '8px', background: 'transparent', border: '1px solid #1C2331', borderRadius: 8, color: '#5C657A', fontSize: 11, cursor: 'pointer' }}>
-                  Cancel
-                </button>
-              </div>
+            <div style={{ position: 'absolute', inset: 0, zIndex: 50, background: '#05070B', display: 'flex', flexDirection: 'column' }}>
+              <RepositoryConnection 
+                onUploadSuccess={handleUploadSuccess} 
+                existingRepos={repos} 
+                onCancel={() => setShowConnect(false)} 
+              />
             </div>
           )}
 
           {!selectedRepo ? (
             /* ── Welcome / Landing ── */
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 24 }}>
-              <div style={{ width: 52, height: 52, borderRadius: 14, background: '#10141C', border: '1px solid #1C2331', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <GitBranch size={22} color="#5C657A" />
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <h2 style={{ fontSize: 28, fontWeight: 800, background: 'linear-gradient(160deg,#ffffff,#8E97A8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 10, letterSpacing: '-0.02em' }}>
-                  Code Intelligence Observatory
-                </h2>
-                <p style={{ fontSize: 12, color: '#5C657A', maxWidth: 400, lineHeight: 1.7 }}>
-                  Connect a repository to map its architecture, trace execution paths,
-                  and enter the intelligence command center.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowConnect(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: '#10141C', border: '1px solid #283245', borderRadius: 10, color: '#8E97A8', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'Inter' }}
-              >
-                <GitBranch size={15} />
-                Connect First Repository
-              </button>
-
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'auto' }}>
+              <RepositoryConnection 
+                onUploadSuccess={handleUploadSuccess} 
+                existingRepos={repos} 
+              />
               {repos.length > 0 && (
-                <div style={{ width: '100%', maxWidth: 520 }}>
+                <div style={{ width: '100%', maxWidth: 520, padding: 24 }}>
                   <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#3A4258', marginBottom: 12 }}>Indexed Projects</div>
                   <RepoList repos={repos} fetchRepos={() => fetch('http://localhost:5000/api/repo').then(r => r.json()).then(setRepos)} onSelect={handleRepoSelect} />
                 </div>
@@ -297,7 +271,7 @@ function App() {
           ) : (
             /* ── Active Views ── */
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              {activeTab === 'overview' && <OverviewScreen repo={selectedRepo} />}
+              {activeTab === 'overview' && <CodeScopeHome repo={selectedRepo} />}
 
               {activeTab === 'knowledge' && (
                 <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -344,11 +318,6 @@ function App() {
             </div>
           )}
         </main>
-
-        {/* ── AI Observatory (Right) ── */}
-        <aside style={{ gridArea: 'right', height: '100vh', overflow: 'hidden' }}>
-          <ObservatoryShell />
-        </aside>
       </div>
 
       {/* CSS keyframes for stars */}

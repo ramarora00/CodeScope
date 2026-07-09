@@ -10,16 +10,18 @@
 import React from 'react';
 import MainViewport from './MainViewport';
 import InspectorViewport from './InspectorViewport';
-import { cn } from '@/shared/utils/cn';
+import { cn } from '@/shared/utils';
 
-export default function Workspace({ className }) {
+export default function Workspace({ className, children }) {
   return (
     <div
       className={cn('flex flex-1 overflow-hidden', className)}
       role="region"
       aria-label="Workspace layout"
     >
-      <MainViewport className="flex-1" />
+      <MainViewport className="flex-1">
+        {children}
+      </MainViewport>
       <InspectorViewport className="w-80" />
     </div>
   );

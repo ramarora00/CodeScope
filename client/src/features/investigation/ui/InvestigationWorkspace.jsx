@@ -9,7 +9,8 @@ import ReopenToast from './ReopenToast';
 
 import { persistenceAdapter } from '@/shared/lib/persistence';
 import { 
-  eventBus, 
+  subscribe,
+  unsubscribe,
   INVESTIGATION_CREATED, 
   INVESTIGATION_RENAMED, 
   INVESTIGATION_ARCHIVED, 
@@ -39,18 +40,18 @@ export default function InvestigationWorkspace({ className }) {
     refresh();
     const handleUpdate = () => refresh();
 
-    eventBus.subscribe(INVESTIGATION_CREATED, handleUpdate);
-    eventBus.subscribe(INVESTIGATION_RENAMED, handleUpdate);
-    eventBus.subscribe(INVESTIGATION_ARCHIVED, handleUpdate);
-    eventBus.subscribe(INVESTIGATION_RESTORED, handleUpdate);
-    eventBus.subscribe(INVESTIGATION_DELETED, handleUpdate);
+    subscribe(INVESTIGATION_CREATED, handleUpdate);
+    subscribe(INVESTIGATION_RENAMED, handleUpdate);
+    subscribe(INVESTIGATION_ARCHIVED, handleUpdate);
+    subscribe(INVESTIGATION_RESTORED, handleUpdate);
+    subscribe(INVESTIGATION_DELETED, handleUpdate);
 
     return () => {
-      eventBus.unsubscribe(INVESTIGATION_CREATED, handleUpdate);
-      eventBus.unsubscribe(INVESTIGATION_RENAMED, handleUpdate);
-      eventBus.unsubscribe(INVESTIGATION_ARCHIVED, handleUpdate);
-      eventBus.unsubscribe(INVESTIGATION_RESTORED, handleUpdate);
-      eventBus.unsubscribe(INVESTIGATION_DELETED, handleUpdate);
+      unsubscribe(INVESTIGATION_CREATED, handleUpdate);
+      unsubscribe(INVESTIGATION_RENAMED, handleUpdate);
+      unsubscribe(INVESTIGATION_ARCHIVED, handleUpdate);
+      unsubscribe(INVESTIGATION_RESTORED, handleUpdate);
+      unsubscribe(INVESTIGATION_DELETED, handleUpdate);
     };
   }, []);
 

@@ -9,8 +9,8 @@
  */
 
 import React from 'react';
-import SelectionInspector from '@/shared/objects/SelectionInspector';
-import { cn } from '@/shared/utils/cn';
+import { ObservatoryShell } from '@/features/observatory';
+import { cn } from '@/shared/utils';
 
 export default function InspectorViewport({ className }) {
   // For now we render an empty inspector – future screens will provide sections.
@@ -20,7 +20,7 @@ export default function InspectorViewport({ className }) {
       role="complementary"
       aria-label="Inspector panel"
     >
-      <SelectionInspector />
+      <ObservatoryShell />
     </aside>
   );
 }

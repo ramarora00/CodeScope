@@ -179,3 +179,11 @@ export function completeInvestigation(id) {
 export function cancelInvestigation(id) {
   return applyTransition(id, InvestigationEvent.INVESTIGATION_CANCELLED, INVESTIGATION_CANCELLED);
 }
+
+/**
+ * Load all investigations.
+ * Delegates to persistence adapter.
+ */
+export function loadAll() {
+  return persistenceAdapter.loadAllInvestigations();
+}

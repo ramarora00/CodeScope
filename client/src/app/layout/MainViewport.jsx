@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { cn } from '@/shared/utils/cn';
+import { cn } from '@/shared/utils';
 
 export default function MainViewport({ className, children }) {
   return (
@@ -20,7 +20,6 @@ export default function MainViewport({ className, children }) {
       aria-label="Main content area"
     >
       {children}
-      <MissionControl />
     </main>
   );
 }

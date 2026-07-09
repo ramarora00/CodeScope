@@ -8,15 +8,17 @@
  */
 
 import React from 'react';
-import TopChrome from '@/shared/objects/TopChrome';
+// import TopChrome from '@/shared/objects/TopChrome';
 import Workspace from './Workspace';
-import { cn } from '@/shared/utils/cn';
+import { cn } from '@/shared/utils';
 
-export default function AppShell({ className }) {
+export default function AppShell({ className, children, showTopChrome = false }) {
   return (
     <div className={cn('flex flex-col h-screen w-screen overflow-hidden', className)}>
-      <TopChrome />
-      <Workspace />
+      {showTopChrome && null /* <TopChrome /> disabled for now due to missing deps */}
+      <Workspace>
+        {children}
+      </Workspace>
     </div>
   );
 }

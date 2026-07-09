@@ -3,13 +3,20 @@ import { QueryInput } from '@/shared/ui';
 import { ActionButton } from '@/shared/ui';
 import { InlineNotice } from '@/shared/ui';
 import { useState } from 'react';
+import { createInvestigationCommand } from '@/features/investigation/lib';
 
 export default function PromptComposerPanel({ className }) {
+  const [inputValue, setInputValue] = useState('');
   const [noticeVisible, setNoticeVisible] = useState(false);
 
   const handleInvestigate = () => {
-    setNoticeVisible(true);
-    setTimeout(() => setNoticeVisible(false), 4000);
+    if (!inputValue.trim()) return;
+    
+    // Generate an ID here since the factory expects one
+    const id = Date.now().toString(36) + Math.random().toString(36).substring(2);
+    
+    createInvestigationCommand({ id, title: inputValue.trim() });
+    setInputValue('');
   };
 
   return (
@@ -18,6 +25,8 @@ export default function PromptComposerPanel({ className }) {
         <div className="flex-1">
           <QueryInput
             placeholder="Ask about the repository..."
+            value={inputValue}
+            onChange={e => setInputValue(e.target.value)}
             onKeyDown={e => {
               if (e.key === 'Enter' && e.ctrlKey) {
                 e.preventDefault();
