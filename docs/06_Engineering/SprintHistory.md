@@ -133,3 +133,16 @@ feat(ui): implement CodeScope Home and Repository Connection (M2 & M3)
 - Completed M3: Replaced RepoUpload with deterministic RepositoryConnection pipeline.
 - Implemented strict Runtime Verification rules.
 - Successfully decommissioned legacy components.
+## Sprint 0 — Stabilized the vector database indexing pipeline under free-tier API rate limits. Resolved gemini-embedding-001 method names, added batch-level pacing, and implemented a self-healing mock embedding fallback for daily quota exhaustion. Cleaned up transient database states on startup and archived unused legacy slices.
+
+**Commit**
+884b27e feat(backend): implement resilient embedding sync, rate limit safety, and mock fallback
+
+**Status**
+✅ Completed
+
+**Summary**
+Stabilized the vector database indexing pipeline under free-tier API rate limits. Resolved gemini-embedding-001 method names, added batch-level pacing, and implemented a self-healing mock embedding fallback for daily quota exhaustion. Cleaned up transient database states on startup and archived unused legacy slices.
+
+*Recorded on 2026-07-12T06:50:30.075Z*
+
