@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { FileCode, FunctionSquare, Box, Import, Info, Zap } from 'lucide-react'
+import { CodePreviewBlock, EvidenceBlock, StatusBlock } from '@/shared/ui/EnterpriseBlocks'
+import { LoadingState } from '@/shared/ui/LoadingState'
 
 const FileViewer = ({ repo, file }) => {
   const [content, setContent] = useState('')
@@ -28,9 +30,8 @@ const FileViewer = ({ repo, file }) => {
 
   if (!file) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-text-muted glass rounded-3xl border-silver animate-in fade-in">
-        <FileCode size={48} className="mb-4 opacity-20" />
-        <p className="text-sm font-medium">Select a file to view intelligence insights</p>
+      <div className="h-full flex flex-col items-center justify-center text-text-muted rounded-3xl border-silver animate-in fade-in">
+        <StatusBlock status="idle" message="Select a file to view intelligence insights" className="max-w-md w-full justify-center" />
       </div>
     )
   }
@@ -56,15 +57,18 @@ const FileViewer = ({ repo, file }) => {
 
       <div className="flex-1 grid grid-cols-[1fr,280px] gap-4 overflow-hidden">
         {/* Code Content */}
-        <div className="glass rounded-3xl border-silver overflow-hidden flex flex-col relative">
+        <div className="flex flex-col relative h-full">
           {loading && (
-            <div className="absolute inset-0 bg-bg-main/50 backdrop-blur-sm z-20 flex items-center justify-center">
-              <Zap size={24} className="text-accent animate-pulse" />
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0A0D12]/80 backdrop-blur-sm rounded-lg">
+              <LoadingState size="lg" />
             </div>
           )}
-          <pre className="flex-1 p-6 overflow-auto font-mono text-xs leading-relaxed text-text-secondary custom-scrollbar">
-            <code>{content || '// No content available'}</code>
-          </pre>
+          <CodePreviewBlock
+            className="flex-1 h-full"
+            code={content || '// No content available'}
+            fileName={file.name}
+            language={file.name.split('.').pop().toUpperCase()}
+          />
         </div>
 
         {/* Intelligence Sidebar */}
@@ -72,62 +76,47 @@ const FileViewer = ({ repo, file }) => {
           {metadata ? (
             <>
               {/* Functions */}
-              <div className="glass p-4 rounded-2xl border-silver">
-                <div className="flex items-center gap-2 mb-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">
-                  <FunctionSquare size={14} className="text-accent" />
-                  Functions
-                </div>
+              <EvidenceBlock title="Functions">
                 <div className="space-y-2">
                   {metadata.functions.length > 0 ? metadata.functions.map((fn, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 bg-bg-hover rounded-lg border border-border/50 hover:border-accent/30 transition-all cursor-pointer">
-                      <span className="text-[11px] font-medium text-text-primary truncate">{fn.name}</span>
-                      <span className="text-[9px] text-text-muted">L{fn.line}</span>
+                    <div key={i} className="flex items-center justify-between p-2 bg-[var(--color-surface-base)] rounded-md border border-[var(--color-border-subtle)]">
+                      <span className="text-[11px] font-medium text-[var(--color-text-primary)] truncate">{fn.name}</span>
+                      <span className="text-[9px] text-[var(--color-text-muted)] font-mono">L{fn.line}</span>
                     </div>
                   )) : (
                     <p className="text-[10px] text-text-muted italic">No functions detected</p>
                   )}
                 </div>
-              </div>
+              </EvidenceBlock>
 
               {/* Classes */}
-              <div className="glass p-4 rounded-2xl border-silver">
-                <div className="flex items-center gap-2 mb-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">
-                  <Box size={14} className="text-success" />
-                  Classes
-                </div>
+              <EvidenceBlock title="Classes">
                 <div className="space-y-2">
                   {metadata.classes.length > 0 ? metadata.classes.map((cls, i) => (
-                    <div key={i} className="p-2 bg-bg-hover rounded-lg border border-border/50">
-                      <span className="text-[11px] font-medium text-text-primary">{cls.name}</span>
+                    <div key={i} className="p-2 bg-[var(--color-surface-base)] rounded-md border border-[var(--color-border-subtle)]">
+                      <span className="text-[11px] font-medium text-[var(--color-text-primary)]">{cls.name}</span>
                     </div>
                   )) : (
                     <p className="text-[10px] text-text-muted italic">No classes detected</p>
                   )}
                 </div>
-              </div>
+              </EvidenceBlock>
 
               {/* Imports */}
-              <div className="glass p-4 rounded-2xl border-silver">
-                <div className="flex items-center gap-2 mb-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">
-                  <Import size={14} className="text-warning" />
-                  Dependencies
-                </div>
+              <EvidenceBlock title="Dependencies">
                 <div className="space-y-1">
                   {metadata.imports.length > 0 ? metadata.imports.map((imp, i) => (
-                    <div key={i} className="text-[10px] text-text-muted hover:text-text-primary transition-colors truncate">
+                    <div key={i} className="text-[10px] font-mono text-[var(--color-accent-soft-cyan)] opacity-80 truncate">
                       {imp.source}
                     </div>
                   )) : (
                     <p className="text-[10px] text-text-muted italic">No imports detected</p>
                   )}
                 </div>
-              </div>
+              </EvidenceBlock>
             </>
           ) : (
-            <div className="glass p-6 rounded-2xl border-silver flex flex-col items-center justify-center text-center">
-              <Info size={24} className="text-text-muted mb-2 opacity-20" />
-              <p className="text-[10px] text-text-muted">Parsing logic pending for this file type.</p>
-            </div>
+            <StatusBlock status="idle" message="Parsing logic pending for this file type." />
           )}
         </div>
       </div>
