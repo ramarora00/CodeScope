@@ -8,6 +8,11 @@ const { Worker } = require('worker_threads');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+const EventEmitter = require('events');
+const indexingEmitter = new EventEmitter();
+indexingEmitter.setMaxListeners(100);
+
+
 const REPOS_DIR = path.join(__dirname, '../../repos');
 
 // Ensure repos directory exists
@@ -19,7 +24,7 @@ const { parseCode } = require('../utils/parser');
 const { indexRepo } = require('../utils/vectorStore');
 
 const TEXT_EXTENSIONS = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'cpp', 'css', 'html', 'json', 'md', 'php'];
-const IGNORE_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', 'coverage', '.next', '__pycache__', 'vendor']);
+const IGNORE_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', 'coverage', '.next', '__pycache__', 'vendor', 'legacy', 'repos', 'scratch']);
 
 /**
  * Runs AST parsing in a worker thread to avoid blocking the main event loop.
@@ -80,6 +85,7 @@ const collectFilesFromDisk = (dirPath, relativePath = '') => {
   const entries = fs.readdirSync(dirPath);
   for (const entry of entries) {
     if (IGNORE_DIRS.has(entry)) continue;
+    if (entry === 'package-lock.json' || entry === 'yarn.lock' || entry === 'pnpm-lock.yaml') continue;
     const fullPath = path.join(dirPath, entry);
     const relPath = path.join(relativePath, entry);
     const stats = fs.statSync(fullPath);
@@ -108,25 +114,35 @@ const collectFilesFromDisk = (dirPath, relativePath = '') => {
 // ============================================================================
 
 const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
+  let activeStep = 'cloning';
   try {
+    const pass1Start = Date.now();
     // --- CLONE ---
+    indexingEmitter.emit('progress', { repoId, step: 'cloning', status: 'running' });
     if (repoUrl.startsWith('local://')) {
       console.log(`[Background] Using local directory ${repoPath}, skipping clone.`);
+      indexingEmitter.emit('progress', { repoId, step: 'cloning', status: 'done' });
     } else {
       console.log(`[Background] Cloning ${repoUrl}...`);
       await prisma.repo.update({ where: { id: repoId }, data: { status: 'cloning' } });
       await simpleGit().clone(repoUrl, repoPath);
+      indexingEmitter.emit('progress', { repoId, step: 'cloning', status: 'done' });
     }
 
     // =========================================================================
     //  PASS 1: File Scanning + AST Symbol Extraction
     // =========================================================================
     console.log(`[Background] Starting PASS 1: Symbol Extraction for ${repoId}`);
-    const pass1Start = Date.now();
+    activeStep = 'reading';
+    indexingEmitter.emit('progress', { repoId, step: 'reading', status: 'running' });
     await prisma.repo.update({ where: { id: repoId }, data: { status: 'indexing' } });
 
     const rawFiles = collectFilesFromDisk(repoPath);
     console.log(`[Background] Collected ${rawFiles.length} files from disk.`);
+    indexingEmitter.emit('progress', { repoId, step: 'reading', status: 'done', count: rawFiles.length });
+
+    activeStep = 'parsing';
+    indexingEmitter.emit('progress', { repoId, step: 'parsing', status: 'running' });
 
     // Parse files in worker thread (CPU-intensive, off main thread)
     const parsableFiles = rawFiles.filter(f => f.content && TEXT_EXTENSIONS.includes(f.language));
@@ -160,6 +176,37 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
           repoId: repoId
         }
       });
+
+      // Stream file lines as they are processed
+      if (file.content) {
+        indexingEmitter.emit('progress', {
+          repoId,
+          step: 'parsing',
+          status: 'running',
+          file: normalizedPath,
+          content: file.content,
+          line: 1
+        });
+
+        if (file.metadata) {
+          const parsedMeta = JSON.parse(file.metadata);
+          const symbolLines = [
+            ...(parsedMeta.functions || []).map(f => f.lineStart),
+            ...(parsedMeta.classes || []).map(c => c.lineStart),
+            ...(parsedMeta.routes || []).map(r => r.lineStart)
+          ].filter(Boolean).sort((a, b) => a - b);
+
+          for (const line of symbolLines) {
+            indexingEmitter.emit('progress', {
+              repoId,
+              step: 'parsing',
+              status: 'running',
+              file: normalizedPath,
+              line
+            });
+          }
+        }
+      }
 
       // Save Symbols from metadata with qualifiedName
       if (file.metadata) {
@@ -206,12 +253,15 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
       }
     }
 
+    indexingEmitter.emit('progress', { repoId, step: 'parsing', status: 'done' });
     console.log(`[Background] PASS 1 complete in ${Date.now() - pass1Start}ms. ${allParsed.length} files indexed.`);
 
     // =========================================================================
     //  PASS 1b: Import Graph Formalization
     //  Creates IMPORTS, EXPORTS, REEXPORTS relationships + External Dependencies
     // =========================================================================
+    activeStep = 'resolve_imports';
+    indexingEmitter.emit('progress', { repoId, step: 'resolve_imports', status: 'running' });
     console.log(`[Background] Starting PASS 1b: Import Graph Construction for ${repoId}`);
     const pass1bStart = Date.now();
 
@@ -372,10 +422,13 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
     }
 
     console.log(`[Background] PASS 1b (Import Graph) complete in ${Date.now() - pass1bStart}ms. External deps: ${externalSymbolCache.size}`);
+    indexingEmitter.emit('progress', { repoId, step: 'resolve_imports', status: 'done' });
 
     // =========================================================================
     //  PASS 2: Call Graph Resolution (Cross-File, Alias-Aware)
     // =========================================================================
+    activeStep = 'call_graph';
+    indexingEmitter.emit('progress', { repoId, step: 'call_graph', status: 'running' });
     console.log(`[Background] Starting PASS 2: Call Graph Resolution for ${repoId}`);
     const pass2Start = Date.now();
     await prisma.repo.update({ where: { id: repoId }, data: { status: 'mapping' } });
@@ -615,23 +668,30 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
     }
 
     console.log(`[Background] PASS 2b (Route Flow) complete in ${Date.now() - pass2bStart}ms.`);
+    indexingEmitter.emit('progress', { repoId, step: 'call_graph', status: 'done' });
 
     // =========================================================================
     //  PASS 3: Vector Embedding Sync (LanceDB)
     // =========================================================================
+    activeStep = 'embeddings';
+    indexingEmitter.emit('progress', { repoId, step: 'embeddings', status: 'running' });
     console.log(`[Background] Starting PASS 3: Vector Embedding Sync...`);
     const pass3Start = Date.now();
     await prisma.repo.update({ where: { id: repoId }, data: { status: 'syncing' } });
     const allFilesForEmbed = await prisma.file.findMany({ where: { repoId } });
     await indexRepo(repoId, allFilesForEmbed);
 
+    indexingEmitter.emit('progress', { repoId, step: 'embeddings', status: 'done' });
     await prisma.repo.update({ where: { id: repoId }, data: { status: 'ready' } });
+    activeStep = 'ready';
+    indexingEmitter.emit('progress', { repoId, step: 'ready', status: 'done' });
     const totalTime = Date.now() - pass1Start;
     console.log(`[Background] PASS 3 (Embeddings) complete in ${Date.now() - pass3Start}ms.`);
     console.log(`[Background] ✅ Full pipeline complete for ${repoId} in ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s).`);
   } catch (err) {
     console.error(`[Background] Fatal Error indexing ${repoId}:`, err);
     await prisma.repo.update({ where: { id: repoId }, data: { status: 'error' } }).catch(() => {});
+    indexingEmitter.emit('progress', { repoId, step: activeStep, status: 'failed', error: err.message });
   }
 };
 
@@ -699,6 +759,34 @@ router.post('/index-local', async (req, res) => {
 router.get('/', async (req, res) => {
   const repos = await prisma.repo.findMany({ orderBy: { createdAt: 'desc' } });
   res.json(repos);
+});
+
+// @route   GET /api/repo/:id/progress
+// @desc    Stream real-time indexing progress events via SSE
+router.get('/:id/progress', (req, res) => {
+  const repoId = req.params.id;
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*'
+  });
+
+  const onProgress = (event) => {
+    if (event.repoId === repoId) {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    }
+  };
+
+  indexingEmitter.on('progress', onProgress);
+
+  // Send init event to confirm connection
+  res.write(`data: ${JSON.stringify({ repoId, type: 'init' })}\n\n`);
+
+  req.on('close', () => {
+    indexingEmitter.off('progress', onProgress);
+  });
 });
 
 // @route   GET /api/repo/:id/files
