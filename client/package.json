@@ -13,6 +13,7 @@
     "clsx": "^2.1.1",
     "dagre": "^0.8.5",
     "force-graph": "^1.51.4",
+    "framer-motion": "^12.42.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-force-graph-2d": "^1.29.1",

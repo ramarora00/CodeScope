@@ -4,6 +4,26 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 console.log(`[INIT] Loading .env from: ${path.join(__dirname, '.env')}`);
 
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+async function cleanupStuckRepos() {
+  try {
+    const res = await prisma.repo.updateMany({
+      where: {
+        status: { in: ['cloning', 'indexing', 'mapping', 'syncing'] }
+      },
+      data: { status: 'error' }
+    });
+    if (res.count > 0) {
+      console.log(`[INIT] Cleaned up ${res.count} stuck repository indexing task(s).`);
+    }
+  } catch (err) {
+    console.error(`[INIT] Startup database cleanup failed:`, err.message);
+  }
+}
+cleanupStuckRepos();
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
