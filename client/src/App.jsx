@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import LaunchExperience from './features/codescope/ui/LaunchExperience';
 import ProcessingExperience from './features/codescope/ui/ProcessingExperience';
-import InvestigationWorkspace from './features/codescope/ui/InvestigationWorkspace';
+import WorkspaceRoot from './features/codescope/ui/v2/WorkspaceRoot';
 import './App.css';
 
 function App() {
@@ -30,6 +30,23 @@ function App() {
 
   // Connect repository action
   const handleConnect = async (urlOrPath) => {
+    // Demo mode: bypass backend, go straight to workspace with null repo
+    if (urlOrPath === '__demo__') {
+      setSelectedRepo(null);
+      setAppState('workspace');
+      return;
+    }
+
+    // Quick-select an already-indexed repo by ID
+    if (urlOrPath.startsWith('__repo__')) {
+      const repoId = urlOrPath.replace('__repo__', '');
+      const existing = repos.find(r => r.id === repoId);
+      if (existing) {
+        handleSelectRepo(existing);
+        return;
+      }
+    }
+
     try {
       const isLocal = !urlOrPath.startsWith('http') && !urlOrPath.startsWith('git@');
       let response;
@@ -167,26 +184,19 @@ function App() {
   };
 
   return (
-    <div className="w-full h-full min-h-screen bg-[#05070B] overflow-hidden select-none">
+    <div className="w-full h-full min-h-screen overflow-hidden" style={{ background: 'var(--cs-bg)' }}>
       {appState === 'launch' && (
-        <LaunchExperience onConnect={handleConnect} />
+        <LaunchExperience onConnect={handleConnect} repos={repos} />
       )}
       {appState === 'processing' && (
-        <ProcessingExperience 
-          repo={selectedRepo} 
-          onComplete={handleProcessingComplete} 
+        <ProcessingExperience
+          repo={selectedRepo}
+          onComplete={handleProcessingComplete}
           onBack={handleConnectNew}
         />
       )}
       {appState === 'workspace' && (
-        <InvestigationWorkspace 
-          repo={selectedRepo} 
-          repos={repos}
-          onSelectRepo={handleSelectRepo}
-          onConnectNew={handleConnectNew}
-          activeInvestigation={activeInvestigation}
-          onNewInvestigation={startNewInvestigation}
-        />
+        <WorkspaceRoot repo={selectedRepo} />
       )}
     </div>
   );

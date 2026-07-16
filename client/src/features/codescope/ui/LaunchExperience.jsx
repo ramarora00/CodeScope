@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FolderGit2 } from 'lucide-react';
+import { Cpu } from 'lucide-react';
 
-export default function LaunchExperience({ onConnect }) {
+export default function LaunchExperience({ onConnect, repos = [] }) {
   const [repoUrl, setRepoUrl] = useState('');
 
   const handleSubmit = (e) => {
@@ -54,7 +54,7 @@ export default function LaunchExperience({ onConnect }) {
             />
           </div>
           
-          <button 
+          <button
             type="submit"
             disabled={!repoUrl.trim()}
             className="px-6 py-2.5 bg-[#D8DCE6] text-[#05070B] rounded-md text-[12px] font-medium hover:bg-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
@@ -62,6 +62,32 @@ export default function LaunchExperience({ onConnect }) {
             Connect Repository
           </button>
         </form>
+
+        {/* Demo shortcut */}
+        <div className="flex flex-col items-center gap-3 mt-2">
+          <button
+            onClick={() => onConnect('__demo__')}
+            className="flex items-center gap-2 text-[11.5px] text-[#5f5f63] hover:text-[#8b8dee] transition-colors font-sans"
+          >
+            <Cpu size={12} />
+            <span>Try the Reasoning Demo →</span>
+          </button>
+
+          {repos.length > 0 && (
+            <div className="flex flex-col items-center gap-1 mt-1">
+              <span className="text-[10px] text-[#3a3a3e] uppercase tracking-wider">Recent</span>
+              {repos.slice(0, 3).map(r => (
+                <button
+                  key={r.id}
+                  onClick={() => onConnect('__repo__' + r.id)}
+                  className="text-[11px] font-mono text-[#5f5f63] hover:text-[#c7c7ce] transition-colors"
+                >
+                  {r.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </motion.div>
     </div>
   );
