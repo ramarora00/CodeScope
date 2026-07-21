@@ -164,3 +164,25 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 - Introduced new UI V2 components, runtime and focus models, and layout components.
 - Grouped commits logically by component architecture.
 
+
+## Sprint — CodeScope Workspace Polish & Boot Sequence
+
+**Commits**
+- `de55b8d` feat(codescope): add investigation phase markers and tune reading speed timings
+- `984e07c` feat(codescope): refine v2 panels — sequential dots, tighter opacity, row-rise animations
+- `8eef219` feat(codescope): add boot sequence, settle animations, and panel shadow system
+
+**Status**
+? Completed
+
+**Summary**
+- Added phase markers (searching, understanding, connecting, verifying, concluding) to the investigation runtime script.
+- Tuned reading speed timings for more natural AI reading cadence.
+- Refactored AIOverlayEditor with sequential reading dots, tighter opacity falloff, and text-based confidence display.
+- Updated InvestigationPanel, KnowledgePanel, CommandBar, and Dock with row-rise animations and refined styling.
+- Introduced WorkspaceRoot boot sequence (Indexing ? Preparing graph ? Ready) with spinner.
+- Added settle, row-rise, crossfade keyframes and panel shadow system to global CSS.
+- Softened border and shadow tokens for more premium visual depth.
+
+*Recorded on 2026-07-21T17:51:00+05:30*
+
