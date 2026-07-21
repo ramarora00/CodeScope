@@ -27,6 +27,10 @@ export default function WorkspaceRoot({ repo = null }) {
   const [insight, setInsight]           = useState(null);
   const [startedAt, setStartedAt]       = useState(null);
   const [dockActive, setDockActive]     = useState('investigation');
+  const [aiPhase, setAiPhase]           = useState('searching'); // searching|understanding|connecting|verifying|concluding
+  
+  const [bootPhase, setBootPhase]       = useState('booting'); // 'booting' | 'ready'
+  const [bootStatus, setBootStatus]     = useState('Repository');
 
   const runtimeRef = useRef(null);
 
@@ -99,6 +103,11 @@ export default function WorkspaceRoot({ repo = null }) {
         break;
       }
 
+      case 'phase': {
+        setAiPhase(event.phase);
+        break;
+      }
+
       default: break;
     }
   }, [attention.file]);
@@ -109,12 +118,21 @@ export default function WorkspaceRoot({ repo = null }) {
     runtimeRef.current = runtime;
     const unsub = runtime.subscribe(handleEvent);
 
-    const t = setTimeout(() => {
+    let t1, t2, t3, t4;
+    t1 = setTimeout(() => setBootStatus('Indexing'), 800);
+    t2 = setTimeout(() => setBootStatus('Preparing graph'), 1800);
+    t3 = setTimeout(() => setBootStatus('Ready'), 2600);
+    t4 = setTimeout(() => {
+      setBootPhase('ready');
       setStartedAt(Date.now());
       runtime.start();
-    }, 600);
+    }, 2900);
 
-    return () => { clearTimeout(t); runtime.stop(); unsub(); };
+    return () => {
+      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4);
+      runtime.stop();
+      unsub();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -128,28 +146,69 @@ export default function WorkspaceRoot({ repo = null }) {
   }, [activeTabId]);
 
   return (
-    <div className="w-screen h-screen flex flex-col" style={{ background: '#09090B', padding: '16px 20px', gap: '16px' }}>
+    <div
+      className="w-screen h-screen flex flex-col"
+      style={{
+        background: '#09090B',
+        padding: '16px 20px',
+        gap: '12px',
+        cursor: runtimeStatus !== 'resolved' ? 'none' : 'default',
+      }}
+    >
       {/* ── Command Bar ── */}
-      <div 
-        style={{ 
-          borderRadius: '12px', 
-          background: 'var(--cs-bg)', 
-          boxShadow: '0 8px 30px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05)', 
-          overflow: 'hidden' 
+      <div
+        className="animate-settle flex-shrink-0"
+        style={{
+          borderRadius: '12px',
+          background: 'rgba(255,255,255,0.02)',
+          border: '1px solid rgba(255,255,255,0.05)',
+          overflow: 'hidden',
+          animationDelay: '0ms',
         }}
       >
         <CommandBar repo={repo} branch="main" />
       </div>
 
       {/* ── Workspace body ── */}
-      <div className="flex flex-1 min-h-0 gap-4">
+      {bootPhase === 'booting' ? (
+        <div className="flex flex-1 items-center justify-center min-h-0 animate-fade-in">
+          <div className="flex flex-col items-center gap-6">
+            <div className="w-5 h-5 rounded-full border-[1.5px] border-[rgba(255,255,255,0.05)] border-t-[var(--cs-accent)] animate-spin" />
+            <span style={{ color: 'var(--cs-text)', fontSize: '13px', letterSpacing: '0.02em', fontWeight: 500 }} className="animate-pulse-dot">
+              {bootStatus}
+            </span>
+          </div>
+        </div>
+      ) : (
+      <div className="flex flex-1 min-h-0 gap-3">
         {/* Dock */}
-        <div style={{ borderRadius: '12px', background: 'var(--cs-bg)', boxShadow: '0 8px 30px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+        <div
+          className="animate-settle flex-shrink-0"
+          style={{
+            borderRadius: '12px',
+            background: 'var(--cs-panel)',
+            border: '1px solid var(--cs-border)',
+            boxShadow: 'var(--cs-shadow-panel)',
+            overflow: 'hidden',
+            animationDelay: '60ms',
+          }}
+        >
           <Dock activeItem={dockActive} onSelect={setDockActive} />
         </div>
 
         {/* Investigation */}
-        <div style={{ borderRadius: '12px', background: 'var(--cs-bg)', boxShadow: '0 8px 30px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+        <div
+          className="animate-settle flex-shrink-0"
+          style={{
+            marginTop: '2px', // optical asymmetry
+            borderRadius: '12px',
+            background: 'var(--cs-panel)',
+            border: '1px solid var(--cs-border)',
+            boxShadow: 'var(--cs-shadow-panel)',
+            overflow: 'hidden',
+            animationDelay: '100ms',
+          }}
+        >
           <InvestigationPanel
             events={events}
             attention={attention}
@@ -159,7 +218,17 @@ export default function WorkspaceRoot({ repo = null }) {
         </div>
 
         {/* AI Overlay Editor */}
-        <div className="flex-1 flex flex-col" style={{ borderRadius: '12px', background: 'var(--cs-bg)', boxShadow: '0 8px 30px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+        <div
+          className="animate-settle flex-1 flex flex-col min-w-0"
+          style={{
+            borderRadius: '12px',
+            background: 'var(--cs-panel)',
+            border: '1px solid var(--cs-border)',
+            boxShadow: 'var(--cs-shadow-panel)',
+            overflow: 'hidden',
+            animationDelay: '140ms',
+          }}
+        >
           <AIOverlayEditor
             tabs={tabs}
             activeTabId={activeTabId}
@@ -168,28 +237,52 @@ export default function WorkspaceRoot({ repo = null }) {
             attention={attention}
             insight={insight}
             runtimeStatus={runtimeStatus}
+            aiPhase={aiPhase}
           />
         </div>
 
         {/* Knowledge */}
-        <div style={{ borderRadius: '12px', background: 'var(--cs-bg)', boxShadow: '0 8px 30px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05)', overflow: 'hidden' }}>
-          <KnowledgePanel searchStatus={runtimeStatus === 'idle' ? 'searching' : 'found'} />
+        <div
+          className="animate-settle flex-shrink-0"
+          style={{
+            borderRadius: '12px',
+            background: 'var(--cs-panel)',
+            border: '1px solid var(--cs-border)',
+            boxShadow: 'var(--cs-shadow-panel)',
+            overflow: 'hidden',
+            animationDelay: '180ms',
+          }}
+        >
+          <KnowledgePanel
+            searchStatus={runtimeStatus === 'idle' ? 'searching' : 'found'}
+            filesTouchedCount={memoryFiles.length}
+          />
         </div>
       </div>
+      )}
 
-      {/* ── Footer ── */}
-      <div className="flex items-center gap-6 flex-shrink-0 px-2" style={{ color: 'var(--cs-muted)', fontSize: '11px', fontWeight: 500 }}>
-        <span>14 files touched</span>
-        <div className="flex items-center gap-1.5 opacity-80">
-          <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+      {/* ── Footer — live runtime metadata ── */}
+      <div
+        className="flex items-center gap-5 flex-shrink-0 px-2 animate-settle"
+        style={{ color: 'rgba(255,255,255,0.28)', fontSize: '10.5px', fontWeight: 400, animationDelay: '220ms' }}
+      >
+        <span style={{ color: 'rgba(255,255,255,0.45)' }}>
+          {memoryFiles.length > 0 ? `${memoryFiles.length} file${memoryFiles.length > 1 ? 's' : ''} touched` : 'Indexing...'}
+        </span>
+        <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+        <div className="flex items-center gap-1.5">
+          <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#3FB950', opacity: 0.8 }} />
           <span>Live</span>
         </div>
+        <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
         <span>Claude 3.7</span>
-        <div className="flex items-center gap-1.5">
-          <span style={{ color: 'var(--cs-accent)', fontSize: '10px' }}>✦</span>
+        <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+        <div className="flex items-center gap-1">
+          <span style={{ color: 'rgba(191,200,216,0.4)', fontSize: '9px' }}>✦</span>
           <span>Sourcegraph MCP</span>
         </div>
-        <span style={{ color: 'var(--cs-hint)' }}>Latency 42ms</span>
+        <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+        <span>Latency {runtimeStatus === 'reading' ? '38ms' : '—'}</span>
       </div>
     </div>
   );

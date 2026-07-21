@@ -28,13 +28,17 @@
   --bg-hover:     var(--cs-panel-raised);
   --bg-active:    rgba(255,255,255,0.04);
 
-  /* ── Borders — use only rgba(255,255,255,0.05), never solid ── */
-  --cs-border:        rgba(255,255,255,0.05);
+  /* ── Borders — use only rgba(255,255,255,0.04), never solid ── */
+  --cs-border:        rgba(255,255,255,0.04);
   --cs-border-strong: rgba(255,255,255,0.08);
-  --cs-border-subtle: rgba(255,255,255,0.03);
+  --cs-border-subtle: rgba(255,255,255,0.02);
   --border:           var(--cs-border);
   --border-strong:    var(--cs-border-strong);
   --border-subtle:    var(--cs-border-subtle);
+
+  /* ── Desktop Shadows ── */
+  --cs-shadow-panel:  0 8px 40px rgba(0,0,0,0.45);
+
 
   /* ── Typography — grayscale hierarchy ── */
   --cs-text:    #E8E8E8;   /* Primary — bright white-ish */
@@ -134,8 +138,37 @@ body {
   50%      { transform: scaleY(1.0); }
 }
 
+/* Panel settle — fades in while rising 6px */
+@keyframes settle {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+/* Timeline row rise — new entries slide up 6px while fading in */
+@keyframes row-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+/* Tab crossfade — editor content transitions between files */
+@keyframes crossfade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 .animate-rise       { animation: rise 220ms var(--ease-out) both; }
 .animate-fade-in    { animation: fade-in 220ms ease both; }
 .animate-slide      { animation: fade-slide 220ms var(--ease-out) both; }
 .animate-pulse-dot  { animation: pulse-dot 2s ease-in-out infinite; }
 .animate-read-blink { animation: read-blink 1.4s ease-in-out infinite; }
+.animate-settle     { animation: settle 250ms var(--ease-out) both; }
+.animate-row-rise   { animation: row-rise 200ms var(--ease-out) both; }
+.animate-crossfade  { animation: crossfade 200ms ease both; }
+
+/* Dock icon hover scale */
+.dock-icon {
+  transition: transform 200ms var(--ease-out), opacity 200ms ease;
+}
+.dock-icon:hover {
+  transform: scale(1.06);
+}
