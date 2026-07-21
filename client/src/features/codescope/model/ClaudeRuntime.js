@@ -197,13 +197,13 @@ export function classifyLine(text) {
 // Reading speed per line type (ms)
 export const LINE_DURATIONS = {
   blank:      40,
-  import:     70,
-  comment:    80,
-  assignment: 200,
-  return:     350,
-  function:   450,
+  import:     50,   // fast
+  comment:    50,   // fast
+  assignment: 150,
+  return:     300,  // medium
+  function:   600,  // pause
   await:      500,
-  if:         550,
+  if:         1000, // long pause
   throw:      650,
   other:      180,
 };
@@ -292,8 +292,9 @@ export const INVESTIGATION_SCRIPT = [
   ...TIMELINE_EVENTS.map(e => ({ ...e })),
 
   // ────────────────────────────────────────────────────────────────
-  // PHASE 1 — Enter auth.middleware.ts, read imports
+  // SEARCHING PHASE — fast, systematic, scanning
   // ────────────────────────────────────────────────────────────────
+  { type: 'phase', phase: 'searching', label: 'Searching' },
   {
     type: 'appear',
     file: 'auth.middleware.ts',
@@ -315,8 +316,9 @@ export const INVESTIGATION_SCRIPT = [
   { type: 'pause', duration: 900 },
 
   // ────────────────────────────────────────────────────────────────
-  // PHASE 2 — Jump to jwt.service.ts to understand what verify() throws
+  // UNDERSTANDING PHASE — slower, deliberate, annotating
   // ────────────────────────────────────────────────────────────────
+  { type: 'phase', phase: 'understanding', label: 'Understanding' },
   {
     type: 'jump',
     file: 'jwt.service.ts',
@@ -342,8 +344,9 @@ export const INVESTIGATION_SCRIPT = [
   { type: 'pause', duration: 600 },
 
   // ────────────────────────────────────────────────────────────────
-  // PHASE 3 — Return to auth.middleware.ts — trace the catch block
+  // CONNECTING PHASE — jumping between files, building the map
   // ────────────────────────────────────────────────────────────────
+  { type: 'phase', phase: 'connecting', label: 'Connecting' },
   {
     type: 'jump',
     file: 'auth.middleware.ts',
@@ -371,8 +374,9 @@ export const INVESTIGATION_SCRIPT = [
   { type: 'pause', duration: 800 },
 
   // ────────────────────────────────────────────────────────────────
-  // PHASE 4 — Check session.guard.ts — does it compensate?
+  // VERIFYING PHASE — re-reading, confirming, cross-checking
   // ────────────────────────────────────────────────────────────────
+  { type: 'phase', phase: 'verifying', label: 'Verifying' },
   {
     type: 'jump',
     file: 'session.guard.ts',
@@ -425,6 +429,10 @@ export const INVESTIGATION_SCRIPT = [
   { type: 'pause', duration: 400 },
   // Quick scan of just the catch block again
   ...buildReadEvents('auth.middleware.ts', 30, 37),
+  // ────────────────────────────────────────────────────────────────
+  // CONCLUSION PHASE — slow, deliberate, re-confirming root cause
+  // ────────────────────────────────────────────────────────────────
+  { type: 'phase', phase: 'concluding', label: 'Concluding' },
   { type: 'pause', duration: 1000 },
 
   // ────────────────────────────────────────────────────────────────
