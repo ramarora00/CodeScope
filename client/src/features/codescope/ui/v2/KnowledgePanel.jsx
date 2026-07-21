@@ -25,12 +25,12 @@ const ACTIONS = [
 
 function SectionHeader({ label }) {
   return (
-    <div style={{ marginBottom: '14px' }}>
+    <div style={{ marginBottom: '12px' }}>
       <span style={{
-        color: 'var(--cs-faint)',
-        fontSize: '9px',
-        fontWeight: 700,
-        letterSpacing: '0.10em',
+        color: 'rgba(255,255,255,0.07)',
+        fontSize: '8.5px',
+        fontWeight: 600,
+        letterSpacing: '0.14em',
         textTransform: 'uppercase',
       }}>
         {label}
@@ -97,7 +97,7 @@ export default function KnowledgePanel() {
               <div
                 key={i}
                 className="flex items-center gap-2 rounded cursor-pointer transition-colors duration-[220ms]"
-                style={{ height: '24px', padding: '0 4px', borderRadius: '4px' }}
+                style={{ height: '28px', padding: '0 4px', borderRadius: '4px' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--cs-editor)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
@@ -123,14 +123,14 @@ export default function KnowledgePanel() {
         </div>
 
         {/* ── RELATED SYMBOLS ── */}
-        <div style={{ padding: '32px 24px 0' }}>
+        <div style={{ padding: '40px 24px 0' }}>
           <SectionHeader label="Related Symbols" />
           <div className="space-y-0">
             {RELATED.map((item, i) => (
               <div
                 key={i}
                 className="flex items-center justify-between rounded cursor-pointer transition-colors duration-[220ms]"
-                style={{ height: '24px', padding: '0 4px', borderRadius: '4px' }}
+                style={{ height: '28px', padding: '0 4px', borderRadius: '4px' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--cs-editor)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
@@ -172,7 +172,7 @@ export default function KnowledgePanel() {
         </div>
 
         {/* ── ACTIONS ── */}
-        <div style={{ padding: '32px 24px 24px' }}>
+        <div style={{ padding: '40px 24px 24px' }}>
           <SectionHeader label="Actions" />
           <div className="space-y-2">
             {ACTIONS.map(action => (
@@ -183,7 +183,7 @@ export default function KnowledgePanel() {
                 style={{
                   height: '40px',
                   padding: '0 12px',
-                  borderRadius: '10px',
+                  borderRadius: '12px',
                   border: '1px solid var(--cs-border)',
                   background: 'transparent',
                 }}

@@ -51,15 +51,15 @@ export default function CommandBar({ repo, branch = 'main', onSearch }) {
       {/* Center search — pill-shaped with search icon and ⌘ K */}
       <button
         onClick={onSearch}
-        className="flex items-center gap-2 flex-shrink-0 transition-all duration-[220ms]"
+        className="flex items-center gap-4 flex-shrink-0 transition-all duration-[220ms]"
         style={{
-          height: '40px',
-          width: '460px',
-          paddingLeft: '14px',
-          paddingRight: '6px',
+          height: '42px',
+          width: '500px',
+          paddingLeft: '24px',
+          paddingRight: '12px',
           borderRadius: '12px',
           background: 'transparent',
-          border: '1px solid rgba(255,255,255,0.05)',
+          border: '1px solid var(--cs-border)',
           color: 'rgba(255,255,255,0.3)',
           fontSize: '12px',
           cursor: 'text',

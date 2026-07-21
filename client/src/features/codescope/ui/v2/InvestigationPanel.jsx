@@ -22,7 +22,7 @@ function ElapsedTimer({ startedAt }) {
     return () => clearInterval(id);
   }, [startedAt]);
   return (
-    <span style={{ color: 'var(--cs-hint)', fontFamily: 'var(--cs-mono)', fontSize: '10px' }}>
+    <span style={{ color: 'var(--cs-hint)', fontFamily: 'var(--cs-mono)', fontSize: '9px' }}>
       {elapsed}
     </span>
   );
@@ -33,14 +33,14 @@ function ElapsedTimer({ startedAt }) {
 // ─────────────────────────────────────────────────────────────────
 function TimelineEntry({ entry, isActive, memoryFiles }) {
   return (
-    <div style={{ marginBottom: isActive ? '12px' : '4px' }}>
+    <div style={{ marginBottom: isActive ? '18px' : '4px', paddingLeft: '8px' }}>
       <div
         className="flex items-start gap-2"
         style={{ minHeight: '26px' }}
       >
         <span style={{
           color: 'var(--cs-hint)',
-          fontSize: '9.5px',
+          fontSize: '8.5px',
           fontFamily: 'var(--cs-mono)',
           flexShrink: 0,
           width: '28px',
@@ -73,49 +73,56 @@ function TimelineEntry({ entry, isActive, memoryFiles }) {
         </div>
       </div>
 
-      {/* Active: nested with vertical line connecting them */}
+      {/* Active: compact hierarchical block — one logical unit, no floating labels */}
       {isActive && (
-        <div className="animate-fade-in relative" style={{ paddingLeft: '48px', marginTop: '10px' }}>
-          {/* Vertical line connecting children */}
-          <div className="absolute top-0 bottom-0 left-[33px]" style={{ width: '1px', background: 'var(--cs-border)' }} />
-          
-          <div className="space-y-4">
+        <div className="animate-fade-in" style={{ marginTop: '8px', paddingLeft: '39px' }}>
+          {/* Single block — all fields in visual flow, tightly packed */}
+          <div style={{
+            borderLeft: '1px solid rgba(255,255,255,0.07)',
+            paddingLeft: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+          }}>
             {entry.insight && (
               <div>
-                <div style={{ color: 'var(--cs-faint)', fontSize: '11px', fontWeight: 600, marginBottom: '4px' }}>
+                <div style={{ color: 'rgba(255,255,255,0.22)', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: '2px' }}>
                   Finding
                 </div>
-                <div style={{ color: 'var(--cs-muted)', fontSize: '11px', lineHeight: 1.6 }}>
+                <div style={{ color: 'var(--cs-text)', fontSize: '11.5px', lineHeight: 1.5 }}>
                   {entry.insight}
                 </div>
               </div>
             )}
             {entry.next && (
-              <div>
-                <div style={{ color: 'var(--cs-faint)', fontSize: '11px', fontWeight: 600, marginBottom: '4px' }}>
+              <div style={{ paddingLeft: '12px' }}>
+                <div style={{ color: 'rgba(255,255,255,0.22)', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: '2px' }}>
                   Next
                 </div>
-                <div style={{ color: 'var(--cs-muted)', fontSize: '11px', lineHeight: 1.6 }}>
+                <div style={{ color: 'var(--cs-muted)', fontSize: '11px', lineHeight: 1.5 }}>
                   {entry.next}
                 </div>
               </div>
             )}
             {entry.then && (
-              <div>
-                <div style={{ color: 'var(--cs-faint)', fontSize: '11px', fontWeight: 600, marginBottom: '4px' }}>
+              <div style={{ paddingLeft: '24px' }}>
+                <div style={{ color: 'rgba(255,255,255,0.22)', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: '2px' }}>
                   Then
                 </div>
-                <div style={{ color: 'var(--cs-muted)', fontSize: '11px', lineHeight: 1.6 }}>
+                <div style={{ color: 'var(--cs-faint)', fontSize: '11px', lineHeight: 1.5 }}>
                   {entry.then}
                 </div>
               </div>
             )}
             {memoryFiles.length > 0 && (
-              <div className="space-y-1.5 mt-3">
+              <div style={{ paddingLeft: '0px', marginTop: '4px' }}>
+                <div style={{ color: 'rgba(255,255,255,0.15)', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: '3px' }}>
+                  Memory
+                </div>
                 {memoryFiles.map((f, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span style={{ color: 'var(--cs-hint)', fontSize: '9px' }}>↳</span>
-                    <span style={{ color: 'var(--cs-hint)', fontSize: '10px', fontFamily: 'var(--cs-mono)' }}>
+                  <div key={i} className="flex items-center gap-1.5" style={{ paddingLeft: '10px' }}>
+                    <span style={{ color: 'rgba(255,255,255,0.12)', fontSize: '8px' }}>↳</span>
+                    <span style={{ color: 'rgba(191,200,216,0.55)', fontSize: '10px', fontFamily: 'var(--cs-mono)' }}>
                       {f.file}
                     </span>
                   </div>
@@ -152,7 +159,7 @@ export default function InvestigationPanel({ events = [], attention = {}, starte
     <div
       className="flex flex-col h-full flex-shrink-0"
       style={{
-        width: '315px',
+        width: '330px',
         background: 'var(--cs-panel)',
       }}
     >
@@ -178,9 +185,9 @@ export default function InvestigationPanel({ events = [], attention = {}, starte
         <div className="flex items-start gap-2">
           <p style={{
             color: 'var(--cs-text)',
-            fontSize: '13px',
+            fontSize: '18px',
             fontWeight: 600,
-            lineHeight: 1.4,
+            lineHeight: 1.55,
             flex: 1,
           }}>
             Find where JWT authentication breaks for expired sessions.
@@ -250,26 +257,26 @@ export default function InvestigationPanel({ events = [], attention = {}, starte
               style={{
                 height: '26px',
                 padding: '0 6px',
-                borderRadius: '4px',
-                background: step.active ? 'rgba(191,200,216,0.04)' : 'transparent',
-                borderLeft: step.active ? '2px solid rgba(191,200,216,0.45)' : '2px solid transparent',
               }}
             >
               <div
                 className="flex items-center justify-center flex-shrink-0"
                 style={{
                   width: '14px', height: '14px',
-                  color: step.done ? 'var(--cs-green)' : step.active ? 'var(--cs-accent)' : 'var(--cs-hint)',
+                  color: step.done ? 'var(--cs-green)' : step.active ? 'var(--cs-text)' : 'var(--cs-hint)',
                 }}
               >
-                <span style={{ fontSize: '10px', fontFamily: 'var(--cs-mono)', fontWeight: 500, lineHeight: 1 }}>
-                  {step.id}
+                <span style={{ fontSize: step.active ? '14px' : '10px', fontFamily: 'var(--cs-mono)', fontWeight: 500, lineHeight: 1 }}>
+                  {step.active ? '•' : step.id}
                 </span>
               </div>
               <span style={{
                 fontSize: '11px',
                 color: step.done ? 'var(--cs-hint)' : step.active ? 'var(--cs-text)' : 'var(--cs-faint)',
-                fontWeight: step.active ? 500 : 400,
+                fontWeight: step.active ? 600 : 400,
+                textDecoration: step.active ? 'underline' : 'none',
+                textUnderlineOffset: '3px',
+                textDecorationColor: 'rgba(255,255,255,0.2)',
                 flex: 1,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -277,11 +284,9 @@ export default function InvestigationPanel({ events = [], attention = {}, starte
               }}>
                 {step.label}
               </span>
-              {step.done ? (
+              {step.done && (
                 <Check size={12} style={{ color: 'var(--cs-green)' }} className="flex-shrink-0" />
-              ) : step.active ? (
-                <div className="w-[4px] h-[4px] rounded-full" style={{ background: 'var(--cs-text)' }} />
-              ) : null}
+              )}
             </div>
           ))}
         </div>

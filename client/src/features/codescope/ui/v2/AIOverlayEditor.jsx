@@ -68,20 +68,33 @@ const KIND_COLORS = {
 // Code never moves — only AI attention moves.
 // ─────────────────────────────────────────────────────────────────
 function lineOpacity(dist, isAiActive) {
-  if (!isAiActive) return 1.0;           // AI done → everything fully visible
-  if (dist === 0) return 1.00;           // Focus line — full
-  if (dist <= 2)  return 0.75;           // Close — still readable
-  if (dist <= 4)  return 0.45;           // Medium distance — dimming
-  if (dist <= 6)  return 0.22;           // Far — clearly faded
-  return 0.10;                           // Very far — near-invisible
+  if (!isAiActive) return 1.0;
+  if (dist === 0) return 1.00;
+  if (dist <= 2)  return 0.55;
+  if (dist <= 4)  return 0.28;
+  if (dist <= 6)  return 0.12;
+  return 0.05;
 }
 
 // ─────────────────────────────────────────────────────────────────
-// READING DOTS
+// SEQUENTIAL READING DOTS
+// Fills dots one-by-one like a loading sequence, not all pulsing together.
 // ─────────────────────────────────────────────────────────────────
 function ReadingDots({ active }) {
+  const [filled, setFilled] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!active) { setFilled(0); return; }
+    let i = 0;
+    const interval = setInterval(() => {
+      i = (i + 1) % 6;
+      setFilled(i === 5 ? 0 : i + 1);
+    }, 320);
+    return () => clearInterval(interval);
+  }, [active]);
+
   return (
-    <div className="flex items-center gap-[4px] px-4">
+    <div className="flex items-center gap-[5px] px-4">
       {Array.from({ length: 5 }).map((_, i) => (
         <div
           key={i}
@@ -89,10 +102,8 @@ function ReadingDots({ active }) {
             width: '4px',
             height: '4px',
             borderRadius: '50%',
-            background: active ? 'var(--cs-accent)' : 'var(--cs-border)',
-            opacity: active ? 0.4 + (i * 0.15) : 1,
-            animation: active ? `pulse 1.5s ease-in-out infinite` : 'none',
-            animationDelay: `${i * 0.15}s`,
+            background: active && i < filled ? 'var(--cs-accent)' : 'rgba(191,200,216,0.18)',
+            transition: 'background 150ms ease',
           }}
         />
       ))}
@@ -102,21 +113,21 @@ function ReadingDots({ active }) {
 
 // ─────────────────────────────────────────────────────────────────
 // CONFIDENCE BAR
+// Displays as text percentage + subtle bar.
 // ─────────────────────────────────────────────────────────────────
 function Confidence({ level = 'High' }) {
-  const filled = level === 'High' ? 4 : level === 'Medium' ? 2 : 1;
+  const pct = level === 'High' ? 97 : level === 'Medium' ? 68 : 42;
   return (
     <div className="flex items-center gap-2">
-      <span style={{ color: 'var(--cs-hint)', fontSize: '10px' }}>
-        Confidence <span style={{ color: 'var(--cs-text)', fontWeight: 600 }}>{level}</span>
-      </span>
-      <div className="flex items-center gap-[2px]">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} style={{
-            width: '6px', height: '10px', borderRadius: '1px',
-            background: i < filled ? 'var(--cs-green)' : 'rgba(191,200,216,0.12)',
-          }} />
-        ))}
+      <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px' }}>Confidence</span>
+      <span style={{ color: 'var(--cs-text)', fontSize: '10px', fontWeight: 600 }}>{level}</span>
+      <div style={{ width: '36px', height: '2px', background: 'rgba(255,255,255,0.08)', borderRadius: '1px', overflow: 'hidden' }}>
+        <div style={{
+          height: '100%',
+          width: `${pct}%`,
+          background: level === 'High' ? 'var(--cs-green)' : 'var(--cs-accent)',
+          transition: 'width 600ms var(--ease-premium)',
+        }} />
       </div>
     </div>
   );
@@ -142,6 +153,7 @@ export default function AIOverlayEditor({
   attention = {},
   insight,
   runtimeStatus,
+  aiPhase = 'searching',
 }) {
   const scrollRef = useRef(null);
 
@@ -170,76 +182,10 @@ export default function AIOverlayEditor({
       className="flex flex-col flex-1 min-w-0 h-full"
       style={{ background: 'var(--cs-editor)' }}
     >
-      {/* ── Tab bar ── */}
-      <div
-        className="flex items-end flex-shrink-0 overflow-x-auto no-scrollbar"
-        style={{
-          height: '40px',
-          background: 'var(--cs-panel)',
-          borderBottom: '1px solid var(--cs-border)',
-        }}
-      >
-        {tabs.map(tab => {
-          const isActive = tab.id === activeTabId;
-          return (
-            <div
-              key={tab.id}
-              onClick={() => onSelectTab?.(tab.id)}
-              className="flex items-center flex-shrink-0 cursor-pointer group transition-colors duration-[220ms]"
-              style={{
-                height: '40px',
-                padding: '0 26px 0 24px',
-                gap: '10px',
-                background: isActive ? 'var(--cs-editor)' : 'transparent',
-                borderRight: '1px solid var(--cs-border)',
-                borderBottom: isActive ? '1px solid var(--cs-accent-bar)' : '1px solid transparent',
-              }}
-            >
-              {/* Silver dot — AI opened this file */}
-              <div style={{
-                width: '5px', height: '5px', borderRadius: '50%',
-                background: isActive ? 'var(--cs-accent)' : 'rgba(191,200,216,0.20)',
-                flexShrink: 0,
-              }} />
 
-              <span style={{
-                color: isActive ? 'var(--cs-text)' : 'var(--cs-faint)',
-                fontSize: '12px',
-                fontFamily: 'var(--cs-mono)',
-                fontWeight: isActive ? 500 : 400,
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-              }}>
-                {tab.name}
-              </span>
-
-              {isActive && (
-                <button
-                  onClick={e => { e.stopPropagation(); onCloseTab?.(tab.id); }}
-                  className="opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-150"
-                  style={{
-                    width: '14px', height: '14px', borderRadius: '3px',
-                    color: 'var(--cs-faint)', background: 'transparent', border: 'none', cursor: 'pointer',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--cs-panel-raised)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                >
-                  <X size={10} />
-                </button>
-              )}
-            </div>
-          );
-        })}
-        {tabs.length > 0 && (
-          <div style={{
-            height: '40px', padding: '0 14px', display: 'flex', alignItems: 'center',
-            color: 'var(--cs-hint)', fontSize: '16px', lineHeight: 1, cursor: 'default',
-          }}>+</div>
-        )}
-      </div>
 
       {/* ── Full file — AI overlay applied in-place ── */}
-      <div ref={scrollRef} className="flex-1 overflow-auto min-h-0">
+      <div ref={scrollRef} key={activeFile} className="flex-1 overflow-auto min-h-0 animate-crossfade">
         {!activeFile ? (
           <div className="h-full flex items-center justify-center">
             <p style={{ color: 'var(--cs-hint)', fontSize: '12px', fontStyle: 'italic' }}>
@@ -247,7 +193,7 @@ export default function AIOverlayEditor({
             </p>
           </div>
         ) : (
-          <div style={{ paddingTop: '16px', paddingBottom: '40px' }}>
+          <div style={{ paddingTop: '40px', paddingBottom: '48px' }}>
             {lines.map((lineText, idx) => {
               const lineNum = idx + 1;
               const dist = aiLine ? Math.abs(lineNum - aiLine) : Infinity;
@@ -259,30 +205,26 @@ export default function AIOverlayEditor({
                   key={`${activeFile}-${lineNum}`}
                   className="flex items-start"
                   style={{
-                    // Smooth opacity transition — AI attention shifts line by line
                     opacity,
-                    transition: 'opacity 300ms cubic-bezier(0.22, 0.61, 0.36, 1)',
-                    // Read head: thin silver left border on exact AI focus line
+                    transition: `opacity 280ms cubic-bezier(0.22, 0.61, 0.36, 1)`,
+                    // Active line: 2px left border + wider soft glow background
                     borderLeft: isAiFocus
                       ? '2px solid rgba(191,200,216,0.55)'
                       : '2px solid transparent',
                     background: isAiFocus
-                      ? 'rgba(191,200,216,0.02)'
+                      ? 'linear-gradient(90deg, rgba(191,200,216,0.06) 0%, rgba(191,200,216,0.01) 60%, transparent 100%)'
                       : 'transparent',
-                    transition: `opacity 300ms cubic-bezier(0.22, 0.61, 0.36, 1),
-                                 background 300ms ease,
-                                 border-color 300ms ease`,
+                    transition: `opacity 280ms cubic-bezier(0.22, 0.61, 0.36, 1), background 300ms ease, border-color 300ms ease`,
                   }}
                 >
-                  {/* Line number */}
                   <span
-                    className="flex-shrink-0 select-none text-right pr-5 pl-4"
+                    className="flex-shrink-0 select-none text-right pr-[18px] pl-4"
                     style={{
-                      width: '52px',
+                      width: '60px',
                       fontFamily: 'var(--cs-mono)',
                       fontSize: '12px',
-                      lineHeight: '22px',
-                      color: isAiFocus ? 'var(--cs-accent)' : 'var(--cs-hint)',
+                      lineHeight: '24px',
+                      color: isAiFocus ? 'rgba(191,200,216,0.7)' : 'rgba(255,255,255,0.15)',
                       userSelect: 'none',
                       transition: 'color 220ms ease',
                     }}
@@ -295,10 +237,10 @@ export default function AIOverlayEditor({
                     style={{
                       flex: 1,
                       margin: 0,
-                      padding: '0 24px 0 24px',
+                      padding: '0 24px 0 28px',
                       fontFamily: 'var(--cs-mono)',
                       fontSize: '13px',
-                      lineHeight: '22px',
+                      lineHeight: '24px',
                       whiteSpace: 'pre-wrap',
                       wordBreak: 'break-all',
                     }}
@@ -322,68 +264,75 @@ export default function AIOverlayEditor({
         )}
       </div>
 
-      {/* ── Status bar ── */}
+      {/* ── Status bar — single flowing sentence ── */}
       <div
-        className="flex-shrink-0 flex items-center justify-between px-5"
+        className="flex-shrink-0 flex items-center"
         style={{
           height: '34px',
-          background: 'var(--cs-panel)',
+          padding: '0 24px',
+          background: 'transparent',
           borderTop: '1px solid var(--cs-border)',
         }}
       >
-        {/* Left */}
-        <div className="flex items-center gap-3">
-          {activeFile && (
-            <div className="flex items-center gap-2">
-              <span style={{
-                color: 'var(--cs-faint)',
-                fontSize: '11px',
-                fontFamily: 'var(--cs-mono)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-              }}>
-                <span>{isResolved ? 'Analysis complete' : isAiActive ? 'Reading' : 'Ready'}</span>
-                <span style={{ color: 'var(--cs-text)' }}>{activeFile}</span>
-                {aiLine && <span style={{ color: 'var(--cs-hint)' }}>Line {aiLine} / {lines.length}</span>}
+        {/* Left — one continuous sentence */}
+        <div
+          className="flex items-center min-w-0 flex-1"
+          style={{
+            fontFamily: 'var(--cs-mono)',
+            fontSize: '11px',
+            color: 'rgba(255,255,255,0.28)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            gap: 0,
+          }}
+        >
+          {activeFile ? (
+            <>
+              <span style={{ color: isResolved ? 'rgba(255,255,255,0.35)' : isAiActive ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.2)' }}>
+                {isResolved ? 'Analysis complete' : isAiActive ? 'Reading' : 'Ready'}
               </span>
-            </div>
+              <span style={{ color: 'var(--cs-text)', fontWeight: 500, marginLeft: '5px' }}>{activeFile}</span>
+              {aiLine && (
+                <>
+                  <span style={{ margin: '0 6px', opacity: 0.2 }}>·</span>
+                  <span>Line {aiLine}/{lines.length}</span>
+                </>
+              )}
+              {attention.symbol && (
+                <>
+                  <span style={{ margin: '0 6px', opacity: 0.2 }}>·</span>
+                  <span>Focus <span style={{ color: 'rgba(191,200,216,0.65)', fontWeight: 500 }}>{attention.symbol}</span></span>
+                </>
+              )}
+              {(isAiActive || isResolved) && (
+                <>
+                  <span style={{ margin: '0 6px', opacity: 0.2 }}>·</span>
+                  <span>Confidence <span style={{ color: confidence === 'High' ? 'rgba(63,185,80,0.8)' : 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{confidence}</span></span>
+                </>
+              )}
+            </>
+          ) : (
+            <span style={{ color: 'rgba(255,255,255,0.15)', fontStyle: 'italic' }}>Waiting for AI...</span>
           )}
         </div>
 
-        {/* Center Dots */}
+        {/* Right — reading dots, always pinned */}
         {activeFile && <ReadingDots active={isAiActive} />}
-
-        {/* Right */}
-        {(isAiActive || isResolved) && <Confidence level={confidence} />}
       </div>
 
-      {/* ── Active insight bar ── */}
+      {/* ── Insight bar — no label, just signal ── */}
       {insight && (
         <div
-          className="flex-shrink-0 flex items-center gap-3 px-4 animate-slide"
-          style={{
-            height: '36px',
-            background: 'var(--cs-editor)',
-            borderTop: '1px solid var(--cs-border)',
-          }}
+          className="flex-shrink-0 flex items-center gap-3 px-5 animate-slide"
+          style={{ height: '32px', borderTop: '1px solid var(--cs-border)' }}
         >
-          <div className="flex items-center justify-center flex-shrink-0" style={{ width: '16px' }}>
-            <span style={{ color: 'var(--cs-accent)', fontSize: '13px' }}>✦</span>
-          </div>
+          <span style={{ color: 'var(--cs-accent)', fontSize: '11px', flexShrink: 0 }}>✦</span>
           <span style={{
-            color: 'var(--cs-text)',
-            fontSize: '10px',
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            flexShrink: 0,
-          }}>
-            Active Insight
-          </span>
-          <span style={{
-            color: 'var(--cs-muted)',
-            fontSize: '11.5px',
+            color: 'rgba(255,255,255,0.5)',
+            fontSize: '11px',
+            fontFamily: 'var(--cs-mono)',
+            fontStyle: 'italic',
             flex: 1,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -395,7 +344,7 @@ export default function AIOverlayEditor({
             style={{
               flexShrink: 0,
               color: 'var(--cs-faint)',
-              fontSize: '10.5px',
+              fontSize: '10px',
               background: 'transparent',
               border: 'none',
               cursor: 'pointer',
@@ -404,10 +353,11 @@ export default function AIOverlayEditor({
             onMouseEnter={e => e.currentTarget.style.color = 'var(--cs-accent)'}
             onMouseLeave={e => e.currentTarget.style.color = 'var(--cs-faint)'}
           >
-            View dependency map →
+            View map →
           </button>
         </div>
       )}
+
     </div>
   );
 }

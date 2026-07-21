@@ -41,6 +41,7 @@ function DockIcon({ item, onSelect }) {
             width: '2px',
             height: '20px',
             background: 'var(--cs-accent)',
+            boxShadow: '0 0 8px var(--cs-accent)',
             top: '50%',
             transform: 'translateY(-50%)',
           }}
@@ -49,20 +50,30 @@ function DockIcon({ item, onSelect }) {
 
       {/* Icon */}
       <div
-        className="flex items-center justify-center transition-colors duration-[220ms]"
+        className="dock-icon flex items-center justify-center"
         style={{
           width: '32px',
           height: '32px',
-          color: item.active ? 'var(--cs-accent)' : 'var(--cs-hint)',
+          color: item.active ? '#F4F4F4' : 'rgba(255,255,255,0.35)',
+          opacity: item.active ? 1.0 : 0.65,
+          transition: 'transform 200ms var(--ease-out), color 220ms ease, opacity 220ms ease',
         }}
         onMouseEnter={e => {
-          if (!item.active) e.currentTarget.style.color = 'var(--cs-muted)';
+          if (!item.active) {
+            e.currentTarget.style.color = '#F4F4F4';
+            e.currentTarget.style.opacity = '0.9';
+            e.currentTarget.style.transform = 'scale(1.05)';
+          }
         }}
         onMouseLeave={e => {
-          if (!item.active) e.currentTarget.style.color = 'var(--cs-hint)';
+          if (!item.active) {
+            e.currentTarget.style.color = 'rgba(255,255,255,0.35)';
+            e.currentTarget.style.opacity = '0.65';
+            e.currentTarget.style.transform = 'scale(1)';
+          }
         }}
       >
-        <Icon size={18} strokeWidth={1.6} />
+        <Icon size={22} strokeWidth={1.5} />
       </div>
     </div>
   );
@@ -83,7 +94,7 @@ export default function Dock({ activeItem, onSelect }) {
       }}
     >
       {/* Top icons */}
-      <div className="flex flex-col items-center pt-5 gap-8">
+      <div className="flex flex-col items-center pt-6 gap-10">
         {items.map(item => (
           <DockIcon key={item.id} item={item} onSelect={onSelect} />
         ))}
