@@ -36,7 +36,9 @@ app.use(express.json());
 // Routes
 const repoRouter = require('./routes/repo');
 const chatRouter = require('./routes/chat');
+const investigateRouter = require('./routes/investigate');
 app.use('/api/repo', repoRouter);
+app.use('/api/repo', investigateRouter);
 app.use('/api/chat', chatRouter);
 
 // Health Check

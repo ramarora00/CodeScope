@@ -189,28 +189,33 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
         });
 
         if (file.metadata) {
-          const parsedMeta = JSON.parse(file.metadata);
-          const symbolLines = [
-            ...(parsedMeta.functions || []).map(f => f.lineStart),
-            ...(parsedMeta.classes || []).map(c => c.lineStart),
-            ...(parsedMeta.routes || []).map(r => r.lineStart)
-          ].filter(Boolean).sort((a, b) => a - b);
+          let parsedMeta;
+          try { parsedMeta = JSON.parse(file.metadata); } catch { parsedMeta = null; }
+          if (parsedMeta) {
+            const symbolLines = [
+              ...(parsedMeta.functions || []).map(f => f.lineStart),
+              ...(parsedMeta.classes  || []).map(c => c.lineStart),
+              ...(parsedMeta.routes   || []).map(r => r.lineStart)
+            ].filter(Boolean).sort((a, b) => a - b);
 
-          for (const line of symbolLines) {
-            indexingEmitter.emit('progress', {
-              repoId,
-              step: 'parsing',
-              status: 'running',
-              file: normalizedPath,
-              line
-            });
+            for (const line of symbolLines) {
+              indexingEmitter.emit('progress', {
+                repoId,
+                step: 'parsing',
+                status: 'running',
+                file: normalizedPath,
+                line
+              });
+            }
           }
         }
       }
 
-      // Save Symbols from metadata with qualifiedName
+      // P0-2: Guard against malformed metadata JSON
       if (file.metadata) {
-        const parsedMeta = JSON.parse(file.metadata);
+        let parsedMeta;
+        try { parsedMeta = JSON.parse(file.metadata); } catch { parsedMeta = null; }
+        if (parsedMeta) {
         const symbolsToCreate = [
           {
             name: file.filename,
@@ -272,7 +277,8 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
 
     for (const file of allFiles) {
       if (!file.metadata) continue;
-      const meta = JSON.parse(file.metadata);
+      let meta;
+      try { meta = JSON.parse(file.metadata); } catch { continue; }
       const normalizedFilePath = normalizePath(file.path);
 
       // --- Process ES6 imports ---
