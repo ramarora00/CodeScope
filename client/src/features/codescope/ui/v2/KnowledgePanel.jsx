@@ -39,8 +39,12 @@ function SectionHeader({ label }) {
   );
 }
 
-export default function KnowledgePanel() {
+export default function KnowledgePanel({ repo }) {
   const [askQuery, setAskQuery] = useState('');
+  const isReal = repo && repo.id;
+  
+  const currentFindings = isReal ? [] : FINDINGS_FILES;
+  const currentRelated = isReal ? [] : RELATED;
 
   const handleAction = (id) => {
     console.log('action:', id);
@@ -93,7 +97,11 @@ export default function KnowledgePanel() {
 
           {/* Denser file list */}
           <div className="space-y-0">
-            {FINDINGS_FILES.map((f, i) => (
+            {currentFindings.length === 0 ? (
+              <div style={{ color: 'var(--cs-muted)', fontSize: '11px', padding: '12px 0' }}>
+                {isReal ? 'No findings recorded yet.' : 'No findings.'}
+              </div>
+            ) : currentFindings.map((f, i) => (
               <div
                 key={i}
                 className="flex items-center gap-2 rounded cursor-pointer transition-colors duration-[220ms]"
@@ -126,7 +134,11 @@ export default function KnowledgePanel() {
         <div style={{ padding: '40px 24px 0' }}>
           <SectionHeader label="Related Symbols" />
           <div className="space-y-0">
-            {RELATED.map((item, i) => (
+            {currentRelated.length === 0 ? (
+              <div style={{ color: 'var(--cs-muted)', fontSize: '11px', padding: '12px 0' }}>
+                {isReal ? 'No related symbols identified.' : 'No related symbols.'}
+              </div>
+            ) : currentRelated.map((item, i) => (
               <div
                 key={i}
                 className="flex items-center justify-between rounded cursor-pointer transition-colors duration-[220ms]"

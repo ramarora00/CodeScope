@@ -154,11 +154,13 @@ export default function AIOverlayEditor({
   insight,
   runtimeStatus,
   aiPhase = 'searching',
+  memoryFiles = [],
 }) {
   const scrollRef = useRef(null);
 
   const activeFile = activeTabId || attention.file;
-  const content = MOCK_FILES[activeFile] || '';
+  const activeMemoryFile = memoryFiles.find(m => m.name === activeFile || m.file === activeFile);
+  const content = activeMemoryFile?.content || MOCK_FILES[activeFile] || '';
   const lines = useMemo(() => content.split('\n'), [content]);
 
   const aiLine = attention.line ?? null;

@@ -17,7 +17,9 @@ import KnowledgePanel from './KnowledgePanel';
  * Runtime is decoupled via RuntimeAdapter. UI never knows if
  * events come from mock or real backend.
  */
-export default function WorkspaceRoot({ repo = null }) {
+export default function WorkspaceRoot({ repo = null, onBack }) {
+  console.log('[WorkspaceRoot] Rendered. Props repo:', repo);
+
   const [events, setEvents]             = useState([]);
   const [attention, setAttention]       = useState({});
   const [tabs, setTabs]                 = useState([]);
@@ -32,7 +34,8 @@ export default function WorkspaceRoot({ repo = null }) {
   const [bootPhase, setBootPhase]       = useState('booting'); // 'booting' | 'ready'
   const [bootStatus, setBootStatus]     = useState('Repository');
 
-  const runtimeRef = useRef(null);
+  const runtimeRef        = useRef(null);
+  const runtimeStartedRef = useRef(false); // P0-5: prevents double startRuntimeBoot()
 
   const handleEvent = useCallback((event) => {
     setEvents(prev => [...prev, event]);
@@ -53,6 +56,19 @@ export default function WorkspaceRoot({ repo = null }) {
           symbol: null,
           type: 'appear',
         }));
+
+        // Fetch real file content
+        if (repo && repo.id) {
+          fetch(`http://localhost:5000/api/repo/${repo.id}/file/content?filePath=${encodeURIComponent(filename)}`)
+            .then(res => res.json())
+            .then(data => {
+              setMemoryFiles(prev => {
+                if (prev.find(f => f.file === filename || f.name === filename)) return prev;
+                return [...prev, { name: filename, file: filename, content: data.content || '', language: 'typescript' }];
+              });
+            })
+            .catch(err => console.error('Failed to fetch file content:', err));
+        }
         break;
       }
 
@@ -113,28 +129,100 @@ export default function WorkspaceRoot({ repo = null }) {
   }, [attention.file]);
 
   useEffect(() => {
-    // RuntimeAdapter decouples UI from mock vs real runtime
-    const runtime = createRuntime(repo);
-    runtimeRef.current = runtime;
-    const unsub = runtime.subscribe(handleEvent);
+    console.log('[WorkspaceRoot] useEffect[repo] triggered. Repo is:', repo);
+    // Reset UI state on every repo change
+    setEvents([]);
+    setAttention({});
+    setTabs([]);
+    setActiveTabId(null);
+    setMemoryFiles([]);
+    setRuntimeStatus('idle');
+    setInsight(null);
+    setBootPhase('booting');
+    setBootStatus('Connecting...');
+    runtimeStartedRef.current = false; // P0-5: reset guard for new repo
 
-    let t1, t2, t3, t4;
-    t1 = setTimeout(() => setBootStatus('Indexing'), 800);
-    t2 = setTimeout(() => setBootStatus('Preparing graph'), 1800);
-    t3 = setTimeout(() => setBootStatus('Ready'), 2600);
-    t4 = setTimeout(() => {
-      setBootPhase('ready');
-      setStartedAt(Date.now());
-      runtime.start();
-    }, 2900);
+    const isReal = repo && repo.id;
+
+    const startRuntimeBoot = () => {
+      // P0-5: Guard — can only run once per repo. Prevents race between
+      // SSE 'ready' event and direct boot path firing simultaneously.
+      if (runtimeStartedRef.current) return () => {};
+      runtimeStartedRef.current = true;
+
+      const runtime = createRuntime(repo);
+      runtimeRef.current = runtime;
+      const unsub = runtime.subscribe(handleEvent);
+
+      let t1, t2, t3;
+      t1 = setTimeout(() => setBootStatus(isReal ? 'Building graph' : 'Preparing graph'), 600);
+      t2 = setTimeout(() => setBootStatus(isReal ? 'Planning investigation' : 'Ready'), 1400);
+      t3 = setTimeout(() => {
+        setBootPhase('ready');
+        setStartedAt(Date.now());
+        runtime.start();
+      }, 1900);
+
+      return () => {
+        clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
+        runtime.stop();
+        unsub();
+      };
+    };
+
+    // If repo is already indexed, go straight to boot animation
+    if (!isReal || repo.status === 'ready') {
+      setBootStatus(isReal ? 'Analyzing repository' : 'Initializing');
+      const cleanup = startRuntimeBoot();
+      return cleanup;
+    }
+
+    // Repo is still indexing — subscribe to SSE progress and show live steps
+    const STEP_LABELS = {
+      cloning:         'Cloning repository...',
+      reading:         'Reading files...',
+      parsing:         'Parsing AST...',
+      resolve_imports: 'Resolving imports...',
+      call_graph:      'Building call graph...',
+      embeddings:      'Building embeddings...',
+      ready:           'Analysis complete',
+    };
+
+    const eventSource = new EventSource(`http://localhost:5000/api/repo/${repo.id}/progress`);
+    let cleanupRuntime = null;
+
+    eventSource.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.step && data.status === 'running') {
+          setBootStatus(STEP_LABELS[data.step] || data.step);
+        }
+        if (data.step === 'ready' && data.status === 'done') {
+          eventSource.close();
+          setBootStatus('Analysis complete');
+          setTimeout(() => {
+            cleanupRuntime = startRuntimeBoot();
+          }, 400);
+        }
+        if (data.status === 'failed') {
+          setBootStatus('Indexing failed — go back and retry');
+          eventSource.close();
+        }
+      } catch (err) {
+        console.error('[WorkspaceRoot] SSE parse error:', err);
+      }
+    };
+
+    eventSource.onerror = () => {
+      eventSource.close();
+    };
 
     return () => {
-      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4);
-      runtime.stop();
-      unsub();
+      eventSource.close();
+      if (cleanupRuntime) cleanupRuntime();
+      if (runtimeRef.current) runtimeRef.current.stop();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [repo]); // Re-run when repo changes
 
   const handleSelectTab = useCallback(id => setActiveTabId(id), []);
   const handleCloseTab = useCallback(id => {
@@ -152,7 +240,6 @@ export default function WorkspaceRoot({ repo = null }) {
         background: '#09090B',
         padding: '16px 20px',
         gap: '12px',
-        cursor: runtimeStatus !== 'resolved' ? 'none' : 'default',
       }}
     >
       {/* ── Command Bar ── */}
@@ -173,10 +260,29 @@ export default function WorkspaceRoot({ repo = null }) {
       {bootPhase === 'booting' ? (
         <div className="flex flex-1 items-center justify-center min-h-0 animate-fade-in">
           <div className="flex flex-col items-center gap-6">
-            <div className="w-5 h-5 rounded-full border-[1.5px] border-[rgba(255,255,255,0.05)] border-t-[var(--cs-accent)] animate-spin" />
-            <span style={{ color: 'var(--cs-text)', fontSize: '13px', letterSpacing: '0.02em', fontWeight: 500 }} className="animate-pulse-dot">
+            {!bootStatus.includes('failed') && (
+              <div className="w-5 h-5 rounded-full border-[1.5px] border-[rgba(255,255,255,0.05)] border-t-[var(--cs-accent)] animate-spin" />
+            )}
+            <span style={{ color: bootStatus.includes('failed') ? 'var(--cs-red, #e45c5c)' : 'var(--cs-text)', fontSize: '13px', letterSpacing: '0.02em', fontWeight: 500 }} className="animate-pulse-dot">
               {bootStatus}
             </span>
+            {bootStatus.includes('failed') && onBack && (
+              <button
+                onClick={onBack}
+                style={{
+                  marginTop: '8px',
+                  padding: '6px 16px',
+                  fontSize: '12px',
+                  color: 'var(--cs-text)',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                }}
+              >
+                Go back
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -214,6 +320,7 @@ export default function WorkspaceRoot({ repo = null }) {
             attention={attention}
             startedAt={startedAt}
             memoryFiles={memoryFiles}
+            repo={repo}
           />
         </div>
 
@@ -238,6 +345,7 @@ export default function WorkspaceRoot({ repo = null }) {
             insight={insight}
             runtimeStatus={runtimeStatus}
             aiPhase={aiPhase}
+            memoryFiles={memoryFiles}
           />
         </div>
 
@@ -254,6 +362,7 @@ export default function WorkspaceRoot({ repo = null }) {
           }}
         >
           <KnowledgePanel
+            repo={repo}
             searchStatus={runtimeStatus === 'idle' ? 'searching' : 'found'}
             filesTouchedCount={memoryFiles.length}
           />

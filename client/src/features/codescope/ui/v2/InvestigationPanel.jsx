@@ -1,13 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Check, Send } from 'lucide-react';
 
-const PLAN_STEPS = [
+const MOCK_PLAN_STEPS = [
   { id: 1, label: 'Find auth middleware entry point', done: true },
   { id: 2, label: 'Trace token verification failure', active: true },
   { id: 3, label: 'Follow session guard logic' },
   { id: 4, label: 'Review refresh token endpoint' },
   { id: 5, label: 'Check user repository session invalidation' },
   { id: 6, label: 'Summarize failure path' },
+];
+
+const REAL_PLAN_STEPS = [
+  { id: 1, label: 'Connect to repository event stream', done: true },
+  { id: 2, label: 'Synchronize workspace files', active: true },
+  { id: 3, label: 'Analyze codebase architecture' },
 ];
 
 function ElapsedTimer({ startedAt }) {
@@ -139,12 +145,16 @@ function TimelineEntry({ entry, isActive, memoryFiles }) {
 // ─────────────────────────────────────────────────────────────────
 // INVESTIGATION PANEL — 305px, ~15% compressed vs previous
 // ─────────────────────────────────────────────────────────────────
-export default function InvestigationPanel({ events = [], attention = {}, startedAt, memoryFiles = [] }) {
+export default function InvestigationPanel({ events = [], attention = {}, startedAt, memoryFiles = [], repo }) {
   const [askQuery, setAskQuery] = useState('');
   const bottomRef = useRef(null);
 
+  const isReal = repo && repo.id;
+  const planSteps = isReal ? REAL_PLAN_STEPS : MOCK_PLAN_STEPS;
+  const title = isReal ? `Exploring ${repo.name.split('/').pop()}` : 'Find where JWT authentication breaks for expired sessions.';
+
   const timelineEntries = events.filter(e => e.type === 'timeline');
-  const completedSteps = PLAN_STEPS.filter(s => s.done).length;
+  const completedSteps = planSteps.filter(s => s.done).length;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -190,7 +200,7 @@ export default function InvestigationPanel({ events = [], attention = {}, starte
             lineHeight: 1.55,
             flex: 1,
           }}>
-            Find where JWT authentication breaks for expired sessions.
+            {title}
           </p>
           <span style={{ color: 'var(--cs-accent)', fontSize: '13px', flexShrink: 0, marginTop: '1px' }}>✦</span>
         </div>
@@ -232,7 +242,7 @@ export default function InvestigationPanel({ events = [], attention = {}, starte
             Plan
           </span>
           <span style={{ color: 'var(--cs-hint)', fontSize: '10px', fontFamily: 'var(--cs-mono)' }}>
-            {completedSteps} / {PLAN_STEPS.length}
+            {completedSteps} / {planSteps.length}
           </span>
         </div>
 
@@ -241,7 +251,7 @@ export default function InvestigationPanel({ events = [], attention = {}, starte
           <div
             style={{
               height: '100%',
-              width: `${(completedSteps / PLAN_STEPS.length) * 100}%`,
+              width: `${(completedSteps / planSteps.length) * 100}%`,
               background: 'var(--cs-green)',
               transition: 'width 300ms ease-out',
             }}
@@ -250,7 +260,7 @@ export default function InvestigationPanel({ events = [], attention = {}, starte
 
         {/* Step list */}
         <div className="space-y-[8px]">
-          {PLAN_STEPS.map(step => (
+          {planSteps.map(step => (
             <div
               key={step.id}
               className="flex items-center gap-2"
