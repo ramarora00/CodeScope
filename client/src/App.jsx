@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import LaunchExperience from './features/codescope/ui/LaunchExperience';
-import ProcessingExperience from './features/codescope/ui/ProcessingExperience';
 import WorkspaceRoot from './features/codescope/ui/v2/WorkspaceRoot';
 import './App.css';
 
@@ -9,6 +8,8 @@ function App() {
   const [appState, setAppState] = useState('launch');
   const [repos, setRepos] = useState([]);
   const [selectedRepo, setSelectedRepo] = useState(null);
+  
+  console.log('[App.jsx] Render. appState:', appState, 'selectedRepo:', selectedRepo);
   
   // Investigation States
   const [investigations, setInvestigations] = useState([]);
@@ -68,15 +69,10 @@ function App() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to connect repository');
 
-      // Update lists
+      // Update lists — always go straight to workspace
       setRepos(prev => [data, ...prev]);
       setSelectedRepo(data);
-
-      if (data.status === 'ready') {
-        setAppState('workspace');
-      } else {
-        setAppState('processing');
-      }
+      setAppState('workspace');
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -85,11 +81,7 @@ function App() {
 
   const handleSelectRepo = (repo) => {
     setSelectedRepo(repo);
-    if (repo.status === 'ready') {
-      setAppState('workspace');
-    } else {
-      setAppState('processing');
-    }
+    setAppState('workspace');
   };
 
   const handleConnectNew = () => {
@@ -188,15 +180,8 @@ function App() {
       {appState === 'launch' && (
         <LaunchExperience onConnect={handleConnect} repos={repos} />
       )}
-      {appState === 'processing' && (
-        <ProcessingExperience
-          repo={selectedRepo}
-          onComplete={handleProcessingComplete}
-          onBack={handleConnectNew}
-        />
-      )}
       {appState === 'workspace' && (
-        <WorkspaceRoot repo={selectedRepo} />
+        <WorkspaceRoot repo={selectedRepo} onBack={handleConnectNew} />
       )}
     </div>
   );
