@@ -1,20 +1,25 @@
 /**
  * RuntimeAdapter.js
  *
- * Single factory that decouples WorkspaceRoot from
- * which runtime is active. The UI never knows.
+ * Single factory that decouples WorkspaceRoot from which runtime is active.
+ * The UI never knows which runtime is active.
  *
- * Current behaviour:
- *   - No repo or demo flag → ClaudeRuntime (mock simulation)
- *   - Real repo (future) → RealRuntime (backend API stream)
+ * Strategy:
+ *   - Real repo with id -> RealRuntime (live backend SSE stream)
+ *   - No repo / demo flag -> ClaudeRuntime (mock simulation)
  *
- * To add a real backend: implement RealRuntime with the same
- * subscribe(listener) / start() / stop() interface as ClaudeRuntime,
- * then swap it in here. Nothing else changes.
+ * Adding new transports in the future: implement a new class with the same
+ * subscribe(listener) / start() / stop() interface. Nothing else changes.
  */
 import { ClaudeRuntime } from './ClaudeRuntime';
+import { RealRuntime } from './RealRuntime';
 
 export function createRuntime(repo) {
-  // Future: if (repo && repo.status === 'ready') return new RealRuntime(repo);
+  console.log('[RuntimeAdapter] createRuntime called with repo:', repo);
+  if (repo && repo.id) {
+    console.log('[RuntimeAdapter] Returning RealRuntime for repo id:', repo.id);
+    return new RealRuntime(repo.id);
+  }
+  console.log('[RuntimeAdapter] Returning ClaudeRuntime (fallback)');
   return new ClaudeRuntime();
 }
