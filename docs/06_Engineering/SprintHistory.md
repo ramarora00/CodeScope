@@ -186,3 +186,34 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-07-21T17:51:00+05:30*
 
+
+## Sprint — Live Investigation Engine & Backend Integration
+
+**Commits**
+- `8fdf143` feat(investigation): add domain model — context, events, result, snapshot, repository
+- `c843030` feat(investigation): add planner — classification, DAG builder, strategies, scoring
+- `9f71431` feat(investigation): add transport layer — SSE, event bus, session, recorder
+- `b024922` feat(investigation): add execution engine and investigation API route
+- `7355f93` fix(server): harden metadata JSON parsing and wire investigation route
+- `6fa1420` feat(codescope): add RealRuntime and update RuntimeAdapter for live backend SSE
+- `2d9b7c2` feat(codescope): add investigation session and playback controller stores
+- `2674006` feat(codescope): wire live investigation into workspace UI with SSE boot sequence
+- `1fbc708` feat(app): remove ProcessingExperience, wire direct workspace entry with onBack
+- `fca0430` chore(test): add investigation test harness, fixtures, and runtime logs
+
+**Status**
+? Completed
+
+**Summary**
+- Built full investigation backend engine: domain model, planner (classification, DAG, strategies, scoring), transport (SSE, event bus, session, recorder), execution engine.
+- Added `/api/repo/:id/investigate` route for launching live investigations.
+- Hardened metadata JSON parsing across server routes to prevent crashes on malformed data.
+- Made MOCK_EMBEDDING configurable via environment variable.
+- Added RealRuntime client that streams SSE events from the backend, with RuntimeAdapter auto-selecting real vs mock.
+- Added useInvestigationSession and usePlaybackController store hooks.
+- Integrated live SSE boot sequence into WorkspaceRoot with indexing step labels and error fallback.
+- Removed ProcessingExperience from App.jsx — workspace now entered directly.
+- Added investigation test harness, validation fixtures, and 24 investigation log recordings.
+
+*Recorded on 2026-07-24T18:06:00+05:30*
+
