@@ -1,20 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Check, Send } from 'lucide-react';
 
-const MOCK_PLAN_STEPS = [
-  { id: 1, label: 'Find auth middleware entry point', done: true },
-  { id: 2, label: 'Trace token verification failure', active: true },
-  { id: 3, label: 'Follow session guard logic' },
-  { id: 4, label: 'Review refresh token endpoint' },
-  { id: 5, label: 'Check user repository session invalidation' },
-  { id: 6, label: 'Summarize failure path' },
-];
-
-const REAL_PLAN_STEPS = [
-  { id: 1, label: 'Connect to repository event stream', done: true },
-  { id: 2, label: 'Synchronize workspace files', active: true },
-  { id: 3, label: 'Analyze codebase architecture' },
-];
+// Mocks removed: injected via presentation adapter props
 
 function ElapsedTimer({ startedAt }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -145,20 +132,17 @@ function TimelineEntry({ entry, isActive, memoryFiles }) {
 // ─────────────────────────────────────────────────────────────────
 // INVESTIGATION PANEL — 305px, ~15% compressed vs previous
 // ─────────────────────────────────────────────────────────────────
-export default function InvestigationPanel({ events = [], attention = {}, startedAt, memoryFiles = [], repo }) {
+export default function InvestigationPanel({ timelineEvents = [], planSteps = [], startedAt, memoryFiles = [], repo }) {
   const [askQuery, setAskQuery] = useState('');
   const bottomRef = useRef(null);
 
-  const isReal = repo && repo.id;
-  const planSteps = isReal ? REAL_PLAN_STEPS : MOCK_PLAN_STEPS;
-  const title = isReal ? `Exploring ${repo.name.split('/').pop()}` : 'Find where JWT authentication breaks for expired sessions.';
+  const title = repo && repo.id ? `Exploring ${repo.name.split('/').pop()}` : 'Find where JWT authentication breaks for expired sessions.';
 
-  const timelineEntries = events.filter(e => e.type === 'timeline');
   const completedSteps = planSteps.filter(s => s.done).length;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [events.length]);
+  }, [timelineEvents.length]);
 
   const handleAsk = (e) => {
     e.preventDefault();
@@ -211,7 +195,7 @@ export default function InvestigationPanel({ events = [], attention = {}, starte
         className="flex-1 overflow-y-auto no-scrollbar min-h-0"
         style={{ padding: '0 24px' }}
       >
-        {timelineEntries.map((entry, index) => {
+        {timelineEvents.map((entry, index) => {
           const isActive = entry.status === 'active';
           return (
             <React.Fragment key={entry.id}>

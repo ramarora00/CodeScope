@@ -1,238 +1,105 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { createRuntime } from '../../model/RuntimeAdapter';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import CommandBar from './CommandBar';
 import Dock from './Dock';
 import InvestigationPanel from './InvestigationPanel';
 import AIOverlayEditor from './AIOverlayEditor';
 import KnowledgePanel from './KnowledgePanel';
+import RepositoryReadyState from './RepositoryReadyState';
+
+// ── Behavior Layer ──────────────────────────────────────────────
+// Rule 15: JSX/layout/visual below is frozen. Only this import
+// section and the bridge hooks are allowed to change.
+import { useInvestigationSession, SESSION_STATES } from '../../store/useInvestigationSession';
+import { useInvestigationEventRouter } from '../../store/useInvestigationEventRouter';
+import { usePlaybackController } from '../../store/usePlaybackController';
+import { useWorkspacePresentationModel } from '../../store/useWorkspacePresentationModel';
+import { useWorkspaceLifecycle } from '../../hooks/useWorkspaceLifecycle';
 
 /**
- * WorkspaceRoot — CodeScope V1 (Locked Spec)
+ * WorkspaceRoot — CodeScope Canonical Shell (Rule 15 — Presentation Lock)
  *
  * Layout: Dock (56) | Investigation (305) | AIOverlayEditor (flex-1) | Knowledge (320)
  *
  * Observation pane removed — AI reading is now an in-place overlay
  * inside the editor. Code never moves. Only AI attention moves.
  *
- * Runtime is decoupled via RuntimeAdapter. UI never knows if
- * events come from mock or real backend.
+ * Brain: useInvestigationSession (Zustand) driven by SSE → useInvestigationEventRouter
+ * Presentation: unchanged from the approved premium v2 shell.
  */
-export default function WorkspaceRoot({ repo = null, onBack }) {
-  console.log('[WorkspaceRoot] Rendered. Props repo:', repo);
+export default function WorkspaceRoot({ repo = null, onBack, activeInvestigation, onNewInvestigation }) {
+  // ── PRESENTATION-ONLY state (does not affect behavior) ──────────
+  const [dockActive, setDockActive] = useState('investigation');
 
-  const [events, setEvents]             = useState([]);
-  const [attention, setAttention]       = useState({});
-  const [tabs, setTabs]                 = useState([]);
-  const [activeTabId, setActiveTabId]   = useState(null);
-  const [memoryFiles, setMemoryFiles]   = useState([]);
-  const [runtimeStatus, setRuntimeStatus] = useState('idle');
-  const [insight, setInsight]           = useState(null);
-  const [startedAt, setStartedAt]       = useState(null);
-  const [dockActive, setDockActive]     = useState('investigation');
-  const [aiPhase, setAiPhase]           = useState('searching'); // searching|understanding|connecting|verifying|concluding
+  // ── BEHAVIOR LAYER: read from Zustand store via Adapter ──────────
+  // Rule 16: Presentation Components Are Render-Only
+  const { presentation, raw } = useWorkspacePresentationModel();
+
+  // ── BOOT state ───────────────────────────────────────────────────
+  const { bootPhase, bootStatus } = useWorkspaceLifecycle({
+    repo,
+    activeInvestigation,
+    onNewInvestigation,
+    rawSessionState: raw.sessionState
+  });
   
-  const [bootPhase, setBootPhase]       = useState('booting'); // 'booting' | 'ready'
-  const [bootStatus, setBootStatus]     = useState('Repository');
+  // ── BRIDGE: Mount SSE event router (Rule 10 — Single Event Translation Layer) ─
+  useInvestigationEventRouter(repo?.id, activeInvestigation);
+  usePlaybackController();
 
-  const runtimeRef        = useRef(null);
-  const runtimeStartedRef = useRef(false); // P0-5: prevents double startRuntimeBoot()
-
-  const handleEvent = useCallback((event) => {
-    setEvents(prev => [...prev, event]);
-
-    switch (event.type) {
-      case 'appear': {
-        const filename = event.file;
-        setTabs(prev => {
-          const exists = prev.some(t => t.name === filename);
-          if (exists) return prev;
-          return [...prev, { id: filename, name: filename, path: filename }];
-        });
-        setActiveTabId(filename);
-        setAttention(prev => ({
-          ...prev,
-          file: filename,
-          line: prev.file === filename ? prev.line : 1,
-          symbol: null,
-          type: 'appear',
-        }));
-
-        // Fetch real file content
-        if (repo && repo.id) {
-          fetch(`http://localhost:5000/api/repo/${repo.id}/file/content?filePath=${encodeURIComponent(filename)}`)
-            .then(res => res.json())
-            .then(data => {
-              setMemoryFiles(prev => {
-                if (prev.find(f => f.file === filename || f.name === filename)) return prev;
-                return [...prev, { name: filename, file: filename, content: data.content || '', language: 'typescript' }];
-              });
-            })
-            .catch(err => console.error('Failed to fetch file content:', err));
-        }
-        break;
-      }
-
-      case 'read': {
-        setAttention(prev => ({
-          ...prev,
-          file: event.file,
-          line: event.line,
-          lineType: event.lineType,
-          type: 'read',
-        }));
-        setRuntimeStatus('reading');
-        break;
-      }
-
-      case 'follow': {
-        setAttention(prev => ({
-          ...prev,
-          file: event.file,
-          line: event.line,
-          symbol: event.symbol,
-          reason: event.reason,
-          type: 'follow',
-        }));
-        break;
-      }
-
-      case 'jump': {
-        if (attention.file) {
-          setMemoryFiles(prev => {
-            if (prev.some(m => m.file === attention.file)) return prev;
-            return [...prev, { file: attention.file, lines: '—' }];
-          });
-        }
-        break;
-      }
-
-      case 'insight': {
-        setInsight(event.text);
-        setAttention(prev => ({ ...prev, line: event.line, type: 'insight' }));
-        break;
-      }
-
-      case 'resolve': {
-        setRuntimeStatus('resolved');
-        setInsight(event.reason);
-        setAttention(prev => ({ ...prev, type: 'resolve' }));
-        break;
-      }
-
-      case 'phase': {
-        setAiPhase(event.phase);
-        break;
-      }
-
-      default: break;
-    }
-  }, [attention.file]);
-
+  // memoryFiles: fetch content for every file the AI has visited
+  const [memoryFiles, setMemoryFiles] = useState([]);
   useEffect(() => {
-    console.log('[WorkspaceRoot] useEffect[repo] triggered. Repo is:', repo);
-    // Reset UI state on every repo change
-    setEvents([]);
-    setAttention({});
-    setTabs([]);
-    setActiveTabId(null);
-    setMemoryFiles([]);
-    setRuntimeStatus('idle');
-    setInsight(null);
-    setBootPhase('booting');
-    setBootStatus('Connecting...');
-    runtimeStartedRef.current = false; // P0-5: reset guard for new repo
+    if (!repo?.id || !presentation.activeTabId) return;
+    const filePath = presentation.activeTabId;
+    if (memoryFiles.find(m => m.file === filePath || m.name === filePath)) return;
 
-    const isReal = repo && repo.id;
+    fetch(`http://localhost:5000/api/repo/${repo.id}/file/content?filePath=${encodeURIComponent(filePath)}`)
+      .then(res => res.json())
+      .then(data => {
+        setMemoryFiles(prev => {
+          if (prev.find(f => f.file === filePath)) return prev;
+          return [...prev, {
+            name: filePath,
+            file: filePath,
+            content: data.content || '',
+            language: filePath.endsWith('.ts') ? 'typescript' : 'javascript',
+          }];
+        });
+      })
+      .catch(err => console.error('[WorkspaceRoot] File fetch error:', err));
+  }, [presentation.activeTabId, repo?.id]);
 
-    const startRuntimeBoot = () => {
-      // P0-5: Guard — can only run once per repo. Prevents race between
-      // SSE 'ready' event and direct boot path firing simultaneously.
-      if (runtimeStartedRef.current) return () => {};
-      runtimeStartedRef.current = true;
-
-      const runtime = createRuntime(repo);
-      runtimeRef.current = runtime;
-      const unsub = runtime.subscribe(handleEvent);
-
-      let t1, t2, t3;
-      t1 = setTimeout(() => setBootStatus(isReal ? 'Building graph' : 'Preparing graph'), 600);
-      t2 = setTimeout(() => setBootStatus(isReal ? 'Planning investigation' : 'Ready'), 1400);
-      t3 = setTimeout(() => {
-        setBootPhase('ready');
-        setStartedAt(Date.now());
-        runtime.start();
-      }, 1900);
-
-      return () => {
-        clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
-        runtime.stop();
-        unsub();
-      };
-    };
-
-    // If repo is already indexed, go straight to boot animation
-    if (!isReal || repo.status === 'ready') {
-      setBootStatus(isReal ? 'Analyzing repository' : 'Initializing');
-      const cleanup = startRuntimeBoot();
-      return cleanup;
+  // startedAt for the elapsed timer in InvestigationPanel
+  const [startedAt, setStartedAt] = useState(null);
+  useEffect(() => {
+    if (raw.sessionState === SESSION_STATES.PLAYING && !startedAt) {
+      setStartedAt(Date.now());
     }
+  }, [raw.sessionState]);
 
-    // Repo is still indexing — subscribe to SSE progress and show live steps
-    const STEP_LABELS = {
-      cloning:         'Cloning repository...',
-      reading:         'Reading files...',
-      parsing:         'Parsing AST...',
-      resolve_imports: 'Resolving imports...',
-      call_graph:      'Building call graph...',
-      embeddings:      'Building embeddings...',
-      ready:           'Analysis complete',
-    };
+  // Reset memory files and startedAt when repo changes
+  useEffect(() => {
+    setMemoryFiles([]);
+    setStartedAt(null);
+  }, [repo?.id]);
 
-    const eventSource = new EventSource(`http://localhost:5000/api/repo/${repo.id}/progress`);
-    let cleanupRuntime = null;
-
-    eventSource.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.step && data.status === 'running') {
-          setBootStatus(STEP_LABELS[data.step] || data.step);
-        }
-        if (data.step === 'ready' && data.status === 'done') {
-          eventSource.close();
-          setBootStatus('Analysis complete');
-          setTimeout(() => {
-            cleanupRuntime = startRuntimeBoot();
-          }, 400);
-        }
-        if (data.status === 'failed') {
-          setBootStatus('Indexing failed — go back and retry');
-          eventSource.close();
-        }
-      } catch (err) {
-        console.error('[WorkspaceRoot] SSE parse error:', err);
-      }
-    };
-
-    eventSource.onerror = () => {
-      eventSource.close();
-    };
-
-    return () => {
-      eventSource.close();
-      if (cleanupRuntime) cleanupRuntime();
-      if (runtimeRef.current) runtimeRef.current.stop();
-    };
-  }, [repo]); // Re-run when repo changes
-
-  const handleSelectTab = useCallback(id => setActiveTabId(id), []);
-  const handleCloseTab = useCallback(id => {
-    setTabs(prev => {
-      const next = prev.filter(t => t.id !== id);
-      if (id === activeTabId && next.length > 0) setActiveTabId(next[next.length - 1].id);
-      return next;
+  const handleSelectTab = useCallback(id => {
+    useInvestigationSession.getState().receiveEvent({
+      type: 'file.selected', file: id, reason: 'User selected tab'
     });
-  }, [activeTabId]);
+  }, []);
 
+  const isUnderstandingMode = useInvestigationSession(s => s.metadata.isUnderstandingMode);
+
+  const handleCloseTab = useCallback(id => {
+    // Tab close is presentation-only; we don't purge events from the store
+    setMemoryFiles(prev => prev.filter(m => m.file !== id && m.name !== id));
+  }, []);
+
+  // ── JSX: FROZEN — Rule 15 Presentation Lock ──────────────────────
+  // Do NOT modify layout, spacing, borderRadius, animationDelay,
+  // panel widths, or component hierarchy below this line without
+  // explicit user approval.
   return (
     <div
       className="w-screen h-screen flex flex-col"
@@ -253,7 +120,11 @@ export default function WorkspaceRoot({ repo = null, onBack }) {
           animationDelay: '0ms',
         }}
       >
-        <CommandBar repo={repo} branch="main" />
+        <CommandBar
+          repo={repo}
+          branch="main"
+          onNewInvestigation={onNewInvestigation}
+        />
       </div>
 
       {/* ── Workspace body ── */}
@@ -263,7 +134,15 @@ export default function WorkspaceRoot({ repo = null, onBack }) {
             {!bootStatus.includes('failed') && (
               <div className="w-5 h-5 rounded-full border-[1.5px] border-[rgba(255,255,255,0.05)] border-t-[var(--cs-accent)] animate-spin" />
             )}
-            <span style={{ color: bootStatus.includes('failed') ? 'var(--cs-red, #e45c5c)' : 'var(--cs-text)', fontSize: '13px', letterSpacing: '0.02em', fontWeight: 500 }} className="animate-pulse-dot">
+            <span
+              style={{
+                color: bootStatus.includes('failed') ? 'var(--cs-red, #e45c5c)' : 'var(--cs-text)',
+                fontSize: '13px',
+                letterSpacing: '0.02em',
+                fontWeight: 500,
+              }}
+              className="animate-pulse-dot"
+            >
               {bootStatus}
             </span>
             {bootStatus.includes('failed') && onBack && (
@@ -306,7 +185,7 @@ export default function WorkspaceRoot({ repo = null, onBack }) {
         <div
           className="animate-settle flex-shrink-0"
           style={{
-            marginTop: '2px', // optical asymmetry
+            marginTop: '2px',
             borderRadius: '12px',
             background: 'var(--cs-panel)',
             border: '1px solid var(--cs-border)',
@@ -316,8 +195,8 @@ export default function WorkspaceRoot({ repo = null, onBack }) {
           }}
         >
           <InvestigationPanel
-            events={events}
-            attention={attention}
+            timelineEvents={presentation.timelineEvents}
+            planSteps={presentation.planSteps}
             startedAt={startedAt}
             memoryFiles={memoryFiles}
             repo={repo}
@@ -336,17 +215,21 @@ export default function WorkspaceRoot({ repo = null, onBack }) {
             animationDelay: '140ms',
           }}
         >
-          <AIOverlayEditor
-            tabs={tabs}
-            activeTabId={activeTabId}
-            onSelectTab={handleSelectTab}
-            onCloseTab={handleCloseTab}
-            attention={attention}
-            insight={insight}
-            runtimeStatus={runtimeStatus}
-            aiPhase={aiPhase}
-            memoryFiles={memoryFiles}
-          />
+          {bootPhase === 'ready' && (!activeInvestigation || isUnderstandingMode) ? (
+            <RepositoryReadyState repo={repo} />
+          ) : (
+            <AIOverlayEditor
+              tabs={presentation.tabs}
+              activeTabId={presentation.activeTabId}
+              onSelectTab={handleSelectTab}
+              onCloseTab={handleCloseTab}
+              attention={presentation.attention}
+              insight={presentation.insight}
+              runtimeStatus={presentation.runtimeStatus}
+              aiPhase={presentation.aiPhase}
+              memoryFiles={memoryFiles}
+            />
+          )}
         </div>
 
         {/* Knowledge */}
@@ -363,20 +246,20 @@ export default function WorkspaceRoot({ repo = null, onBack }) {
         >
           <KnowledgePanel
             repo={repo}
-            searchStatus={runtimeStatus === 'idle' ? 'searching' : 'found'}
-            filesTouchedCount={memoryFiles.length}
+            findings={presentation.findings}
+            relatedSymbols={presentation.relatedSymbols}
           />
         </div>
       </div>
       )}
 
-      {/* ── Footer — live runtime metadata ── */}
+        {/* ── Footer — live runtime metadata ── */}
       <div
         className="flex items-center gap-5 flex-shrink-0 px-2 animate-settle"
         style={{ color: 'rgba(255,255,255,0.28)', fontSize: '10.5px', fontWeight: 400, animationDelay: '220ms' }}
       >
         <span style={{ color: 'rgba(255,255,255,0.45)' }}>
-          {memoryFiles.length > 0 ? `${memoryFiles.length} file${memoryFiles.length > 1 ? 's' : ''} touched` : 'Indexing...'}
+          {memoryFiles.length > 0 ? `${memoryFiles.length} file${memoryFiles.length > 1 ? 's' : ''} touched` : 'Waiting for investigation...'}
         </span>
         <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
         <div className="flex items-center gap-1.5">
@@ -384,14 +267,14 @@ export default function WorkspaceRoot({ repo = null, onBack }) {
           <span>Live</span>
         </div>
         <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
-        <span>Claude 3.7</span>
+        <span>{raw.focusContext?.mission ? `Mission: ${raw.focusContext.mission.slice(0, 40)}${raw.focusContext.mission.length > 40 ? '…' : ''}` : 'Gemini'}</span>
         <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
         <div className="flex items-center gap-1">
           <span style={{ color: 'rgba(191,200,216,0.4)', fontSize: '9px' }}>✦</span>
           <span>Sourcegraph MCP</span>
         </div>
         <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
-        <span>Latency {runtimeStatus === 'reading' ? '38ms' : '—'}</span>
+        <span>Latency {presentation.runtimeStatus === 'reading' ? '38ms' : '—'}</span>
       </div>
     </div>
   );

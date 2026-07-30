@@ -1,21 +1,8 @@
 import React, { useState } from 'react';
 import { Check, ChevronRight, GitBranch, Workflow, TestTube, Send } from 'lucide-react';
 
-const FINDINGS_FILES = [
-  { name: 'auth.middleware.ts', active: true },
-  { name: 'jwt.service.ts' },
-  { name: 'session.guard.ts' },
-  { name: 'token.refresh.ts' },
-  { name: 'user.repository.ts' },
-];
+// Mocks removed: injected via presentation adapter props
 
-const RELATED = [
-  { symbol: 'verifyToken()',     file: 'auth',    line: 42  },
-  { symbol: 'TokenExpiredError', file: 'jwt',     line: 13  },
-  { symbol: 'refreshSession()',  file: 'refresh', line: 28  },
-  { symbol: 'SessionGuard',      file: 'session', line: 8   },
-  { symbol: 'JwtPayload',        file: 'jwt',     line: 4   },
-];
 
 const ACTIONS = [
   { id: 'dep-map',  icon: GitBranch,  label: 'View dependency map' },
@@ -39,12 +26,8 @@ function SectionHeader({ label }) {
   );
 }
 
-export default function KnowledgePanel({ repo }) {
+export default function KnowledgePanel({ repo, findings = [], relatedSymbols = [] }) {
   const [askQuery, setAskQuery] = useState('');
-  const isReal = repo && repo.id;
-  
-  const currentFindings = isReal ? [] : FINDINGS_FILES;
-  const currentRelated = isReal ? [] : RELATED;
 
   const handleAction = (id) => {
     console.log('action:', id);
@@ -97,11 +80,11 @@ export default function KnowledgePanel({ repo }) {
 
           {/* Denser file list */}
           <div className="space-y-0">
-            {currentFindings.length === 0 ? (
+            {findings.length === 0 ? (
               <div style={{ color: 'var(--cs-muted)', fontSize: '11px', padding: '12px 0' }}>
-                {isReal ? 'No findings recorded yet.' : 'No findings.'}
+                No findings recorded yet.
               </div>
-            ) : currentFindings.map((f, i) => (
+            ) : findings.map((f, i) => (
               <div
                 key={i}
                 className="flex items-center gap-2 rounded cursor-pointer transition-colors duration-[220ms]"
@@ -134,11 +117,11 @@ export default function KnowledgePanel({ repo }) {
         <div style={{ padding: '40px 24px 0' }}>
           <SectionHeader label="Related Symbols" />
           <div className="space-y-0">
-            {currentRelated.length === 0 ? (
+            {relatedSymbols.length === 0 ? (
               <div style={{ color: 'var(--cs-muted)', fontSize: '11px', padding: '12px 0' }}>
-                {isReal ? 'No related symbols identified.' : 'No related symbols.'}
+                No related symbols identified.
               </div>
-            ) : currentRelated.map((item, i) => (
+            ) : relatedSymbols.map((item, i) => (
               <div
                 key={i}
                 className="flex items-center justify-between rounded cursor-pointer transition-colors duration-[220ms]"

@@ -28,7 +28,6 @@ export const useInvestigationSession = create((set, get) => ({
   processedEvents: [],
   
   // Investigation Data
-  evidence: [],
   bookmarks: [],
   statistics: {
     filesRead: 0,
@@ -38,13 +37,40 @@ export const useInvestigationSession = create((set, get) => ({
   metadata: {
     sessionId: null,
     repoId: null,
-    budget: null
+    budget: null,
+    isUnderstandingMode: false
+  },
+
+  // Persistent Repository Context (survives across sessions)
+  repositoryContext: {
+    framework: null,
+    findings: [],
+    stats: {
+      filesIndexed: 0,
+      entryPoints: 0,
+      services: 0
+    }
+  },
+  
+  // SPRINT 3: Predictive Focus Context (temporary per investigation)
+  focusContext: {
+    id: null,
+    mission: null,
+    status: 'repository', // 'repository' | 'planning' | 'investigating' | 'review'
+    currentStep: null,
+    relatedNodes: [],
+    findings: [],
+    answer: null,
+    confidence: null
   },
   
   // Derived visible UI state (what the user actually sees at this moment)
   currentActiveFile: null,
   currentReason: null,
   fileProgress: 0,
+  currentLine: 0,
+  totalLines: 0,
+
 
   // --- ACTIONS ---
 
@@ -54,21 +80,33 @@ export const useInvestigationSession = create((set, get) => ({
     metadata: { sessionId, repoId, budget: null },
     incomingEvents: [],
     processedEvents: [],
-    evidence: [],
     bookmarks: [],
     statistics: { filesRead: 0, jumps: 0, symbolsDiscovered: 0 },
     currentActiveFile: null,
     currentReason: null,
     fileProgress: 0,
+    currentLine: 0,
+    totalLines: 0,
+    focusContext: {
+      id: sessionId,
+      mission: null,
+      status: 'repository',
+      currentStep: null,
+      relatedNodes: [],
+      findings: [],
+      answer: null,
+      confidence: null
+    }
   }),
 
   // Called when a raw event comes over the wire
   receiveEvent: (event) => {
     const { sessionState, incomingEvents } = get();
     
-    // Automatically transition to receiving if we just started getting events
-    const newState = (sessionState === SESSION_STATES.IDLE || sessionState === SESSION_STATES.STARTING) 
-      ? SESSION_STATES.RECEIVING 
+    // Automatically transition to PLAYING if we just started getting events
+    // (Auto-play is required since we removed the manual play controls)
+    const newState = (sessionState === SESSION_STATES.IDLE || sessionState === SESSION_STATES.STARTING || sessionState === SESSION_STATES.RECEIVING) 
+      ? SESSION_STATES.PLAYING 
       : sessionState;
       
     set({
@@ -124,16 +162,72 @@ export const useInvestigationSession = create((set, get) => ({
   // The Reducer: Applies a single event to the visible UI state
   applyEventToState: (event) => {
     switch (event.type) {
+      case 'transport.connected':
+        set((state) => ({
+          metadata: { ...state.metadata, sessionId: event.sessionId },
+          focusContext: { ...state.focusContext, id: event.sessionId }
+        }));
+        break;
+
+      case 'planner.started': {
+        const isUnderstanding = event.mission === 'Repository Understanding';
+        set((state) => ({
+          metadata: { ...state.metadata, isUnderstandingMode: isUnderstanding },
+          focusContext: {
+            ...state.focusContext,
+            mission: event.mission,
+            status: 'planning',
+            currentStep: isUnderstanding ? 'Building repository context...' : 'Planning investigation...'
+          }
+        }));
+        break;
+      }
+
+      case 'planner.completed': {
+        // Extract targets from execution steps to use as predictive nodes
+        const targets = event.plan?.executionSteps?.map(step => step.target) || [];
+        set((state) => ({
+          focusContext: {
+            ...state.focusContext,
+            status: 'investigating',
+            currentStep: state.metadata.isUnderstandingMode ? 'Understanding repository' : 'Plan generated',
+            answer: event.plan.hypothesis,
+            confidence: event.plan.confidence,
+            relatedNodes: targets
+          }
+        }));
+        break;
+      }
+
+      case 'planner.failed':
+        set((state) => ({
+          currentReason: 'Planning failed: ' + event.reason,
+          focusContext: { ...state.focusContext, status: 'review' }
+        }));
+        get().errorSession();
+        break;
+
       case 'investigation.started':
         set((state) => ({ metadata: { ...state.metadata, budget: event.budget } }));
         break;
       
       case 'file.selected':
-        set({ currentActiveFile: event.file, currentReason: event.reason, fileProgress: 0 });
+        set((state) => ({ 
+          currentActiveFile: event.file, 
+          currentReason: event.reason, 
+          fileProgress: 0, 
+          currentLine: 0, 
+          totalLines: 0,
+          focusContext: { ...state.focusContext, currentStep: `Selected ${event.file?.split('/').pop() || 'file'}` }
+        }));
         break;
         
       case 'file.read.progress':
-        set({ fileProgress: event.line / Math.max(event.totalLines, 1) });
+        set({ 
+          fileProgress: event.line / Math.max(event.totalLines, 1),
+          currentLine: event.line,
+          totalLines: event.totalLines
+        });
         break;
         
       case 'file.read.completed':
@@ -151,9 +245,23 @@ export const useInvestigationSession = create((set, get) => ({
         break;
         
       case 'evidence.added':
-        set((state) => ({
-          evidence: [...state.evidence, { fact: event.fact, source: event.source, eventId: event.eventId }]
-        }));
+        set((state) => {
+          if (state.metadata.isUnderstandingMode) {
+            return {
+              repositoryContext: {
+                ...state.repositoryContext,
+                findings: [...state.repositoryContext.findings, { fact: event.fact, source: event.source, eventId: event.eventId }]
+              }
+            };
+          } else {
+            return {
+              focusContext: {
+                ...state.focusContext,
+                findings: [...state.focusContext.findings, { fact: event.fact, source: event.source, eventId: event.eventId }]
+              }
+            };
+          }
+        });
         break;
         
       case 'symbol.discovered':
@@ -163,6 +271,9 @@ export const useInvestigationSession = create((set, get) => ({
         break;
         
       case 'investigation.completed':
+        set((state) => ({
+          focusContext: { ...state.focusContext, status: 'review', currentStep: state.metadata.isUnderstandingMode ? 'Repository Understanding complete' : 'Investigation completed' }
+        }));
         get().completeSession();
         break;
         
