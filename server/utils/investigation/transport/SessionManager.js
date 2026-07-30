@@ -3,7 +3,7 @@ const { EventBus } = require('./EventBus');
 const { RepositorySnapshot } = require('../domain/snapshot');
 const { InvestigationContext } = require('../domain/context');
 const { EventFactory } = require('../domain/events');
-const { DefaultStrategy } = require('../planner/DefaultStrategy');
+// DefaultStrategy removed
 const { ExecutionEngine } = require('../execution/ExecutionEngine');
 const { PrismaClient } = require('@prisma/client');
 
@@ -24,10 +24,12 @@ class SessionManager {
   /**
    * Start a new investigation session.
    * @param {string} repoId 
+   * @param {string} mission 
    * @param {Array<Transport>} transports 
+   * @param {string} mode - 'investigation' or 'understanding'
    * @returns {string} sessionId
    */
-  async startInvestigation(repoId, transports = []) {
+  async startInvestigation(repoId, mission, transports = [], mode = 'investigation') {
     // P0-6: Verify repository is ready before starting investigation.
     // Prevents investigation on incomplete snapshots from in-progress indexing.
     const repo = await prisma.repo.findUnique({ where: { id: repoId } });
@@ -39,7 +41,7 @@ class SessionManager {
     }
 
     const sessionId = uuidv4();
-    console.log(`[SessionManager] startInvestigation called. repoId: ${repoId}, sessionId: ${sessionId}`);
+    console.log(`[SessionManager] startInvestigation called. repoId: ${repoId}, sessionId: ${sessionId}, mission: ${mission}, mode: ${mode}`);
     const eventBus = new EventBus(sessionId);
 
     // Register transports
@@ -53,9 +55,9 @@ class SessionManager {
     
     this.activeSessions.set(sessionId, { context, eventBus });
 
-    console.log(`[SessionManager] Running lifecycle asynchronously for session: ${sessionId}`);
+    console.log(`[SessionManager] Running lifecycle asynchronously for session: ${sessionId}, mode: ${mode}`);
     // Run investigation asynchronously so HTTP can return/stream immediately
-    this._runLifecycle(sessionId, repoId, context, eventFactory, eventBus).catch(err => {
+    this._runLifecycle(sessionId, repoId, mission, context, eventFactory, eventBus, mode).catch(err => {
       console.error(`[SessionManager] Investigation failed for session ${sessionId}:`, err);
       eventBus.publish({
         type: 'investigation.failed',
@@ -71,7 +73,7 @@ class SessionManager {
     return sessionId;
   }
 
-  async _runLifecycle(sessionId, repoId, context, eventFactory, eventBus) {
+  async _runLifecycle(sessionId, repoId, mission, context, eventFactory, eventBus, mode) {
     try {
       console.log(`[SessionManager] Building snapshot for repo: ${repoId}`);
       // 1. Snapshot
@@ -80,20 +82,33 @@ class SessionManager {
 
       console.log(`[SessionManager] Snapshot built. Starting planner...`);
       // 2. Planning
-      context.applyEvent(eventFactory._base('planner.started'));
-      const strategy = new DefaultStrategy();
-      const budget = { maxFiles: 12, maxJumps: 25, maxDepth: 4 };
-      // repositoryModel=null (wired in P1), query=null (wired in P2)
-      const planData = strategy.generatePlan(snapshot, null, null, budget);
-      context.applyEvent(eventFactory._base('planner.finished'));
+      eventBus.publish(eventFactory.plannerStarted(mode === 'understanding' ? 'Repository Understanding' : mission));
+      
+      let planData;
+      try {
+        if (mode === 'understanding') {
+          const { UnderstandingPlanBuilder } = require('../planner/UnderstandingPlanBuilder');
+          const plan = UnderstandingPlanBuilder.build(snapshot);
+          planData = { plan, metadata: { strategy: 'UnderstandingPlanBuilder' } };
+        } else {
+          const { Planner } = require('../planner/Planner');
+          const planner = new Planner();
+          planData = await planner.plan(repoId, mission, { maxSteps: 5 });
+        }
+        eventBus.publish(eventFactory.plannerCompleted(planData.plan, planData.metadata));
+      } catch (plannerErr) {
+        console.error(`[SessionManager] Planner failed: ${plannerErr.message}`);
+        eventBus.publish(eventFactory.plannerFailed(plannerErr.message));
+        throw plannerErr;
+      }
 
-      console.log(`[SessionManager] Planner completed. Plan size: ${planData.plan.length} steps. Starting ExecutionEngine...`);
+      console.log(`[SessionManager] Planner completed. Plan size: ${planData.plan.executionSteps.length} steps. Starting ExecutionEngine...`);
       // 3. Execution
       const engine = new ExecutionEngine(context, eventFactory, (evt) => {
         eventBus.publish(evt);
       });
       console.log(`[SessionManager] Engine execute starting...`);
-      await engine.execute(planData);
+      await engine.execute(planData.plan);
       console.log(`[SessionManager] Engine execute finished for session: ${sessionId}`);
 
     } finally {

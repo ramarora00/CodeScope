@@ -48,7 +48,20 @@ class EventFactory {
     return { ...this._base('investigation.cancelled'), reason };
   }
 
-  // --- Planner / Execution ---
+  // --- Planner Events ---
+  plannerStarted(mission) {
+    return { ...this._base('planner.started'), mission };
+  }
+
+  plannerCompleted(plan, metadata) {
+    return { ...this._base('planner.completed'), plan, metadata };
+  }
+
+  plannerFailed(reason) {
+    return { ...this._base('planner.failed'), reason };
+  }
+
+  // --- Execution ---
   fileSelected(filePath, reason, confidence) {
     return { ...this._base('file.selected'), file: filePath, reason, confidence };
   }

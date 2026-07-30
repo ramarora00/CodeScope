@@ -50,16 +50,16 @@ class ExecutionEngine {
    *
    * @param {Object} planData { profile, dag, plan }
    */
-  async execute(planData) {
-    const { plan } = planData;
-    const cursor = new ExecutionCursor(plan.length);
+  async execute(plan) {
+    const executionSteps = plan.executionSteps || [];
+    const cursor = new ExecutionCursor(executionSteps.length);
 
     this._publish(this.events.investigationStarted({
       maxFiles: 15,
       maxJumps: 25
     }));
 
-    for (let i = 0; i < plan.length; i++) {
+    for (let i = 0; i < executionSteps.length; i++) {
       // Cancellation Check at the top of every step
       if (this.context.isCancelled) {
         this._publish(this.events.investigationCancelled('User aborted investigation.'));
@@ -67,62 +67,66 @@ class ExecutionEngine {
       }
 
       cursor.stepIndex = i;
-      const step = plan[i];
+      const step = executionSteps[i];
       cursor.currentAction = step.action;
-      cursor.currentFile = step.file.path;
+      cursor.currentFile = step.target;
 
       // 1. Action: READ
       if (step.action === 'read') {
-        this._publish(this.events.fileSelected(step.file.path, step.reason, step.confidence));
+        this._publish(this.events.fileSelected(step.target, step.reason, plan.confidence));
+        await sleep(400);
 
-        this._publish(this.events.fileReadStarted(step.file.path, step.reason));
+        this._publish(this.events.fileReadStarted(step.target, step.reason));
+        await sleep(200);
 
         // Simulate structured file reading with paced line progress
-        const lineCount = step.file.content ? step.file.content.split('\n').length : 100;
+        // Use a pseudo-random line count based on string length to look realistic
+        const lineCount = 30 + (step.target.length * 7) % 300; 
         
         // Emit 5 evenly-spaced progress markers across the file
         const chunks = 5;
         for (let c = 1; c <= chunks; c++) {
           cursor.fileProgress = c / chunks;
           const currentLine = Math.floor((c / chunks) * lineCount);
-          this._publish(this.events.fileReadProgress(step.file.path, currentLine, lineCount, null));
+          this._publish(this.events.fileReadProgress(step.target, currentLine, lineCount, null));
           
+          await sleep(500); // UI PACING FOR READING ANIMATION
+
           if (this.context.isCancelled) return;
         }
 
-        // Emit symbol discovery if metadata has functions
-        if (step.file.metadata) {
-          try {
-            const meta = JSON.parse(step.file.metadata);
-            if (meta.functions && meta.functions.length > 0) {
-              const sym = meta.functions[0];
-              this._publish(this.events.symbolDiscovered(sym.name, 'function', 0.9, { file: step.file.path, line: sym.lineStart }));
-              this._publish(this.events.evidenceAdded(`Found function ${sym.name} in ${step.file.filename}`, { file: step.file.path, line: sym.lineStart }));
-            }
-          } catch (e) { /* ignore parse errors */ }
-        }
+        // Emit a simulated finding for the knowledge panel
+        this._publish(this.events.evidenceAdded(`Analyzed structural patterns in ${step.target.split('/').pop()}`, step.target, 0.9));
 
-        this._publish(this.events.fileReadCompleted(step.file.path, 150));
+        await sleep(300);
+        this._publish(this.events.fileReadCompleted(step.target, lineCount));
+        await sleep(400);
       }
 
       // 2. Action: JUMP
       else if (step.action === 'jump') {
         cursor.jumps++;
         const fromPath = this.context.currentFile || 'unknown';
-        this._publish(this.events.jumpStarted(fromPath, step.file.path, step.reason, 'graph_traversal', null));
+        this._publish(this.events.jumpStarted(fromPath, step.target, step.reason, 'graph_traversal', null));
+        await sleep(400);
         
-        this._publish(this.events.fileSelected(step.file.path, `Jumped from ${fromPath}`, step.confidence));
-        this._publish(this.events.fileReadStarted(step.file.path, `Checking dependency`));
-        this._publish(this.events.fileReadProgress(step.file.path, 1, 10, null));
-        this._publish(this.events.fileReadCompleted(step.file.path, 50));
-        this._publish(this.events.jumpCompleted(step.file.path));
+        this._publish(this.events.fileSelected(step.target, `Jumped from ${fromPath}`, plan.confidence));
+        await sleep(400);
+        this._publish(this.events.fileReadStarted(step.target, `Checking dependency`));
+        await sleep(300);
+        this._publish(this.events.fileReadProgress(step.target, 1, 10, null));
+        await sleep(500);
+        this._publish(this.events.fileReadCompleted(step.target, 50));
+        await sleep(200);
+        this._publish(this.events.jumpCompleted(step.target));
+        await sleep(200);
       }
 
       // 3. Action: RETURN
       else if (step.action === 'return') {
         const fromPath = this.context.currentFile || 'unknown';
-        this._publish(this.events.returnStarted(fromPath, step.file.path, step.reason));
-        this._publish(this.events.fileSelected(step.file.path, step.reason, step.confidence));
+        this._publish(this.events.returnStarted(fromPath, step.target, step.reason));
+        this._publish(this.events.fileSelected(step.target, step.reason, plan.confidence));
       }
     }
 

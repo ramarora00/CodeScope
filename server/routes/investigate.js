@@ -9,7 +9,9 @@ const { RecorderTransport } = require('../utils/investigation/transport/Recorder
 // @desc    Start an investigation and stream Domain Events via SSE
 router.get('/:id/investigate/stream', async (req, res) => {
   const repoId = req.params.id;
-  console.log(`[API] GET /api/repo/${repoId}/investigate/stream connected.`);
+  const mission = req.query.mission || 'Investigate repository structure and architecture.';
+  const mode = req.query.mode || 'investigation';
+  console.log(`[API] GET /api/repo/${repoId}/investigate/stream connected. Mission: "${mission}", Mode: "${mode}"`);
 
   if (!repoId) {
     console.log(`[API] Rejecting missing repoId.`);
@@ -25,7 +27,7 @@ router.get('/:id/investigate/stream', async (req, res) => {
 
   try {
     // SessionManager owns everything else (Lifecycle, Planner, Execution)
-    await sessionManager.startInvestigation(repoId, [sseTransport, recorderTransport]);
+    await sessionManager.startInvestigation(repoId, mission, [sseTransport, recorderTransport], mode);
     console.log(`[API] Session started for ${repoId}. Connection kept open.`);
     
     // Connection stays open until the EventBus closes the transports

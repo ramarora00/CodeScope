@@ -33,8 +33,8 @@ class SSETransport extends Transport {
 
   publish(event) {
     if (!this.res.writableEnded) {
-      // Serialize exactly as structured, no modifications
-      this.res.write(`event: ${event.type}\n`);
+      // Serialize exactly as structured, no modifications.
+      // We omit the 'event: ...' line so it defaults to the 'message' event on the client.
       this.res.write(`data: ${JSON.stringify(event)}\n\n`);
     }
   }

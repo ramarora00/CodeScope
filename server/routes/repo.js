@@ -257,6 +257,7 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
         }
       }
     }
+    }
 
     indexingEmitter.emit('progress', { repoId, step: 'parsing', status: 'done' });
     console.log(`[Background] PASS 1 complete in ${Date.now() - pass1Start}ms. ${allParsed.length} files indexed.`);
