@@ -16,7 +16,7 @@ import { GraphEdge } from "./GraphEdge";
 import { GraphNode } from "./GraphNode";
 // Types are documented via JSDoc; import removed.
 
-export function GraphLayer({ nodes, edges, viewport, selectedNodeId, hoveredNodeId, onSelect, onHover }) {
+export function GraphLayer({ nodes, edges, viewport, selectedNodeId, hoveredNodeId, focusNodeIds = [], onSelect, onHover }) {
   const nodeById = new Map(nodes.map((n) => [n.id, n]));
   const activeId = selectedNodeId ?? hoveredNodeId;
   const activeEdgeEndpoints = new Set();
@@ -44,8 +44,22 @@ export function GraphLayer({ nodes, edges, viewport, selectedNodeId, hoveredNode
           const source = nodeById.get(edge.source);
           const target = nodeById.get(edge.target);
           if (!source || !target) return null;
+          
           const isActive = !!activeId && (edge.source === activeId || edge.target === activeId);
-          const isDimmed = !!activeId && !isActive;
+          
+          let isDimmed = false;
+          if (activeId) {
+            isDimmed = !isActive;
+          } else if (focusNodeIds.length > 0) {
+            // SPRINT 3: Predictive focus context
+            // If there's an active focus context, dim edges where neither end is in focus
+            const sourceInFocus = focusNodeIds.some(id => edge.source.includes(id) || id.includes(edge.source));
+            const targetInFocus = focusNodeIds.some(id => edge.target.includes(id) || id.includes(edge.target));
+            if (!sourceInFocus && !targetInFocus) {
+              isDimmed = true;
+            }
+          }
+
           return (
             <GraphEdge
               key={edge.id}
@@ -61,12 +75,31 @@ export function GraphLayer({ nodes, edges, viewport, selectedNodeId, hoveredNode
 
       <div role="tree" aria-label="Repository dependency graph">
         {nodes.map((node) => {
-          const isDimmed = !!activeId && node.id !== activeId && !activeEdgeEndpoints.has(node.id);
+          let isDimmed = false;
+          let aiFocused = false;
+          
+          if (focusNodeIds.length > 0) {
+            aiFocused = focusNodeIds.some(id => node.id.includes(id) || id.includes(node.id));
+            if (!aiFocused) {
+              isDimmed = true;
+            }
+          }
+
+          // Hover/active overrides dimming
+          if (activeId) {
+            if (node.id !== activeId && !activeEdgeEndpoints.has(node.id)) {
+               isDimmed = true;
+            } else {
+               isDimmed = false;
+            }
+          }
+
           return (
             <GraphNode
               key={node.id}
               node={node}
-              selected={node.id === selectedNodeId}
+              userSelected={node.id === selectedNodeId}
+              aiFocused={aiFocused}
               dimmed={isDimmed}
               onSelect={onSelect}
               onHover={onHover}

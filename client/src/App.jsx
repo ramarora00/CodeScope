@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import LaunchExperience from './features/codescope/ui/LaunchExperience';
+// PRESENTATION LOCK (Rule 15): WorkspaceRoot is the canonical premium shell.
+// Brain: Zustand useInvestigationSession + SSE event router.
+// Presentation: frozen v2 layout (Dock, CommandBar, AIOverlayEditor, KnowledgePanel).
 import WorkspaceRoot from './features/codescope/ui/v2/WorkspaceRoot';
 import './App.css';
 
@@ -99,18 +102,16 @@ function App() {
   }, [investigations, activeInvestigationId]);
 
   // Launch a new investigation query
-  const startNewInvestigation = async (queryText) => {
-    if (!selectedRepo || !queryText.trim()) return;
-
-    const newId = crypto.randomUUID();
+  const startNewInvestigation = async (queryText, mode = 'investigation') => {
+    const newId = Date.now().toString();
     const newInv = {
       id: newId,
       title: queryText,
-      status: 'Active',
+      query: queryText,
+      mode: mode,
+      status: 'running',
       operations: [
-        { id: '1', label: `Searching codebase for "${queryText}"`, status: 'running' },
-        { id: '2', label: 'Extracting file structure...', status: 'pending' },
-        { id: '3', label: 'Resolving dependency mappings...', status: 'pending' }
+        { id: '1', label: `Starting investigation for "${queryText}"`, status: 'running' }
       ],
       evidence: null,
       conclusion: null
@@ -118,61 +119,11 @@ function App() {
 
     setInvestigations(prev => [newInv, ...prev]);
     setActiveInvestigationId(newId);
-
-    try {
-      const res = await fetch('http://localhost:5000/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: queryText, repoId: selectedRepo.id })
-      });
-      
-      const data = await res.json();
-
-      setInvestigations(prev => prev.map(inv => {
-        if (inv.id !== newId) return inv;
-        return {
-          ...inv,
-          operations: [
-            { id: '1', label: `Searching codebase for "${queryText}"`, status: 'done' },
-            { id: '2', label: 'Extracting file structure...', status: 'running' },
-            { id: '3', label: 'Resolving dependency mappings...', status: 'pending' }
-          ]
-        };
-      }));
-
-      await new Promise(r => setTimeout(r, 400));
-
-      setInvestigations(prev => prev.map(inv => {
-        if (inv.id !== newId) return inv;
-        return {
-          ...inv,
-          operations: [
-            { id: '1', label: `Searching codebase for "${queryText}"`, status: 'done' },
-            { id: '2', label: 'Extracting file structure...', status: 'done' },
-            { id: '3', label: 'Resolving dependency mappings...', status: 'done' }
-          ],
-          evidence: {
-            files: (data.contextMeta?.files || []).map(f => ({ name: f.split('/').pop(), path: f })),
-            symbols: [],
-            routes: []
-          },
-          conclusion: data.answer || 'No findings available.'
-        };
-      }));
-
-    } catch (err) {
-      console.error(err);
-      setInvestigations(prev => prev.map(inv => {
-        if (inv.id !== newId) return inv;
-        return {
-          ...inv,
-          operations: [
-            { id: '1', label: `Reasoning pipeline failed`, status: 'failed' }
-          ],
-          conclusion: 'Failed to complete analysis.'
-        };
-      }));
-    }
+    
+    // In the new architecture (v2 shell + Zustand), we do NOT fetch `/api/chat` here.
+    // Setting `activeInvestigationId` causes `useInvestigationEventRouter` 
+    // to mount and connect to `/api/repo/:id/investigate/stream`, which 
+    // drives the entire UI via SSE events.
   };
 
   return (
@@ -181,7 +132,12 @@ function App() {
         <LaunchExperience onConnect={handleConnect} repos={repos} />
       )}
       {appState === 'workspace' && (
-        <WorkspaceRoot repo={selectedRepo} onBack={handleConnectNew} />
+        <WorkspaceRoot
+          repo={selectedRepo}
+          onBack={handleConnectNew}
+          activeInvestigation={activeInvestigation}
+          onNewInvestigation={startNewInvestigation}
+        />
       )}
     </div>
   );

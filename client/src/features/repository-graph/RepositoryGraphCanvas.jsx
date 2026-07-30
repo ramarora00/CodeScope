@@ -25,6 +25,7 @@ export function RepositoryGraphCanvas({
   edges,
   status = "ready",
   selectedNodeId: controlledSelectedId,
+  focusNodeIds = [],
   onSelectNode,
   onHoverNode,
   className,
@@ -88,6 +89,7 @@ export function RepositoryGraphCanvas({
             viewport={viewport}
             selectedNodeId={selectedId}
             hoveredNodeId={hoveredId}
+            focusNodeIds={focusNodeIds}
             onSelect={selectNode}
             onHover={hoverNode}
           />
