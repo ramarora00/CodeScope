@@ -217,3 +217,34 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-07-24T18:06:00+05:30*
 
+
+## Sprint — Live Investigation Pipeline, LLM Planner, and Legacy Purge
+
+**Commits**
+- `8447c42` refactor(legacy): remove all legacy investigation, observatory, knowledge, and layout modules
+- `2f88da3` refactor(codescope): remove obsolete RuntimeAdapter, InvestigationWorkspace, and WorkspaceShell
+- `aa7733b` refactor(investigation): remove superseded DefaultStrategy and PlanGenerator
+- `237c518` feat(investigation): add LLM-powered planner with context builder, plan validation, and Gemini provider
+- `191aa76` fix(investigation): harden execution engine, session manager, SSE transport, and routes
+- `07259fd` chore(test): add planner integration test and stress test harness
+- `ffa25c5` feat(codescope): add workspace lifecycle hook, event router, presentation model, and recorder
+- `e770ab5` feat(codescope): refactor workspace UI — extract lifecycle, add status bar and ready state
+- `ad295ed` feat(app): refactor App routing, observatory integration, and repository graph layer
+- `3d5a64d` feat(shared): expand investigation event types for live pipeline
+- `4e95c7d` chore(logs): add investigation session recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **Legacy Purge**: Deleted 34 legacy modules (investigation, observatory, knowledge, layout) plus 3 obsolete codescope files and 2 superseded planner files. Total: 39 files deleted.
+- **LLM Planner**: Added Gemini-powered planner with ContextBuilder, PlanValidator, UnderstandingPlanBuilder, and LLMProvider abstraction.
+- **Server Hardening**: Improved ExecutionEngine, SessionManager, SSETransport, and route error handling.
+- **Client Architecture**: Extracted workspace lifecycle into dedicated hook, added InvestigationRecorder, event router, and presentation model stores.
+- **UI Refactor**: Slimmed WorkspaceRoot, added WorkspaceStatusBar, RepositoryReadyState, and refined all V2 panels (CommandBar, InvestigationPanel, KnowledgePanel).
+- **App Integration**: Refactored App.jsx routing, enhanced AIObservatory, and updated repository graph layer.
+- **Shared Events**: Expanded event type definitions for real-time investigation pipeline.
+- **Recordings**: Added 70 investigation session log recordings.
+
+*Recorded on 2026-07-30T19:47:00+05:30*
+
