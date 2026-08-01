@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { ChevronRight, Search } from 'lucide-react';
+import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 
-export default function CommandBar({ repo, branch = 'main', onNewInvestigation }) {
+export default function CommandBar({ branch = 'main', onNewInvestigation }) {
+  const repo = useWorkspaceStore(s => s.selectedRepo);
   const org = repo?.name?.split('/')?.[0] ?? 'acme';
   const repoName = repo?.name?.split('/')?.[1] ?? 'payments-service';
 

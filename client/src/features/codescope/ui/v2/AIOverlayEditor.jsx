@@ -1,6 +1,5 @@
 import React, { useMemo, useRef, useEffect } from 'react';
-import { MOCK_FILES } from '../../model/ClaudeRuntime';
-import { X } from 'lucide-react';
+import { X, Sparkles } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────
 // SYNTAX TOKENIZER
@@ -155,13 +154,18 @@ export default function AIOverlayEditor({
   runtimeStatus,
   aiPhase = 'searching',
   memoryFiles = [],
+  answer,
 }) {
   const scrollRef = useRef(null);
 
   const activeFile = activeTabId || attention.file;
   const activeMemoryFile = memoryFiles.find(m => m.name === activeFile || m.file === activeFile);
-  const content = activeMemoryFile?.content || MOCK_FILES[activeFile] || '';
-  const lines = useMemo(() => content.split('\n'), [content]);
+  const content = activeMemoryFile?.content || (activeFile ? '// Loading file content...' : '');
+  
+  // Memoize tokenization so it only runs when content changes, not on every animation frame
+  const tokenizedLines = useMemo(() => {
+    return content.split('\n').map(line => tokenize(line));
+  }, [content]);
 
   const aiLine = attention.line ?? null;
   const isAiActive = runtimeStatus === 'reading' && !!aiLine && attention.file === activeFile;
@@ -181,9 +185,29 @@ export default function AIOverlayEditor({
 
   return (
     <div
-      className="flex flex-col flex-1 min-w-0 h-full"
+      className="flex flex-col flex-1 min-w-0 h-full relative"
       style={{ background: 'var(--cs-editor)' }}
     >
+      {/* ── Hypothesis Pill ── */}
+      {answer && runtimeStatus !== 'resolved' && (
+        <div 
+          className="absolute top-4 left-1/2 -translate-x-1/2 z-10 animate-fade-in flex items-center gap-2"
+          style={{
+            background: 'rgba(9, 9, 11, 0.85)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid var(--cs-border)',
+            borderRadius: '16px',
+            padding: '6px 14px',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+            maxWidth: '80%',
+          }}
+        >
+          <Sparkles size={12} className="text-[var(--cs-accent)] flex-shrink-0" />
+          <span className="text-[12px] text-[var(--cs-text)] font-medium truncate">
+            {answer}
+          </span>
+        </div>
+      )}
 
 
       {/* ── Full file — AI overlay applied in-place ── */}
@@ -196,7 +220,7 @@ export default function AIOverlayEditor({
           </div>
         ) : (
           <div style={{ paddingTop: '40px', paddingBottom: '48px' }}>
-            {lines.map((lineText, idx) => {
+            {tokenizedLines.map((tokens, idx) => {
               const lineNum = idx + 1;
               const dist = aiLine ? Math.abs(lineNum - aiLine) : Infinity;
               const opacity = lineOpacity(dist, isAiActive);
@@ -247,7 +271,7 @@ export default function AIOverlayEditor({
                       wordBreak: 'break-all',
                     }}
                   >
-                    {tokenize(lineText).map((tok, i) => (
+                    {tokens.map((tok, i) => (
                       <span
                         key={i}
                         style={{
@@ -298,7 +322,7 @@ export default function AIOverlayEditor({
               {aiLine && (
                 <>
                   <span style={{ margin: '0 6px', opacity: 0.2 }}>·</span>
-                  <span>Line {aiLine}/{lines.length}</span>
+                  <span>Line {aiLine}/{tokenizedLines.length}</span>
                 </>
               )}
               {attention.symbol && (

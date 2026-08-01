@@ -1,37 +1,26 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import CommandBar from './CommandBar';
+import MacOSTitleBar from './MacOSTitleBar';
 import Dock from './Dock';
-import InvestigationPanel from './InvestigationPanel';
-import AIOverlayEditor from './AIOverlayEditor';
-import KnowledgePanel from './KnowledgePanel';
-import RepositoryReadyState from './RepositoryReadyState';
+import PerspectiveRouter from './PerspectiveRouter';
+import ReviewPanel from './ReviewPanel';
+import { API_BASE } from '../../../../config/api';
 
 // ── Behavior Layer ──────────────────────────────────────────────
-// Rule 15: JSX/layout/visual below is frozen. Only this import
-// section and the bridge hooks are allowed to change.
 import { useInvestigationSession, SESSION_STATES } from '../../store/useInvestigationSession';
 import { useInvestigationEventRouter } from '../../store/useInvestigationEventRouter';
 import { usePlaybackController } from '../../store/usePlaybackController';
 import { useWorkspacePresentationModel } from '../../store/useWorkspacePresentationModel';
 import { useWorkspaceLifecycle } from '../../hooks/useWorkspaceLifecycle';
+import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 
-/**
- * WorkspaceRoot — CodeScope Canonical Shell (Rule 15 — Presentation Lock)
- *
- * Layout: Dock (56) | Investigation (305) | AIOverlayEditor (flex-1) | Knowledge (320)
- *
- * Observation pane removed — AI reading is now an in-place overlay
- * inside the editor. Code never moves. Only AI attention moves.
- *
- * Brain: useInvestigationSession (Zustand) driven by SSE → useInvestigationEventRouter
- * Presentation: unchanged from the approved premium v2 shell.
- */
-export default function WorkspaceRoot({ repo = null, onBack, activeInvestigation, onNewInvestigation }) {
+export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvestigation }) {
+  const { selectedRepo: repo, setSelectedFile } = useWorkspaceStore();
+  
   // ── PRESENTATION-ONLY state (does not affect behavior) ──────────
   const [dockActive, setDockActive] = useState('investigation');
 
   // ── BEHAVIOR LAYER: read from Zustand store via Adapter ──────────
-  // Rule 16: Presentation Components Are Render-Only
   const { presentation, raw } = useWorkspacePresentationModel();
 
   // ── BOOT state ───────────────────────────────────────────────────
@@ -42,7 +31,7 @@ export default function WorkspaceRoot({ repo = null, onBack, activeInvestigation
     rawSessionState: raw.sessionState
   });
   
-  // ── BRIDGE: Mount SSE event router (Rule 10 — Single Event Translation Layer) ─
+  // ── BRIDGE: Mount SSE event router ─
   useInvestigationEventRouter(repo?.id, activeInvestigation);
   usePlaybackController();
 
@@ -51,9 +40,13 @@ export default function WorkspaceRoot({ repo = null, onBack, activeInvestigation
   useEffect(() => {
     if (!repo?.id || !presentation.activeTabId) return;
     const filePath = presentation.activeTabId;
+    
+    // Sync the global selected file when tab changes
+    setSelectedFile({ name: filePath.split(/[\\/]/).pop(), path: filePath, type: 'file' });
+    
     if (memoryFiles.find(m => m.file === filePath || m.name === filePath)) return;
 
-    fetch(`http://localhost:5000/api/repo/${repo.id}/file/content?filePath=${encodeURIComponent(filePath)}`)
+    fetch(`${API_BASE}/api/repo/${repo.id}/file/content?filePath=${encodeURIComponent(filePath)}`)
       .then(res => res.json())
       .then(data => {
         setMemoryFiles(prev => {
@@ -121,7 +114,6 @@ export default function WorkspaceRoot({ repo = null, onBack, activeInvestigation
         }}
       >
         <CommandBar
-          repo={repo}
           branch="main"
           onNewInvestigation={onNewInvestigation}
         />
@@ -180,76 +172,19 @@ export default function WorkspaceRoot({ repo = null, onBack, activeInvestigation
         >
           <Dock activeItem={dockActive} onSelect={setDockActive} />
         </div>
-
-        {/* Investigation */}
-        <div
-          className="animate-settle flex-shrink-0"
-          style={{
-            marginTop: '2px',
-            borderRadius: '12px',
-            background: 'var(--cs-panel)',
-            border: '1px solid var(--cs-border)',
-            boxShadow: 'var(--cs-shadow-panel)',
-            overflow: 'hidden',
-            animationDelay: '100ms',
-          }}
-        >
-          <InvestigationPanel
-            timelineEvents={presentation.timelineEvents}
-            planSteps={presentation.planSteps}
-            startedAt={startedAt}
-            memoryFiles={memoryFiles}
-            repo={repo}
-          />
-        </div>
-
-        {/* AI Overlay Editor */}
-        <div
-          className="animate-settle flex-1 flex flex-col min-w-0"
-          style={{
-            borderRadius: '12px',
-            background: 'var(--cs-panel)',
-            border: '1px solid var(--cs-border)',
-            boxShadow: 'var(--cs-shadow-panel)',
-            overflow: 'hidden',
-            animationDelay: '140ms',
-          }}
-        >
-          {bootPhase === 'ready' && (!activeInvestigation || isUnderstandingMode) ? (
-            <RepositoryReadyState repo={repo} />
-          ) : (
-            <AIOverlayEditor
-              tabs={presentation.tabs}
-              activeTabId={presentation.activeTabId}
-              onSelectTab={handleSelectTab}
-              onCloseTab={handleCloseTab}
-              attention={presentation.attention}
-              insight={presentation.insight}
-              runtimeStatus={presentation.runtimeStatus}
-              aiPhase={presentation.aiPhase}
-              memoryFiles={memoryFiles}
-            />
-          )}
-        </div>
-
-        {/* Knowledge */}
-        <div
-          className="animate-settle flex-shrink-0"
-          style={{
-            borderRadius: '12px',
-            background: 'var(--cs-panel)',
-            border: '1px solid var(--cs-border)',
-            boxShadow: 'var(--cs-shadow-panel)',
-            overflow: 'hidden',
-            animationDelay: '180ms',
-          }}
-        >
-          <KnowledgePanel
-            repo={repo}
-            findings={presentation.findings}
-            relatedSymbols={presentation.relatedSymbols}
-          />
-        </div>
+        {/* Perspective Router handles the main body */}
+        <PerspectiveRouter
+          perspective={dockActive}
+          bootPhase={bootPhase}
+          activeInvestigation={activeInvestigation}
+          isUnderstandingMode={isUnderstandingMode}
+          presentation={presentation}
+          handleSelectTab={handleSelectTab}
+          handleCloseTab={handleCloseTab}
+          memoryFiles={memoryFiles}
+          startedAt={startedAt}
+          onNewInvestigation={onNewInvestigation}
+        />
       </div>
       )}
 

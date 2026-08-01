@@ -26,16 +26,25 @@ function SectionHeader({ label }) {
   );
 }
 
-export default function KnowledgePanel({ repo, findings = [], relatedSymbols = [] }) {
+export default function KnowledgePanel({ repo, findings = [], relatedSymbols = [], onNewInvestigation, selectedFile }) {
   const [askQuery, setAskQuery] = useState('');
 
+  const activeFilePath = typeof selectedFile === 'string' ? selectedFile : selectedFile?.path;
+  const displayFindings = activeFilePath
+    ? findings.filter(f => f.filePath === activeFilePath)
+    : findings;
+
   const handleAction = (id) => {
-    console.log('action:', id);
+    console.log(`KnowledgePanel action clicked: ${id}`);
+    // No-op for now.
   };
 
   const handleAsk = (e) => {
     e.preventDefault();
-    if (askQuery.trim()) setAskQuery('');
+    if (askQuery.trim() && onNewInvestigation) {
+      onNewInvestigation(askQuery.trim());
+      setAskQuery('');
+    }
   };
 
   return (
@@ -73,132 +82,179 @@ export default function KnowledgePanel({ repo, findings = [], relatedSymbols = [
 
       {/* ── Scrollable body ── */}
       <div className="flex-1 overflow-y-auto no-scrollbar min-h-0">
+        {selectedFile?.type === 'directory' ? (
+          /* ── FOLDER / SUBSYSTEM CONTEXT LAYOUT ── */
+          <div style={{ padding: '24px' }} className="flex flex-col gap-6 animate-fade-in">
+            <div>
+              <SectionHeader label="Subsystem Focus" />
+              <div className="text-sm font-bold text-[var(--cs-text)] font-mono truncate">{selectedFile.name}/</div>
+              <div className="text-[10px] text-[var(--cs-hint)] font-mono mt-1 truncate">{selectedFile.path}</div>
+            </div>
 
-        {/* ── FINDINGS ── */}
-        <div style={{ padding: '24px 24px 0' }}>
-          <SectionHeader label="Findings" />
-
-          {/* Denser file list */}
-          <div className="space-y-0">
-            {findings.length === 0 ? (
-              <div style={{ color: 'var(--cs-muted)', fontSize: '11px', padding: '12px 0' }}>
-                No findings recorded yet.
+            <div className="grid grid-cols-2 gap-2">
+              <div className="p-3 rounded-lg border flex flex-col" style={{ borderColor: 'var(--cs-border)', background: 'rgba(255,255,255,0.01)' }}>
+                <span className="text-[10px] text-[var(--cs-hint)] uppercase tracking-wider">Total Files</span>
+                <span className="text-lg font-mono text-[var(--cs-text)] font-bold mt-1">
+                  {selectedFile.fileCount || 0}
+                </span>
               </div>
-            ) : findings.map((f, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 rounded cursor-pointer transition-colors duration-[220ms]"
-                style={{ height: '28px', padding: '0 4px', borderRadius: '4px' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--cs-editor)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                {f.active ? (
-                  <Check size={10} style={{ color: 'var(--cs-green)', flexShrink: 0 }} />
+              <div className="p-3 rounded-lg border flex flex-col" style={{ borderColor: 'var(--cs-border)', background: 'rgba(255,255,255,0.01)' }}>
+                <span className="text-[10px] text-[var(--cs-hint)] uppercase tracking-wider">Entry Points</span>
+                <span className="text-lg font-mono text-[var(--cs-text)] font-bold mt-1">
+                  {selectedFile.childrenFiles?.filter(f => f.name.includes('route') || f.name.includes('controller') || f.name.includes('api')).length || 0}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <SectionHeader label="Included Files" />
+              <div className="space-y-1.5 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+                {selectedFile.childrenFiles && selectedFile.childrenFiles.length > 0 ? (
+                  selectedFile.childrenFiles.map((file, idx) => (
+                    <div 
+                      key={idx} 
+                      className="text-[11px] font-mono text-[var(--cs-muted)] truncate flex items-center justify-between p-1 hover:bg-[var(--cs-editor)] rounded"
+                    >
+                      <span className="truncate">📄 {file.name}</span>
+                      <span className="text-[9px] text-[var(--cs-hint)] uppercase">{file.name.split('.').pop()}</span>
+                    </div>
+                  ))
                 ) : (
-                  <span style={{ color: 'transparent', width: '10px', display: 'inline-block' }} />
+                  <div className="text-[11px] text-[var(--cs-hint)] italic">No files in this scope.</div>
                 )}
-                <span style={{
-                  color: f.active ? 'var(--cs-text)' : 'var(--cs-muted)',
-                  fontSize: '11px',
-                  fontFamily: 'var(--cs-mono)',
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {f.name}
-                </span>
               </div>
-            ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          /* ── FILE OR GLOBAL CONTEXT LAYOUT ── */
+          <>
+            {/* ── FINDINGS ── */}
+            <div style={{ padding: '24px 24px 0' }}>
+              <SectionHeader label={activeFilePath ? `Findings for ${activeFilePath.split('/').pop()}` : "Global Findings"} />
 
-        {/* ── RELATED SYMBOLS ── */}
-        <div style={{ padding: '40px 24px 0' }}>
-          <SectionHeader label="Related Symbols" />
-          <div className="space-y-0">
-            {relatedSymbols.length === 0 ? (
-              <div style={{ color: 'var(--cs-muted)', fontSize: '11px', padding: '12px 0' }}>
-                No related symbols identified.
-              </div>
-            ) : relatedSymbols.map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between rounded cursor-pointer transition-colors duration-[220ms]"
-                style={{ height: '28px', padding: '0 4px', borderRadius: '4px' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--cs-editor)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <div className="flex items-center gap-2 min-w-0">
+              {/* Denser file list */}
+              <div className="space-y-0">
+                {displayFindings.length === 0 ? (
+                  <div style={{ color: 'var(--cs-muted)', fontSize: '11px', padding: '12px 0' }}>
+                    No findings recorded yet for this scope.
+                  </div>
+                ) : displayFindings.map((f, i) => (
                   <div
-                    className="w-[8px] h-[8px] rounded-full border flex items-center justify-center flex-shrink-0"
-                    style={{ borderColor: 'var(--cs-hint)' }}
-                  />
-                  <span style={{
-                    color: 'var(--cs-text)',
-                    fontSize: '11px',
-                    fontFamily: 'var(--cs-mono)',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {item.symbol}
-                  </span>
-                </div>
-                <span style={{ color: 'var(--cs-hint)', fontSize: '9.5px', fontFamily: 'var(--cs-mono)', flexShrink: 0 }}>
-                  {item.file}:{item.line}
-                </span>
+                    key={i}
+                    className="flex items-center gap-2 rounded cursor-pointer transition-colors duration-[220ms]"
+                    style={{ height: '28px', padding: '0 4px', borderRadius: '4px' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--cs-editor)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    {f.active ? (
+                      <Check size={10} style={{ color: 'var(--cs-green)', flexShrink: 0 }} />
+                    ) : (
+                      <span style={{ color: 'transparent', width: '10px', display: 'inline-block' }} />
+                    )}
+                    <span style={{
+                      color: f.active ? 'var(--cs-text)' : 'var(--cs-muted)',
+                      fontSize: '11px',
+                      fontFamily: 'var(--cs-mono)',
+                      flex: 1,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {f.text}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          
-          <button style={{
-            color: 'var(--cs-accent)',
-            fontSize: '10px',
-            fontFamily: 'var(--cs-sans)',
-            fontWeight: 500,
-            background: 'transparent',
-            border: 'none',
-            padding: '12px 4px 0',
-            cursor: 'pointer',
-          }}>
-            View all references →
-          </button>
-        </div>
+            </div>
 
-        {/* ── ACTIONS ── */}
-        <div style={{ padding: '40px 24px 24px' }}>
-          <SectionHeader label="Actions" />
-          <div className="space-y-2">
-            {ACTIONS.map(action => (
-              <div
-                key={action.id}
-                onClick={() => handleAction(action.id)}
-                className="flex items-center gap-3 cursor-pointer transition-colors duration-[220ms] group"
-                style={{
-                  height: '40px',
-                  padding: '0 12px',
-                  borderRadius: '12px',
-                  border: '1px solid var(--cs-border)',
-                  background: 'transparent',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = 'var(--cs-editor)';
-                  e.currentTarget.style.borderColor = 'rgba(191,200,216,0.18)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.borderColor = 'var(--cs-border)';
-                }}
-              >
-                <action.icon size={12} style={{ color: 'var(--cs-hint)' }} className="group-hover:text-[var(--cs-faint)] transition-colors" />
-                <span style={{ color: 'var(--cs-muted)', fontSize: '11.5px', transition: 'color 150ms ease' }} className="group-hover:text-[var(--cs-text)]">
-                  {action.label}
-                </span>
+            {/* ── RELATED SYMBOLS ── */}
+            <div style={{ padding: '40px 24px 0' }}>
+              <SectionHeader label="Related Symbols" />
+              <div className="space-y-0">
+                {relatedSymbols.length === 0 ? (
+                  <div style={{ color: 'var(--cs-muted)', fontSize: '11px', padding: '12px 0' }}>
+                    No related symbols identified.
+                  </div>
+                ) : relatedSymbols.map((item, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between rounded cursor-pointer transition-colors duration-[220ms]"
+                    style={{ height: '28px', padding: '0 4px', borderRadius: '4px' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--cs-editor)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className="w-[8px] h-[8px] rounded-full border flex items-center justify-center flex-shrink-0"
+                        style={{ borderColor: 'var(--cs-hint)' }}
+                      />
+                      <span style={{
+                        color: 'var(--cs-text)',
+                        fontSize: '11px',
+                        fontFamily: 'var(--cs-mono)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {item.symbol}
+                      </span>
+                    </div>
+                    <span style={{ color: 'var(--cs-hint)', fontSize: '9.5px', fontFamily: 'var(--cs-mono)', flexShrink: 0 }}>
+                      {item.file}:{item.line}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+              
+              <button style={{
+                color: 'var(--cs-accent)',
+                fontSize: '10px',
+                fontFamily: 'var(--cs-sans)',
+                fontWeight: 500,
+                background: 'transparent',
+                border: 'none',
+                padding: '12px 4px 0',
+                cursor: 'pointer',
+              }}>
+                View all references →
+              </button>
+            </div>
+
+            {/* ── ACTIONS ── */}
+            <div style={{ padding: '40px 24px 24px' }}>
+              <SectionHeader label="Actions" />
+              <div className="space-y-2">
+                {ACTIONS.map(action => (
+                  <div
+                    key={action.id}
+                    onClick={() => handleAction(action.id)}
+                    className="flex items-center gap-3 cursor-pointer transition-colors duration-[220ms] group"
+                    style={{
+                      height: '40px',
+                      padding: '0 12px',
+                      borderRadius: '12px',
+                      border: '1px solid var(--cs-border)',
+                      background: 'transparent',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = 'var(--cs-editor)';
+                      e.currentTarget.style.borderColor = 'rgba(191,200,216,0.18)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.borderColor = 'var(--cs-border)';
+                    }}
+                  >
+                    <action.icon size={12} style={{ color: 'var(--cs-hint)' }} className="group-hover:text-[var(--cs-faint)] transition-colors" />
+                    <span style={{ color: 'var(--cs-muted)', fontSize: '11.5px', transition: 'color 150ms ease' }} className="group-hover:text-[var(--cs-text)]">
+                      {action.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── Ask AI ── */}

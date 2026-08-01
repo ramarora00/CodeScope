@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Check, Send } from 'lucide-react';
-
-// Mocks removed: injected via presentation adapter props
+import { API_BASE } from '../../../../config/api';
 
 function ElapsedTimer({ startedAt }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -132,7 +131,7 @@ function TimelineEntry({ entry, isActive, memoryFiles }) {
 // ─────────────────────────────────────────────────────────────────
 // INVESTIGATION PANEL — 305px, ~15% compressed vs previous
 // ─────────────────────────────────────────────────────────────────
-export default function InvestigationPanel({ timelineEvents = [], planSteps = [], startedAt, memoryFiles = [], repo }) {
+export default function InvestigationPanel({ timelineEvents = [], planSteps = [], startedAt, memoryFiles = [], repo, activeInvestigation, onNewInvestigation }) {
   const [askQuery, setAskQuery] = useState('');
   const bottomRef = useRef(null);
 
@@ -146,7 +145,10 @@ export default function InvestigationPanel({ timelineEvents = [], planSteps = []
 
   const handleAsk = (e) => {
     e.preventDefault();
-    if (askQuery.trim()) setAskQuery('');
+    if (askQuery.trim() && onNewInvestigation) {
+      onNewInvestigation(askQuery.trim());
+      setAskQuery('');
+    }
   };
 
   return (
@@ -171,7 +173,33 @@ export default function InvestigationPanel({ timelineEvents = [], planSteps = []
         }}>
           Investigation
         </span>
-        {startedAt && <ElapsedTimer startedAt={startedAt} />}
+        <div className="flex items-center gap-3">
+          {startedAt && <ElapsedTimer startedAt={startedAt} />}
+          {activeInvestigation && activeInvestigation.status !== 'completed' && activeInvestigation.status !== 'failed' && activeInvestigation.status !== 'cancelled' && (
+            <button
+              onClick={() => {
+                if (!repo?.id) return;
+                fetch(`${API_BASE}/api/repo/${repo.id}/investigate`, {
+                  method: 'DELETE'
+                }).catch(console.error);
+              }}
+              style={{
+                width: '18px',
+                height: '18px',
+                borderRadius: '4px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+              title="Stop Investigation"
+            >
+              <div style={{ width: '6px', height: '6px', background: '#EF4444', borderRadius: '1px' }} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Query ── */}
