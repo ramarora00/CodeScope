@@ -248,3 +248,31 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-07-30T19:47:00+05:30*
 
+
+## Sprint — Workspace V2 Architecture and File Explorer Refinements
+
+**Commits**
+- `a572066` fix(server): enhance investigation route, execution engine, and session manager
+- `3f0ff87` feat(app): configure API, update App root, and enhance file explorer/viewer
+- `d9bd4e5` feat(codescope): add layout engine, workers, and enhance workspace stores
+- `89219ac` feat(codescope): introduce UI v2 perspectives and perspective router
+- `8465971` feat(codescope): refine v2 panels, command bar, and workspace root
+- `2b1770b` feat(codescope): implement architecture view nodes and camera controller
+- `8371ae5` refactor(codescope): remove obsolete v1 workspace UI components
+- `3e63304` chore(logs): add latest investigation session recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **Server Fixes**: Hardened Investigation Routes, SessionManager, and ExecutionEngine.
+- **App Core**: Added API config, improved File Explorer and File Viewer components, and integrated test/verify scripts.
+- **Layout Engine**: Created dedicated layout workers and layout engine stores for the workspace.
+- **UI Perspectives**: Built V2 architecture for perspectives (Explorer, Architecture, Investigation).
+- **UI Refinements**: Built out AI Overlay Editor, updated Review Panel, Knowledge Panel, and Command Bar.
+- **Architecture Nodes**: Integrated 3D/graph file nodes, folder containers, and a dedicated AI camera controller.
+- **Legacy Workspace Cleanup**: Dropped 6 obsolete V1 workspace files to finalize the transition to V2.
+- **Logs**: Captured all recent investigation session telemetry.
+
+*Recorded on 2026-08-01T19:05:00+05:30*
+
