@@ -1,6 +1,6 @@
 const { InvestigationResult } = require('../domain/result');
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 
 /**
  * Execution Cursor
@@ -45,12 +45,13 @@ class ExecutionEngine {
   }
 
   /**
-   * Run the Execution Engine with UI-paced timing.
-   * Each step is gated with small delays so React can render between events.
+   * Run the Execution Engine instantly.
+   * All events are emitted immediately; pacing is handled by the frontend PlaybackController.
    *
    * @param {Object} planData { profile, dag, plan }
+   * @param {AbortSignal} signal - Optional abort signal
    */
-  async execute(plan) {
+  async execute(plan, signal = null) {
     const executionSteps = plan.executionSteps || [];
     const cursor = new ExecutionCursor(executionSteps.length);
 
@@ -60,8 +61,7 @@ class ExecutionEngine {
     }));
 
     for (let i = 0; i < executionSteps.length; i++) {
-      // Cancellation Check at the top of every step
-      if (this.context.isCancelled) {
+      if (this.context.isCancelled || (signal && signal.aborted)) {
         this._publish(this.events.investigationCancelled('User aborted investigation.'));
         return;
       }
@@ -74,33 +74,21 @@ class ExecutionEngine {
       // 1. Action: READ
       if (step.action === 'read') {
         this._publish(this.events.fileSelected(step.target, step.reason, plan.confidence));
-        await sleep(400);
-
         this._publish(this.events.fileReadStarted(step.target, step.reason));
-        await sleep(200);
 
-        // Simulate structured file reading with paced line progress
-        // Use a pseudo-random line count based on string length to look realistic
         const lineCount = 30 + (step.target.length * 7) % 300; 
         
-        // Emit 5 evenly-spaced progress markers across the file
         const chunks = 5;
         for (let c = 1; c <= chunks; c++) {
           cursor.fileProgress = c / chunks;
           const currentLine = Math.floor((c / chunks) * lineCount);
           this._publish(this.events.fileReadProgress(step.target, currentLine, lineCount, null));
           
-          await sleep(500); // UI PACING FOR READING ANIMATION
-
           if (this.context.isCancelled) return;
         }
 
-        // Emit a simulated finding for the knowledge panel
         this._publish(this.events.evidenceAdded(`Analyzed structural patterns in ${step.target.split('/').pop()}`, step.target, 0.9));
-
-        await sleep(300);
         this._publish(this.events.fileReadCompleted(step.target, lineCount));
-        await sleep(400);
       }
 
       // 2. Action: JUMP
@@ -108,18 +96,11 @@ class ExecutionEngine {
         cursor.jumps++;
         const fromPath = this.context.currentFile || 'unknown';
         this._publish(this.events.jumpStarted(fromPath, step.target, step.reason, 'graph_traversal', null));
-        await sleep(400);
-        
         this._publish(this.events.fileSelected(step.target, `Jumped from ${fromPath}`, plan.confidence));
-        await sleep(400);
         this._publish(this.events.fileReadStarted(step.target, `Checking dependency`));
-        await sleep(300);
         this._publish(this.events.fileReadProgress(step.target, 1, 10, null));
-        await sleep(500);
         this._publish(this.events.fileReadCompleted(step.target, 50));
-        await sleep(200);
         this._publish(this.events.jumpCompleted(step.target));
-        await sleep(200);
       }
 
       // 3. Action: RETURN
@@ -130,7 +111,6 @@ class ExecutionEngine {
       }
     }
 
-    // Final result aggregation
     const elapsed = Date.now() - cursor.startTime;
     const result = new InvestigationResult(this.context, elapsed);
     

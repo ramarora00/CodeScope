@@ -27,15 +27,17 @@ router.get('/:id/investigate/stream', async (req, res) => {
 
   try {
     // SessionManager owns everything else (Lifecycle, Planner, Execution)
-    await sessionManager.startInvestigation(repoId, mission, [sseTransport, recorderTransport], mode);
+    const sessionId = await sessionManager.startInvestigation(repoId, mission, [sseTransport, recorderTransport], mode);
     console.log(`[API] Session started for ${repoId}. Connection kept open.`);
     
     // Connection stays open until the EventBus closes the transports
     req.on('close', () => {
       console.log(`[API] Client disconnected from stream for ${repoId}`);
-      // If the client disconnects prematurely, cancel the investigation loop
-      // (Requires finding the sessionId. For now we just let it run or need to return sessionId in headers)
-      // Implementation note: SSETransport could emit a close event back to the manager.
+      // Remove this transport from the EventBus so we don't leak it
+      const session = sessionManager.activeSessions.get(sessionId);
+      if (session) {
+        session.eventBus.unsubscribe(sseTransport);
+      }
     });
 
   } catch (error) {
@@ -44,6 +46,20 @@ router.get('/:id/investigate/stream', async (req, res) => {
       res.status(500).json({ error: 'Failed to start investigation session' });
     }
   }
+});
+
+// @route   DELETE /api/repo/:id/investigate
+// @desc    Cancel the active investigation for a repository
+router.delete('/:id/investigate', (req, res) => {
+  const repoId = req.params.id;
+  
+  if (sessionManager.repoToSession.has(repoId)) {
+    const sessionId = sessionManager.repoToSession.get(repoId);
+    sessionManager.cancelInvestigation(sessionId);
+    return res.json({ message: 'Investigation cancelled successfully' });
+  }
+  
+  return res.status(404).json({ error: 'No active investigation found for this repository' });
 });
 
 module.exports = router;

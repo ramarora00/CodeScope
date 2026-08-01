@@ -19,32 +19,39 @@ const prisma = new PrismaClient();
 class SessionManager {
   constructor() {
     this.activeSessions = new Map();
+    this.repoToSession = new Map();
   }
 
   /**
-   * Start a new investigation session.
-   * @param {string} repoId 
-   * @param {string} mission 
-   * @param {Array<Transport>} transports 
-   * @param {string} mode - 'investigation' or 'understanding'
-   * @returns {string} sessionId
+   * Start a new investigation session or attach to existing.
    */
   async startInvestigation(repoId, mission, transports = [], mode = 'investigation') {
-    // P0-6: Verify repository is ready before starting investigation.
-    // Prevents investigation on incomplete snapshots from in-progress indexing.
     const repo = await prisma.repo.findUnique({ where: { id: repoId } });
-    if (!repo) {
-      throw new Error(`Repository ${repoId} not found.`);
-    }
-    if (repo.status !== 'ready') {
-      throw new Error(`Repository ${repoId} is not ready for investigation (current status: '${repo.status}'). Wait for indexing to complete.`);
+    if (!repo) throw new Error(`Repository ${repoId} not found.`);
+    if (repo.status !== 'ready') throw new Error(`Repository ${repoId} is not ready.`);
+
+    if (this.repoToSession.has(repoId)) {
+      const existingSessionId = this.repoToSession.get(repoId);
+      const session = this.activeSessions.get(existingSessionId);
+      if (session) {
+        console.log(`[SessionManager] Reattaching to existing session ${existingSessionId} for repo ${repoId}`);
+        for (const transport of transports) {
+          // Only reattach SSETransports to avoid duplicate log writes
+          if (transport.constructor.name === 'SSETransport') {
+            transport.start(existingSessionId);
+            session.eventBus.subscribe(transport);
+          }
+        }
+        return existingSessionId;
+      } else {
+        this.repoToSession.delete(repoId); // Cleanup stale map
+      }
     }
 
     const sessionId = uuidv4();
-    console.log(`[SessionManager] startInvestigation called. repoId: ${repoId}, sessionId: ${sessionId}, mission: ${mission}, mode: ${mode}`);
+    console.log(`[SessionManager] startInvestigation: repoId: ${repoId}, sessionId: ${sessionId}`);
     const eventBus = new EventBus(sessionId);
 
-    // Register transports
     for (const transport of transports) {
       transport.start(sessionId);
       eventBus.subscribe(transport);
@@ -53,21 +60,15 @@ class SessionManager {
     const context = new InvestigationContext(sessionId, repoId);
     const eventFactory = new EventFactory(sessionId, repoId);
     
-    this.activeSessions.set(sessionId, { context, eventBus });
+    this.activeSessions.set(sessionId, { context, eventBus, repoId });
+    this.repoToSession.set(repoId, sessionId);
 
-    console.log(`[SessionManager] Running lifecycle asynchronously for session: ${sessionId}, mode: ${mode}`);
-    // Run investigation asynchronously so HTTP can return/stream immediately
     this._runLifecycle(sessionId, repoId, mission, context, eventFactory, eventBus, mode).catch(err => {
-      console.error(`[SessionManager] Investigation failed for session ${sessionId}:`, err);
-      eventBus.publish({
-        type: 'investigation.failed',
-        sessionId,
-        repoId,
-        stage: context.status,
-        reason: err.message || 'Unknown execution failure'
-      });
+      console.error(`[SessionManager] Investigation failed:`, err);
+      eventBus.publish(eventFactory.plannerFailed(err.message || 'Unknown error'));
       eventBus.closeAll();
       this.activeSessions.delete(sessionId);
+      this.repoToSession.delete(repoId);
     });
 
     return sessionId;
@@ -108,14 +109,28 @@ class SessionManager {
         eventBus.publish(evt);
       });
       console.log(`[SessionManager] Engine execute starting...`);
-      await engine.execute(planData.plan);
+      
+      const session = this.activeSessions.get(sessionId);
+      if (session) {
+        session.abortController = new AbortController();
+        await engine.execute(planData.plan, session.abortController.signal);
+      } else {
+        await engine.execute(planData.plan);
+      }
+      
       console.log(`[SessionManager] Engine execute finished for session: ${sessionId}`);
 
     } finally {
       console.log(`[SessionManager] Cleanup for session: ${sessionId}`);
-      // 4. Cleanup
-      eventBus.closeAll();
-      this.activeSessions.delete(sessionId);
+      // 4. Cleanup (idempotent — cancelInvestigation may have already cleaned up)
+      if (this.activeSessions.has(sessionId)) {
+        const session = this.activeSessions.get(sessionId);
+        if (session) {
+          session.eventBus.closeAll();
+        }
+        this.activeSessions.delete(sessionId);
+        this.repoToSession.delete(repoId);
+      }
     }
   }
 
@@ -123,7 +138,15 @@ class SessionManager {
     const session = this.activeSessions.get(sessionId);
     if (session) {
       session.context.isCancelled = true;
-      // The ExecutionEngine will pick this up on its next loop boundary
+      if (session.abortController) {
+        session.abortController.abort();
+      }
+      // Clean up mappings so next startInvestigation creates a fresh session
+      session.eventBus.closeAll();
+      this.activeSessions.delete(sessionId);
+      if (session.repoId) {
+        this.repoToSession.delete(session.repoId);
+      }
       return true;
     }
     return false;
