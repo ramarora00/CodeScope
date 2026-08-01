@@ -1,11 +1,41 @@
-// Investigation lifecycle event types
-export const INVESTIGATION_CREATED = 'INVESTIGATION_CREATED';
-export const INVESTIGATION_STARTED = 'INVESTIGATION_STARTED';
-export const INVESTIGATION_COMPLETED = 'INVESTIGATION_COMPLETED';
-export const INVESTIGATION_CANCELLED = 'INVESTIGATION_CANCELLED';
-export const INVESTIGATION_ARCHIVED = 'INVESTIGATION_ARCHIVED';
-export const INVESTIGATION_RESTORED = 'INVESTIGATION_RESTORED';
-export const INVESTIGATION_DELETED = 'INVESTIGATION_DELETED';
-export const INVESTIGATION_RENAMED = 'INVESTIGATION_RENAMED';
-export const INVESTIGATION_PINNED = 'INVESTIGATION_PINNED';
-export const INVESTIGATION_UNPINNED = 'INVESTIGATION_UNPINNED';
+/**
+ * Formal Event Contract
+ * 
+ * Every backend event must follow this structure:
+ * {
+ *   protocolVersion: 1,
+ *   eventId: string,
+ *   sessionId: string,
+ *   repoId: string,
+ *   type: string,
+ *   timestamp: string,
+ *   sequence: number,
+ *   parentEventId: string | null,
+ *   ...payload
+ * }
+ */
+
+// Core Lifecycle
+export const INVESTIGATION_STARTED = 'investigation.started';
+export const INVESTIGATION_COMPLETED = 'investigation.completed';
+export const INVESTIGATION_CANCELLED = 'investigation.cancelled';
+
+// Planner / Execution
+export const FILE_SELECTED = 'file.selected';
+export const FILE_READ_STARTED = 'file.read.started';
+export const FILE_READ_PROGRESS = 'file.read.progress';
+export const FILE_READ_COMPLETED = 'file.read.completed';
+export const JUMP_STARTED = 'jump.started';
+export const JUMP_COMPLETED = 'jump.completed';
+export const RETURN_STARTED = 'return.started';
+
+// Knowledge / Discoveries
+export const SYMBOL_DISCOVERED = 'symbol.discovered';
+export const EVIDENCE_ADDED = 'evidence.added';
+export const KNOWLEDGE_ADDED = 'knowledge.added';
+export const KNOWLEDGE_PROMOTED = 'knowledge.promoted';
+export const KNOWLEDGE_VERIFIED = 'knowledge.verified';
+export const KNOWLEDGE_RETRACTED = 'knowledge.retracted';
+
+// Internal Reasoning
+export const REASONING_UPDATED = 'reasoning.updated';

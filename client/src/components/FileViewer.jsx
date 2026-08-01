@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { FileCode, FunctionSquare, Box, Import, Info, Zap } from 'lucide-react'
+import { API_BASE } from '../config/api'
 import { CodePreviewBlock, EvidenceBlock, StatusBlock } from '@/shared/ui/EnterpriseBlocks'
 import { LoadingState } from '@/shared/ui/LoadingState'
+import AIOverlayEditor from '../features/codescope/ui/v2/AIOverlayEditor'
 
 const FileViewer = ({ repo, file }) => {
   const [content, setContent] = useState('')
@@ -17,7 +19,7 @@ const FileViewer = ({ repo, file }) => {
   const fetchFileContent = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`http://localhost:5000/api/repo/${repo.id}/file/content?filePath=${encodeURIComponent(file.path)}`)
+      const res = await fetch(`${API_BASE}/api/repo/${repo.id}/file/content?filePath=${encodeURIComponent(file.path)}`)
       const data = await res.json()
       setContent(data.content || '')
       setMetadata(data.metadata ? JSON.parse(data.metadata) : null)
@@ -63,11 +65,11 @@ const FileViewer = ({ repo, file }) => {
               <LoadingState size="lg" />
             </div>
           )}
-          <CodePreviewBlock
-            className="flex-1 h-full"
-            code={content || '// No content available'}
-            fileName={file.name}
-            language={file.name.split('.').pop().toUpperCase()}
+          <AIOverlayEditor
+            activeTabId={file.path}
+            memoryFiles={[{ name: file.name, file: file.path, content: content || '// No content available' }]}
+            runtimeStatus="idle"
+            attention={{}}
           />
         </div>
 

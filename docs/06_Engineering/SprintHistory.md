@@ -146,3 +146,133 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-07-12T06:50:30.075Z*
 
+
+## Sprint - CodeScope Workspace UI V2 Integration
+
+**Commits**
+- feat(codescope): introduce high-level workspace UI v2 components
+- feat(codescope): introduce workspace shell and layout components
+- feat(codescope): introduce runtime and focus models
+- feat(codescope): update launch experience and global styles for new UI
+- docs(codescope): add workspace UX architecture and integration assets
+
+**Status**
+? Completed
+
+**Summary**
+- Migrated to new premium dynamic High UI workspace for CodeScope.
+- Introduced new UI V2 components, runtime and focus models, and layout components.
+- Grouped commits logically by component architecture.
+
+
+## Sprint — CodeScope Workspace Polish & Boot Sequence
+
+**Commits**
+- `de55b8d` feat(codescope): add investigation phase markers and tune reading speed timings
+- `984e07c` feat(codescope): refine v2 panels — sequential dots, tighter opacity, row-rise animations
+- `8eef219` feat(codescope): add boot sequence, settle animations, and panel shadow system
+
+**Status**
+? Completed
+
+**Summary**
+- Added phase markers (searching, understanding, connecting, verifying, concluding) to the investigation runtime script.
+- Tuned reading speed timings for more natural AI reading cadence.
+- Refactored AIOverlayEditor with sequential reading dots, tighter opacity falloff, and text-based confidence display.
+- Updated InvestigationPanel, KnowledgePanel, CommandBar, and Dock with row-rise animations and refined styling.
+- Introduced WorkspaceRoot boot sequence (Indexing ? Preparing graph ? Ready) with spinner.
+- Added settle, row-rise, crossfade keyframes and panel shadow system to global CSS.
+- Softened border and shadow tokens for more premium visual depth.
+
+*Recorded on 2026-07-21T17:51:00+05:30*
+
+
+## Sprint — Live Investigation Engine & Backend Integration
+
+**Commits**
+- `8fdf143` feat(investigation): add domain model — context, events, result, snapshot, repository
+- `c843030` feat(investigation): add planner — classification, DAG builder, strategies, scoring
+- `9f71431` feat(investigation): add transport layer — SSE, event bus, session, recorder
+- `b024922` feat(investigation): add execution engine and investigation API route
+- `7355f93` fix(server): harden metadata JSON parsing and wire investigation route
+- `6fa1420` feat(codescope): add RealRuntime and update RuntimeAdapter for live backend SSE
+- `2d9b7c2` feat(codescope): add investigation session and playback controller stores
+- `2674006` feat(codescope): wire live investigation into workspace UI with SSE boot sequence
+- `1fbc708` feat(app): remove ProcessingExperience, wire direct workspace entry with onBack
+- `fca0430` chore(test): add investigation test harness, fixtures, and runtime logs
+
+**Status**
+? Completed
+
+**Summary**
+- Built full investigation backend engine: domain model, planner (classification, DAG, strategies, scoring), transport (SSE, event bus, session, recorder), execution engine.
+- Added `/api/repo/:id/investigate` route for launching live investigations.
+- Hardened metadata JSON parsing across server routes to prevent crashes on malformed data.
+- Made MOCK_EMBEDDING configurable via environment variable.
+- Added RealRuntime client that streams SSE events from the backend, with RuntimeAdapter auto-selecting real vs mock.
+- Added useInvestigationSession and usePlaybackController store hooks.
+- Integrated live SSE boot sequence into WorkspaceRoot with indexing step labels and error fallback.
+- Removed ProcessingExperience from App.jsx — workspace now entered directly.
+- Added investigation test harness, validation fixtures, and 24 investigation log recordings.
+
+*Recorded on 2026-07-24T18:06:00+05:30*
+
+
+## Sprint — Live Investigation Pipeline, LLM Planner, and Legacy Purge
+
+**Commits**
+- `8447c42` refactor(legacy): remove all legacy investigation, observatory, knowledge, and layout modules
+- `2f88da3` refactor(codescope): remove obsolete RuntimeAdapter, InvestigationWorkspace, and WorkspaceShell
+- `aa7733b` refactor(investigation): remove superseded DefaultStrategy and PlanGenerator
+- `237c518` feat(investigation): add LLM-powered planner with context builder, plan validation, and Gemini provider
+- `191aa76` fix(investigation): harden execution engine, session manager, SSE transport, and routes
+- `07259fd` chore(test): add planner integration test and stress test harness
+- `ffa25c5` feat(codescope): add workspace lifecycle hook, event router, presentation model, and recorder
+- `e770ab5` feat(codescope): refactor workspace UI — extract lifecycle, add status bar and ready state
+- `ad295ed` feat(app): refactor App routing, observatory integration, and repository graph layer
+- `3d5a64d` feat(shared): expand investigation event types for live pipeline
+- `4e95c7d` chore(logs): add investigation session recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **Legacy Purge**: Deleted 34 legacy modules (investigation, observatory, knowledge, layout) plus 3 obsolete codescope files and 2 superseded planner files. Total: 39 files deleted.
+- **LLM Planner**: Added Gemini-powered planner with ContextBuilder, PlanValidator, UnderstandingPlanBuilder, and LLMProvider abstraction.
+- **Server Hardening**: Improved ExecutionEngine, SessionManager, SSETransport, and route error handling.
+- **Client Architecture**: Extracted workspace lifecycle into dedicated hook, added InvestigationRecorder, event router, and presentation model stores.
+- **UI Refactor**: Slimmed WorkspaceRoot, added WorkspaceStatusBar, RepositoryReadyState, and refined all V2 panels (CommandBar, InvestigationPanel, KnowledgePanel).
+- **App Integration**: Refactored App.jsx routing, enhanced AIObservatory, and updated repository graph layer.
+- **Shared Events**: Expanded event type definitions for real-time investigation pipeline.
+- **Recordings**: Added 70 investigation session log recordings.
+
+*Recorded on 2026-07-30T19:47:00+05:30*
+
+
+## Sprint — Workspace V2 Architecture and File Explorer Refinements
+
+**Commits**
+- `a572066` fix(server): enhance investigation route, execution engine, and session manager
+- `3f0ff87` feat(app): configure API, update App root, and enhance file explorer/viewer
+- `d9bd4e5` feat(codescope): add layout engine, workers, and enhance workspace stores
+- `89219ac` feat(codescope): introduce UI v2 perspectives and perspective router
+- `8465971` feat(codescope): refine v2 panels, command bar, and workspace root
+- `2b1770b` feat(codescope): implement architecture view nodes and camera controller
+- `8371ae5` refactor(codescope): remove obsolete v1 workspace UI components
+- `3e63304` chore(logs): add latest investigation session recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **Server Fixes**: Hardened Investigation Routes, SessionManager, and ExecutionEngine.
+- **App Core**: Added API config, improved File Explorer and File Viewer components, and integrated test/verify scripts.
+- **Layout Engine**: Created dedicated layout workers and layout engine stores for the workspace.
+- **UI Perspectives**: Built V2 architecture for perspectives (Explorer, Architecture, Investigation).
+- **UI Refinements**: Built out AI Overlay Editor, updated Review Panel, Knowledge Panel, and Command Bar.
+- **Architecture Nodes**: Integrated 3D/graph file nodes, folder containers, and a dedicated AI camera controller.
+- **Legacy Workspace Cleanup**: Dropped 6 obsolete V1 workspace files to finalize the transition to V2.
+- **Logs**: Captured all recent investigation session telemetry.
+
+*Recorded on 2026-08-01T19:05:00+05:30*
+

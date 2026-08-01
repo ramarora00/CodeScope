@@ -55,7 +55,9 @@ const callWithRetry = async (fn, retries = 8, delay = 3000) => {
   }
 };
 
-let useMockFallback = false;
+// P0-3: Driven by environment variable only. Default is false (real embeddings).
+// Set MOCK_EMBEDDING=true in .env to bypass Gemini API during development/testing.
+let useMockFallback = process.env.MOCK_EMBEDDING === 'true';
 
 /**
  * Gets embeddings for a text string using Gemini

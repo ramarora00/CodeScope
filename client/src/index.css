@@ -1,161 +1,174 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,200..900;1,14..32,200..900&family=JetBrains+Mono:wght@300;400;500&display=swap');
-@import './styles/tokens.css';
-@import './styles/typography.css';
-@import './styles/animations.css';
-@import './styles/utilities.css';
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap');
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════
+   CODESCOPE DESIGN SYSTEM v1.0 — LOCKED
+   95% grayscale · 5% accent · Premium developer tool palette
+═══════════════════════════════════════════════════════════════ */
 :root {
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  /* ── Fonts ── */
+  --cs-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --cs-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-sans: var(--cs-sans);
+  --font-mono: var(--cs-mono);
 
-  /* ─── Observatory Palette (Vercel + Linear) ─── */
-  --bg-void:      #05070B;   /* Deepest black — void of space */
-  --bg-main:      #0A0E15;   /* Primary background */
-  --bg-surface:   #10141C;   /* Card / panel surface */
-  --bg-elevated:  #151A24;   /* Elevated surfaces */
-  --bg-sidebar:   #080A0F;   /* Sidebar */
-  --bg-hover:     #1A212D;   /* Hover state */
-  
-  /* ─── Borders ─── */
-  --border:         #1C2331;
-  --border-strong:  #283245;
+  /* ── Backgrounds — pure black, no blue/purple tint ── */
+  --cs-bg:           #0A0A0A;   /* Root (ChatGPT-style pure black) */
+  --cs-panel:        #101010;   /* Secondary panels */
+  --cs-editor:       #0D0D0D;   /* Editor surface */
+  --cs-panel-raised: #151515;   /* Hover states */
+  --cs-dock:         #0D0D0D;   /* Left dock */
 
-  /* ─── Typography ─── */
-  --text-primary:   #D8DCE6; /* Clean off-white */
-  --text-secondary: #8E97A8; /* Muted grey for secondary text */
-  --text-muted:     #5C657A;
-  
-  /* ─── Accent — Subtle Professional ─── */
-  --accent:         #D8DCE6; /* Minimalist accent, mostly we rely on borders/glows */
-  --accent-glow:    rgba(216, 220, 230, 0.1);
-  --accent-border:  rgba(216, 220, 230, 0.2);
+  /* legacy aliases — don't break old components */
+  --bg-void:      var(--cs-bg);
+  --bg-main:      var(--cs-panel);
+  --bg-surface:   var(--cs-panel-raised);
+  --bg-elevated:  #1A1A1A;
+  --bg-sidebar:   var(--cs-panel);
+  --bg-hover:     var(--cs-panel-raised);
+  --bg-active:    rgba(255,255,255,0.04);
 
-  /* ─── Semantic (Muted) ─── */
-  --success:        #7A8F7B;
-  --error:          #8B6B6B;
-  --warning:        #8B8475;
+  /* ── Borders — use only rgba(255,255,255,0.04), never solid ── */
+  --cs-border:        rgba(255,255,255,0.04);
+  --cs-border-strong: rgba(255,255,255,0.08);
+  --cs-border-subtle: rgba(255,255,255,0.02);
+  --border:           var(--cs-border);
+  --border-strong:    var(--cs-border-strong);
+  --border-subtle:    var(--cs-border-subtle);
 
-  /* ─── Transitions ─── */
-  --ease:           cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-out:       cubic-bezier(0, 0, 0.2, 1);
-  --transition:     all 0.2s var(--ease);
+  /* ── Desktop Shadows ── */
+  --cs-shadow-panel:  0 8px 40px rgba(0,0,0,0.45);
+
+
+  /* ── Typography — grayscale hierarchy ── */
+  --cs-text:    #E8E8E8;   /* Primary — bright white-ish */
+  --cs-muted:   #8A8A8A;   /* Secondary — medium grey */
+  --cs-faint:   #4A4A4A;   /* Tertiary — dim grey */
+  --cs-hint:    #2A2A2A;   /* Ultra-dim — barely visible */
+  --text-primary:   var(--cs-text);
+  --text-secondary: var(--cs-muted);
+  --text-muted:     var(--cs-faint);
+  --text-faint:     var(--cs-hint);
+
+  /* ── Accent — Silver Periwinkle (not bright, not indigo) ── */
+  --cs-accent:        #BFC8D8;   /* Primary accent — soft silver */
+  --cs-accent-hover:  #D1D9E6;   /* Hover state */
+  --cs-accent-dim:    rgba(191,200,216,0.06);   /* Background tint */
+  --cs-accent-border: rgba(191,200,216,0.12);   /* Accent borders */
+  --cs-accent-bar:    rgba(191,200,216,0.60);   /* Active indicator bar */
+  --cs-accent-2:      #9CA3AF;   /* Secondary accent */
+
+  /* legacy */
+  --accent:        var(--cs-accent);
+  --accent-dim:    var(--cs-accent-dim);
+  --accent-border: var(--cs-accent-border);
+  --accent-glow:   transparent;
+
+  /* ── Semantic — GitHub palette ── */
+  --cs-green:   #3FB950;   /* Confirmed findings, live status */
+  --cs-yellow:  #E3B341;   /* Warnings */
+  --cs-red:     #F85149;   /* Errors */
+  --success:    var(--cs-green);
+  --error:      var(--cs-red);
+  --warning:    var(--cs-yellow);
+
+  /* ── GitHub Dark Syntax Colors ── */
+  --syn-keyword:   #FF7B72;
+  --syn-function:  #D2A8FF;
+  --syn-string:    #A5D6FF;
+  --syn-type:      #79C0FF;
+  --syn-number:    #F2CC60;
+  --syn-comment:   #8B949E;
+  --syn-param:     #FFA657;
+  --syn-operator:  #FF7B72;
+  --syn-default:   #C9D1D9;
+  --syn-punct:     #8B949E;
+  --syn-decorator: #79C0FF;
+
+  /* ── Easing — NEVER use linear ── */
+  --ease-premium: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-out:     cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out:  cubic-bezier(0.4, 0, 0.2, 1);
+  --ease:         var(--ease-in-out);
+  --transition:   all 220ms var(--ease-out);
 }
 
-*, *::before, *::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html, body, #root {
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-}
+/* ── Reset ── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body, #root { height: 100%; width: 100%; overflow: hidden; background: var(--cs-bg); }
 
 body {
-  font-family: var(--font-sans);
-  background-color: var(--bg-void);
-  color: var(--text-primary);
-  line-height: 1.6;
+  font-family: var(--cs-sans);
+  color: var(--cs-text);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02','cv03','cv04','cv11','tnum';
+  font-variant-numeric: tabular-nums;
 }
 
-/* ─────────────────────────────────────────
-   SCROLLBAR
-───────────────────────────────────────── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
+/* ── Scrollbar — barely there ── */
+::-webkit-scrollbar { width: 3px; height: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.10); }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
 
-.custom-scrollbar::-webkit-scrollbar { width: 3px; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
-
-/* ─────────────────────────────────────────
-   SURFACE PRIMITIVES
-───────────────────────────────────────── */
-.glass {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-}
-
-.surface {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-}
-
-/* ─────────────────────────────────────────
-   TEXT EFFECTS
-───────────────────────────────────────── */
-.text-gradient-silver {
-  color: var(--text-primary);
-}
-
-/* ─────────────────────────────────────────
-   LAYOUT UTILITIES
-───────────────────────────────────────── */
-.app-container {
-  display: grid;
-  grid-template-columns: 240px 1fr 340px; /* Left Nav, Center, AI Observatory */
-  grid-template-rows: 56px 1fr; /* Top Bar, Main Content */
-  grid-template-areas: 
-    "sidebar topbar rightpanel"
-    "sidebar main   rightpanel";
-  height: 100vh;
-  width: 100vw;
-  background-color: var(--bg-void);
-  overflow: hidden;
-  position: relative;
-}
-
-.sidebar-left {
-  grid-area: sidebar;
-  background-color: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  z-index: 10;
-}
-
-.topbar-container {
-  grid-area: topbar;
-  background: rgba(10, 14, 21, 0.8);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  padding: 0 24px;
-  z-index: 10;
-}
-
-.main-panel {
-  grid-area: main;
-  background-color: var(--bg-main);
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.right-panel {
-  grid-area: rightpanel;
-  background-color: var(--bg-sidebar);
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  z-index: 10;
-}
-
-/* ─────────────────────────────────────────
-   ANIMATION
-───────────────────────────────────────── */
+/* ── Keyframes ── */
 @keyframes rise {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0);   }
 }
-.animate-rise { animation: rise 0.35s var(--ease-out) both; }
+@keyframes fade-in {
+  from { opacity: 0; } to { opacity: 1; }
+}
+@keyframes fade-slide {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes pulse-dot {
+  0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+}
+@keyframes read-blink {
+  0%,100% { opacity: 0.9; } 50% { opacity: 0.4; }
+}
+@keyframes reading-wave {
+  0%,100% { transform: scaleY(0.4); }
+  50%      { transform: scaleY(1.0); }
+}
+
+/* Panel settle — fades in while rising 6px */
+@keyframes settle {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+/* Timeline row rise — new entries slide up 6px while fading in */
+@keyframes row-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+/* Tab crossfade — editor content transitions between files */
+@keyframes crossfade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-rise       { animation: rise 220ms var(--ease-out) both; }
+.animate-fade-in    { animation: fade-in 220ms ease both; }
+.animate-slide      { animation: fade-slide 220ms var(--ease-out) both; }
+.animate-pulse-dot  { animation: pulse-dot 2s ease-in-out infinite; }
+.animate-read-blink { animation: read-blink 1.4s ease-in-out infinite; }
+.animate-settle     { animation: settle 250ms var(--ease-out) both; }
+.animate-row-rise   { animation: row-rise 200ms var(--ease-out) both; }
+.animate-crossfade  { animation: crossfade 200ms ease both; }
+
+/* Dock icon hover scale */
+.dock-icon {
+  transition: transform 200ms var(--ease-out), opacity 200ms ease;
+}
+.dock-icon:hover {
+  transform: scale(1.06);
+}
