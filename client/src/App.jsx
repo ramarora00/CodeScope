@@ -1,26 +1,23 @@
 import { useState, useEffect, useMemo } from 'react';
+import { API_BASE } from './config/api';
+import { useInvestigationSession } from './features/codescope/store/useInvestigationSession';
+import { useWorkspaceStore } from './features/codescope/store/useWorkspaceStore';
 import LaunchExperience from './features/codescope/ui/LaunchExperience';
-// PRESENTATION LOCK (Rule 15): WorkspaceRoot is the canonical premium shell.
-// Brain: Zustand useInvestigationSession + SSE event router.
-// Presentation: frozen v2 layout (Dock, CommandBar, AIOverlayEditor, KnowledgePanel).
 import WorkspaceRoot from './features/codescope/ui/v2/WorkspaceRoot';
 import './App.css';
 
 function App() {
-  // Experience States: 'launch' | 'processing' | 'workspace'
   const [appState, setAppState] = useState('launch');
   const [repos, setRepos] = useState([]);
-  const [selectedRepo, setSelectedRepo] = useState(null);
   
-  console.log('[App.jsx] Render. appState:', appState, 'selectedRepo:', selectedRepo);
+  const { selectedRepo, setSelectedRepo, activeInvestigationId, setActiveInvestigationId } = useWorkspaceStore();
   
   // Investigation States
   const [investigations, setInvestigations] = useState([]);
-  const [activeInvestigationId, setActiveInvestigationId] = useState(null);
 
   // Sync health and repositories
   const fetchRepos = () => {
-    fetch('http://localhost:5000/api/repo')
+    fetch(`${API_BASE}/api/repo`)
       .then(r => r.json())
       .then(d => {
         setRepos(d);
@@ -32,16 +29,13 @@ function App() {
     fetchRepos();
   }, []);
 
-  // Connect repository action
   const handleConnect = async (urlOrPath) => {
-    // Demo mode: bypass backend, go straight to workspace with null repo
     if (urlOrPath === '__demo__') {
       setSelectedRepo(null);
       setAppState('workspace');
       return;
     }
 
-    // Quick-select an already-indexed repo by ID
     if (urlOrPath.startsWith('__repo__')) {
       const repoId = urlOrPath.replace('__repo__', '');
       const existing = repos.find(r => r.id === repoId);
@@ -56,13 +50,13 @@ function App() {
       let response;
       if (isLocal) {
         const dirName = urlOrPath.replace(/\\/g, '/').split('/').pop() || 'local-repo';
-        response = await fetch('http://localhost:5000/api/repo/index-local', {
+        response = await fetch(`${API_BASE}/api/repo/index-local`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ localPath: urlOrPath, name: dirName })
         });
       } else {
-        response = await fetch('http://localhost:5000/api/repo/upload', {
+        response = await fetch(`${API_BASE}/api/repo/upload`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ repoUrl: urlOrPath })
@@ -72,9 +66,9 @@ function App() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to connect repository');
 
-      // Update lists — always go straight to workspace
       setRepos(prev => [data, ...prev]);
       setSelectedRepo(data);
+      useInvestigationSession.getState().resetSession(data.id);
       setAppState('workspace');
     } catch (err) {
       console.error(err);
@@ -84,6 +78,7 @@ function App() {
 
   const handleSelectRepo = (repo) => {
     setSelectedRepo(repo);
+    useInvestigationSession.getState().resetSession(repo.id);
     setAppState('workspace');
   };
 
@@ -91,18 +86,41 @@ function App() {
     setAppState('launch');
   };
 
-  const handleProcessingComplete = () => {
-    fetchRepos();
-    setAppState('workspace');
-  };
-
-  // Find active investigation object
   const activeInvestigation = useMemo(() => {
     return investigations.find(i => i.id === activeInvestigationId) || null;
   }, [investigations, activeInvestigationId]);
 
-  // Launch a new investigation query
+  useEffect(() => {
+    return useInvestigationSession.subscribe((state) => {
+      if (activeInvestigationId) {
+        if (state.sessionState === 'completed' || state.sessionState === 'error') {
+          setInvestigations(prev => prev.map(inv => {
+            if (inv.id === activeInvestigationId) {
+              return {
+                ...inv,
+                status: state.sessionState === 'completed' ? 'completed' : 'failed',
+                conclusion: state.focusContext.answer || state.currentReason || 'Investigation closed'
+              };
+            }
+            return inv;
+          }));
+        }
+      }
+    });
+  }, [activeInvestigationId]);
+
   const startNewInvestigation = async (queryText, mode = 'investigation') => {
+    // Cancel any existing backend investigation first
+    if (selectedRepo?.id) {
+      try {
+        await fetch(`${API_BASE}/api/repo/${selectedRepo.id}/investigate`, {
+          method: 'DELETE'
+        });
+      } catch (e) {
+        // Ignore — there may not be an active investigation
+      }
+    }
+
     const newId = Date.now().toString();
     const newInv = {
       id: newId,
@@ -119,11 +137,6 @@ function App() {
 
     setInvestigations(prev => [newInv, ...prev]);
     setActiveInvestigationId(newId);
-    
-    // In the new architecture (v2 shell + Zustand), we do NOT fetch `/api/chat` here.
-    // Setting `activeInvestigationId` causes `useInvestigationEventRouter` 
-    // to mount and connect to `/api/repo/:id/investigate/stream`, which 
-    // drives the entire UI via SSE events.
   };
 
   return (
@@ -133,7 +146,6 @@ function App() {
       )}
       {appState === 'workspace' && (
         <WorkspaceRoot
-          repo={selectedRepo}
           onBack={handleConnectNew}
           activeInvestigation={activeInvestigation}
           onNewInvestigation={startNewInvestigation}

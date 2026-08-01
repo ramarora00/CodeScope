@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { File, Folder, ChevronRight, ChevronDown, Loader2, AlertCircle } from 'lucide-react'
+import { API_BASE } from '../config/api'
 
 const FileTreeItem = ({ item, onFileSelect, depth = 0 }) => {
   const [isOpen, setIsOpen] = useState(false)
@@ -66,7 +67,7 @@ const FileExplorer = ({ repo, onFileSelect }) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`http://localhost:5000/api/repo/${repo.id}/files`)
+      const res = await fetch(`${API_BASE}/api/repo/${repo.id}/files`)
       const data = await res.json()
       
       if (res.ok && Array.isArray(data)) {
