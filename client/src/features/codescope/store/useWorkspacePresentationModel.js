@@ -76,17 +76,26 @@ export function useWorkspacePresentationModel() {
     let idCounter = 1;
     for (const e of processedEvents) {
       if (e.type === 'file.selected') {
-        events.push({ id: idCounter++, title: 'Selected File', description: e.reason || e.file, time: new Date(e.timestamp || Date.now()).toLocaleTimeString() });
+        events.push({ id: idCounter++, type: e.type, title: 'Selected File', description: e.reason || e.file, time: new Date(e.timestamp || Date.now()).toLocaleTimeString() });
       } else if (e.type === 'planner.completed') {
-        events.push({ id: idCounter++, title: 'Plan Generated', description: e.plan?.hypothesis || 'Created execution plan', time: new Date(e.timestamp || Date.now()).toLocaleTimeString() });
+        events.push({ id: idCounter++, type: e.type, title: 'Plan Generated', description: e.plan?.hypothesis || 'Created execution plan', time: new Date(e.timestamp || Date.now()).toLocaleTimeString() });
       } else if (e.type === 'jump.started') {
-        events.push({ id: idCounter++, title: 'Jumping', description: e.reason || `Jumping to ${e.target}`, time: new Date(e.timestamp || Date.now()).toLocaleTimeString() });
+        events.push({ id: idCounter++, type: e.type, title: 'Jumping', description: e.reason || `Jumping to ${e.target}`, time: new Date(e.timestamp || Date.now()).toLocaleTimeString() });
       } else if (e.type === 'evidence.added') {
-        events.push({ id: idCounter++, title: 'Fact Discovered', description: e.fact, time: new Date(e.timestamp || Date.now()).toLocaleTimeString() });
+        events.push({ id: idCounter++, type: e.type, title: 'Fact Discovered', description: e.fact, time: new Date(e.timestamp || Date.now()).toLocaleTimeString() });
       }
     }
+    
+    // Set status on the last event to active, others to done
+    if (events.length > 0) {
+      for (let i = 0; i < events.length - 1; i++) {
+        events[i].status = 'done';
+      }
+      events[events.length - 1].status = (focusContext.status === 'review' || sessionState === SESSION_STATES.IDLE || sessionState === SESSION_STATES.ERROR) ? 'done' : 'active';
+    }
+    
     return events;
-  }, [processedEvents]);
+  }, [processedEvents, focusContext.status, sessionState]);
 
   const planSteps = useMemo(() => {
     // If the backend has a mission/plan, extract steps. Otherwise fallback to mock for visuals
@@ -104,11 +113,15 @@ export function useWorkspacePresentationModel() {
 
   // ── 3. KnowledgePanel Contract ──
   const findings = useMemo(() => {
-    return (focusContext.findings || []).map(f => ({
-      name: typeof f.source === 'string' ? f.source.split('/').pop() : f.source?.file || 'Finding',
-      active: true,
-      text: f.fact
-    }));
+    return (focusContext.findings || []).map(f => {
+      const filePath = typeof f.source === 'string' ? f.source : f.source?.file;
+      return {
+        name: filePath ? filePath.split('/').pop() : 'Finding',
+        filePath: filePath,
+        active: true,
+        text: f.fact
+      };
+    });
   }, [focusContext.findings]);
 
   const relatedSymbols = useMemo(() => {
@@ -118,6 +131,9 @@ export function useWorkspacePresentationModel() {
       line: r.line || 1
     }));
   }, [focusContext.relatedNodes]);
+
+  const answer = focusContext.answer;
+  const error = sessionState === SESSION_STATES.ERROR ? currentReason : null;
 
   return {
     presentation: {
@@ -131,6 +147,8 @@ export function useWorkspacePresentationModel() {
       planSteps,
       findings,
       relatedSymbols,
+      answer,
+      error
     },
     raw: {
       sessionState,

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useInvestigationSession, SESSION_STATES } from './useInvestigationSession';
 import { investigationRecorder } from './InvestigationRecorder';
+import { API_BASE } from '../../../config/api';
 
 /**
  * Single Event Translation Layer (Rule 10)
@@ -24,18 +25,12 @@ export function useInvestigationEventRouter(repoId, activeInvestigation) {
       console.log('[EventRouter] Missing repoId or activeInvestigation. Skipping.');
       return;
     }
-    
-    // Don't reconnect if already connected to THIS specific investigation
-    if (metadata.sessionId === activeInvestigation.id && sessionState !== SESSION_STATES.IDLE && sessionState !== SESSION_STATES.ERROR) {
-      console.log(`[EventRouter] Already connected to ${activeInvestigation.id} (state: ${sessionState}). Skipping connection.`);
-      return;
-    }
 
     let eventSource;
     try {
       // Phase 1: Mission starts -> SSE Connected
       const mode = activeInvestigation.mode || 'investigation';
-      const url = `http://localhost:5000/api/repo/${repoId}/investigate/stream?mission=${encodeURIComponent(activeInvestigation.title || activeInvestigation.query || '')}&mode=${encodeURIComponent(mode)}`;
+      const url = `${API_BASE}/api/repo/${repoId}/investigate/stream?mission=${encodeURIComponent(activeInvestigation.title || activeInvestigation.query || '')}&mode=${encodeURIComponent(mode)}`;
       console.log(`[EventRouter] Connecting to ${url}`);
       
       startSession(activeInvestigation.id || 'mission', repoId);
@@ -62,8 +57,23 @@ export function useInvestigationEventRouter(repoId, activeInvestigation) {
       };
 
       eventSource.onerror = (err) => {
-        console.error('[EventRouter] SSE Error:', err);
-        setError('Connection lost to investigation stream.');
+        const state = useInvestigationSession.getState();
+        const hasCompletedEvent = 
+          state.incomingEvents.some((e) => e.type === "investigation.completed") ||
+          state.processedEvents.some((e) => e.type === "investigation.completed");
+        
+        if (
+          hasCompletedEvent ||
+          state.sessionState === SESSION_STATES.COMPLETED ||
+          state.sessionState === SESSION_STATES.CANCELLED ||
+          state.sessionState === SESSION_STATES.ERROR
+        ) {
+          console.log("[EventRouter] SSE stream closed normally or already handled.");
+          eventSource.close();
+          return;
+        }
+        console.error("[EventRouter] SSE Error:", err);
+        setError("Connection lost to investigation stream.");
         errorSession();
         eventSource.close();
       };

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useInvestigationSession, SESSION_STATES } from '../store/useInvestigationSession';
+import { API_BASE } from '../../../config/api';
 
 /**
  * useWorkspaceLifecycle
@@ -13,33 +14,37 @@ export function useWorkspaceLifecycle({ repo, activeInvestigation, onNewInvestig
   const bootStartedRef = useRef(false);
 
   useEffect(() => {
-    setBootPhase('booting');
-    setBootStatus('Connecting...');
-    bootStartedRef.current = false;
+    // Only reset if we are changing to a completely new repo
+    if (bootStartedRef.current !== repo?.id) {
+      setBootPhase('booting');
+      setBootStatus('Connecting...');
+      bootStartedRef.current = repo?.id;
+    }
 
     if (!repo?.id) {
-      // No real repo — boot immediately (demo mode)
-      setTimeout(() => setBootPhase('ready'), 600);
+      setBootPhase('ready');
+      return;
+    }
+
+    // If we're already past booting, do nothing here
+    if (bootPhase === 'ready' || bootPhase === 'understanding') {
       return;
     }
 
     if (repo.status === 'ready') {
-      // Already indexed. If we haven't done understanding yet, trigger it.
       if (!useInvestigationSession.getState().repositoryContext.findings.length && !activeInvestigation) {
         setBootStatus('Initializing understanding pass...');
-        setTimeout(() => {
-          setBootPhase('understanding');
-          if (onNewInvestigation) {
-            onNewInvestigation('Repository Understanding', 'understanding');
-          }
-        }, 600);
+        setBootPhase('understanding');
+        if (onNewInvestigation) {
+          onNewInvestigation('Repository Understanding', 'understanding');
+        }
       } else {
+        setBootStatus('Workspace ready');
         setBootPhase('ready');
       }
       return;
     }
 
-    // Repo is still indexing — subscribe to SSE progress
     const STEP_LABELS = {
       cloning:         'Cloning repository...',
       reading:         'Reading files...',
@@ -50,7 +55,7 @@ export function useWorkspaceLifecycle({ repo, activeInvestigation, onNewInvestig
       ready:           'Analysis complete',
     };
 
-    const eventSource = new EventSource(`http://localhost:5000/api/repo/${repo.id}/progress`);
+    const eventSource = new EventSource(`${API_BASE}/api/repo/${repo.id}/progress`);
     eventSource.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
@@ -60,12 +65,10 @@ export function useWorkspaceLifecycle({ repo, activeInvestigation, onNewInvestig
         if (data.step === 'ready' && data.status === 'done') {
           eventSource.close();
           setBootStatus('Analysis complete. Initializing understanding pass...');
-          setTimeout(() => {
-            setBootPhase('understanding');
-            if (onNewInvestigation) {
-              onNewInvestigation('Repository Understanding', 'understanding');
-            }
-          }, 600);
+          setBootPhase('understanding');
+          if (onNewInvestigation) {
+            onNewInvestigation('Repository Understanding', 'understanding');
+          }
         }
         if (data.status === 'failed') {
           setBootStatus('Indexing failed — go back and retry');
@@ -77,9 +80,8 @@ export function useWorkspaceLifecycle({ repo, activeInvestigation, onNewInvestig
     };
     eventSource.onerror = () => eventSource.close();
     return () => eventSource.close();
-  }, [repo, activeInvestigation, onNewInvestigation]);
+  }, [repo, activeInvestigation, onNewInvestigation, bootPhase]);
 
-  // Transition from understanding to ready when session completes
   useEffect(() => {
     if (bootPhase === 'understanding' && rawSessionState === SESSION_STATES.COMPLETED) {
       setBootPhase('ready');

@@ -75,29 +75,38 @@ export const useInvestigationSession = create((set, get) => ({
   // --- ACTIONS ---
 
   // Called when SSE connects / starts sending
-  startSession: (sessionId, repoId) => set({
-    sessionState: SESSION_STATES.STARTING,
-    metadata: { sessionId, repoId, budget: null },
-    incomingEvents: [],
-    processedEvents: [],
-    bookmarks: [],
-    statistics: { filesRead: 0, jumps: 0, symbolsDiscovered: 0 },
-    currentActiveFile: null,
-    currentReason: null,
-    fileProgress: 0,
-    currentLine: 0,
-    totalLines: 0,
-    focusContext: {
-      id: sessionId,
-      mission: null,
-      status: 'repository',
-      currentStep: null,
-      relatedNodes: [],
-      findings: [],
-      answer: null,
-      confidence: null
+  // Called when SSE connects / starts sending
+  startSession: (sessionId, repoId) => {
+    const currentState = get();
+    if (currentState.metadata.sessionId === sessionId && currentState.sessionState !== SESSION_STATES.IDLE && currentState.sessionState !== SESSION_STATES.ERROR) {
+      // Already tracking this session, do not wipe state
+      return;
     }
-  }),
+    
+    set({
+      sessionState: SESSION_STATES.STARTING,
+      metadata: { sessionId, repoId, budget: null },
+      incomingEvents: [],
+      processedEvents: [],
+      bookmarks: [],
+      statistics: { filesRead: 0, jumps: 0, symbolsDiscovered: 0 },
+      currentActiveFile: null,
+      currentReason: null,
+      fileProgress: 0,
+      currentLine: 0,
+      totalLines: 0,
+      focusContext: {
+        id: sessionId,
+        mission: null,
+        status: 'repository',
+        currentStep: null,
+        relatedNodes: [],
+        findings: [],
+        answer: null,
+        confidence: null
+      }
+    });
+  },
 
   // Called when a raw event comes over the wire
   receiveEvent: (event) => {
@@ -129,9 +138,15 @@ export const useInvestigationSession = create((set, get) => ({
     // Apply event to state
     get().applyEventToState(nextEvent);
     
+    // Bound processed events array to prevent unbounded memory leak (Item 26)
+    const newProcessedEvents = [...processedEvents, nextEvent];
+    if (newProcessedEvents.length > 2000) {
+      newProcessedEvents.splice(0, newProcessedEvents.length - 2000);
+    }
+    
     set({
       incomingEvents: remainingEvents,
-      processedEvents: [...processedEvents, nextEvent]
+      processedEvents: newProcessedEvents
     });
     
     return nextEvent;
@@ -160,6 +175,25 @@ export const useInvestigationSession = create((set, get) => ({
   errorSession: () => set({ sessionState: SESSION_STATES.ERROR }),
 
   // The Reducer: Applies a single event to the visible UI state
+  
+  // Rule 25 & 34: Reset state when repository switches
+  resetSession: (repoId) => {
+    set({
+      sessionState: SESSION_STATES.IDLE,
+      incomingEvents: [],
+      processedEvents: [],
+      bookmarks: [],
+      statistics: { filesRead: 0, jumps: 0, symbolsDiscovered: 0 },
+      metadata: { sessionId: null, repoId, budget: null, isUnderstandingMode: false },
+      repositoryContext: { framework: null, findings: [], stats: { filesIndexed: 0, entryPoints: 0, services: 0 } },
+      focusContext: { id: null, mission: null, status: 'repository', currentStep: null, answer: null, confidence: null, findings: [], relatedNodes: [] },
+      currentActiveFile: null,
+      currentReason: null,
+      fileProgress: 0,
+      currentLine: 0,
+      totalLines: 0
+    });
+  },
   applyEventToState: (event) => {
     switch (event.type) {
       case 'transport.connected':
@@ -201,7 +235,7 @@ export const useInvestigationSession = create((set, get) => ({
 
       case 'planner.failed':
         set((state) => ({
-          currentReason: 'Planning failed: ' + event.reason,
+          currentReason: 'API Error: ' + event.reason,
           focusContext: { ...state.focusContext, status: 'review' }
         }));
         get().errorSession();
@@ -272,7 +306,12 @@ export const useInvestigationSession = create((set, get) => ({
         
       case 'investigation.completed':
         set((state) => ({
-          focusContext: { ...state.focusContext, status: 'review', currentStep: state.metadata.isUnderstandingMode ? 'Repository Understanding complete' : 'Investigation completed' }
+          focusContext: { 
+            ...state.focusContext, 
+            status: 'review', 
+            currentStep: state.metadata.isUnderstandingMode ? 'Repository Understanding complete' : 'Investigation completed',
+            answer: event.answer || state.focusContext.answer
+          }
         }));
         get().completeSession();
         break;
