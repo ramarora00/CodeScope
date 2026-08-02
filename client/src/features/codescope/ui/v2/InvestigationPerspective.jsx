@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import InvestigationPanel from './InvestigationPanel';
 import AIOverlayEditor from './AIOverlayEditor';
 import KnowledgePanel from './KnowledgePanel';
-import ReviewPanel from './ReviewPanel';
+import InvestigationReportSheet from './InvestigationReportSheet';
 import RepositoryReadyState from './RepositoryReadyState';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 
@@ -19,8 +19,13 @@ export default function InvestigationPerspective({
 }) {
   const repo = useWorkspaceStore(s => s.selectedRepo);
   const selectedFile = useWorkspaceStore(s => s.selectedFile);
+  const [reportDismissed, setReportDismissed] = useState(false);
+  
+  // Show report if there is an answer/error and it hasn't been dismissed by the user
+  const showReport = (presentation.answer || presentation.error) && !reportDismissed;
+
   return (
-    <>
+    <div className="flex-1 flex min-h-0 bg-[var(--cs-bg)] gap-[2px] relative overflow-hidden">
       {/* Investigation */}
       <div
         className="animate-settle flex-shrink-0"
@@ -58,7 +63,7 @@ export default function InvestigationPerspective({
         }}
       >
         {bootPhase === 'ready' && (!activeInvestigation || isUnderstandingMode) ? (
-          <RepositoryReadyState repo={repo} />
+          <RepositoryReadyState repo={repo} onNewInvestigation={onNewInvestigation} />
         ) : (
           <AIOverlayEditor
             tabs={presentation.tabs}
@@ -75,7 +80,7 @@ export default function InvestigationPerspective({
         )}
       </div>
 
-      {/* Knowledge or Review */}
+      {/* Knowledge Panel always stays mounted */}
       <div
         className="animate-settle flex-shrink-0"
         style={{
@@ -87,18 +92,23 @@ export default function InvestigationPerspective({
           animationDelay: '180ms',
         }}
       >
-        {(presentation.answer || presentation.error) ? (
-          <ReviewPanel answer={presentation.answer} error={presentation.error} />
-        ) : (
-          <KnowledgePanel
-            repo={repo}
-            findings={presentation.findings}
-            relatedSymbols={presentation.relatedSymbols}
-            onNewInvestigation={onNewInvestigation}
-            selectedFile={selectedFile}
-          />
-        )}
+        <KnowledgePanel
+          repo={repo}
+          findings={presentation.findings}
+          relatedSymbols={presentation.relatedSymbols}
+          onNewInvestigation={onNewInvestigation}
+          selectedFile={selectedFile}
+        />
       </div>
-    </>
+
+      {/* Cinematic Bottom Sheet Overlay */}
+      {showReport && (
+        <InvestigationReportSheet 
+          answer={presentation.answer} 
+          error={presentation.error}
+          onClose={() => setReportDismissed(true)} 
+        />
+      )}
+    </div>
   );
 }

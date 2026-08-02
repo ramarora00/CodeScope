@@ -3,7 +3,6 @@ import CommandBar from './CommandBar';
 import MacOSTitleBar from './MacOSTitleBar';
 import Dock from './Dock';
 import PerspectiveRouter from './PerspectiveRouter';
-import ReviewPanel from './ReviewPanel';
 import { API_BASE } from '../../../../config/api';
 
 // ── Behavior Layer ──────────────────────────────────────────────

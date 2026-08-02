@@ -19,10 +19,15 @@ export const useWorkspaceStore = create((set) => ({
   selectedFile: null,
   setSelectedFile: (file) => set({ selectedFile: file }),
 
+  // Timeline Event Selection
+  selectedTimelineEventId: null,
+  setSelectedTimelineEventId: (id) => set({ selectedTimelineEventId: id }),
+
   // Reset
   resetWorkspace: () => set({
     selectedRepo: null,
     activeInvestigationId: null,
-    selectedFile: null
+    selectedFile: null,
+    selectedTimelineEventId: null
   })
 }));

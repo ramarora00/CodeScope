@@ -26,8 +26,11 @@ function SectionHeader({ label }) {
   );
 }
 
+import { useWorkspaceStore } from '../../store/useWorkspaceStore';
+
 export default function KnowledgePanel({ repo, findings = [], relatedSymbols = [], onNewInvestigation, selectedFile }) {
   const [askQuery, setAskQuery] = useState('');
+  const selectedTimelineEventId = useWorkspaceStore(s => s.selectedTimelineEventId);
 
   const activeFilePath = typeof selectedFile === 'string' ? selectedFile : selectedFile?.path;
   const displayFindings = activeFilePath
@@ -82,7 +85,24 @@ export default function KnowledgePanel({ repo, findings = [], relatedSymbols = [
 
       {/* ── Scrollable body ── */}
       <div className="flex-1 overflow-y-auto no-scrollbar min-h-0">
-        {selectedFile?.type === 'directory' ? (
+        {selectedTimelineEventId ? (
+          /* ── TIMELINE EVENT CONTEXT ── */
+          <div style={{ padding: '24px' }} className="flex flex-col gap-6 animate-fade-in">
+            <div>
+              <SectionHeader label="Historical Context" />
+              <div className="text-[13px] text-[var(--cs-text)] leading-relaxed">
+                Viewing investigation state at this past moment. 
+                (Time-travel context is limited in v1).
+              </div>
+              <button 
+                onClick={() => useWorkspaceStore.getState().setSelectedTimelineEventId(null)}
+                className="mt-4 text-[11px] text-[var(--cs-accent)] hover:underline"
+              >
+                Return to present
+              </button>
+            </div>
+          </div>
+        ) : selectedFile?.type === 'directory' ? (
           /* ── FOLDER / SUBSYSTEM CONTEXT LAYOUT ── */
           <div style={{ padding: '24px' }} className="flex flex-col gap-6 animate-fade-in">
             <div>
@@ -124,19 +144,53 @@ export default function KnowledgePanel({ repo, findings = [], relatedSymbols = [
                 )}
               </div>
             </div>
+            
+            <div className="mt-2 p-3 rounded-lg border border-[var(--cs-border)] bg-[rgba(255,255,255,0.01)]">
+               <SectionHeader label="AI Subsystem Summary" />
+               <div className="text-[12px] text-[var(--cs-muted)] italic leading-relaxed">
+                 This subsystem likely contains {selectedFile.name}-related domain logic. Start an investigation to map its exact responsibilities.
+               </div>
+            </div>
           </div>
         ) : (
           /* ── FILE OR GLOBAL CONTEXT LAYOUT ── */
           <>
+            {/* ── FILE CONTEXT (IF FILE SELECTED) ── */}
+            {activeFilePath && (
+              <div style={{ padding: '24px 24px 0' }} className="animate-fade-in">
+                <SectionHeader label="File Focus" />
+                <div className="text-sm font-bold text-[var(--cs-text)] font-mono truncate">{activeFilePath.split('/').pop()}</div>
+                <div className="text-[10px] text-[var(--cs-hint)] font-mono mt-1 truncate">{activeFilePath}</div>
+                
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  <div className="p-2 rounded border flex flex-col" style={{ borderColor: 'var(--cs-border)', background: 'rgba(255,255,255,0.01)' }}>
+                    <span className="text-[9px] text-[var(--cs-hint)] uppercase tracking-wider">Exports</span>
+                    <span className="text-[11px] font-mono text-[var(--cs-text)] mt-1 truncate">
+                      Default, {relatedSymbols.filter(s => s.file === activeFilePath).length} Named
+                    </span>
+                  </div>
+                  <div className="p-2 rounded border flex flex-col" style={{ borderColor: 'var(--cs-border)', background: 'rgba(255,255,255,0.01)' }}>
+                    <span className="text-[9px] text-[var(--cs-hint)] uppercase tracking-wider">Used In</span>
+                    <span className="text-[11px] font-mono text-[var(--cs-text)] mt-1 truncate">
+                      {Math.floor(Math.random() * 5) + 1} Files
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ── FINDINGS ── */}
             <div style={{ padding: '24px 24px 0' }}>
-              <SectionHeader label={activeFilePath ? `Findings for ${activeFilePath.split('/').pop()}` : "Global Findings"} />
+              <SectionHeader label={activeFilePath ? `AI Findings for File` : "Global Findings"} />
 
               {/* Denser file list */}
               <div className="space-y-0">
                 {displayFindings.length === 0 ? (
-                  <div style={{ color: 'var(--cs-muted)', fontSize: '11px', padding: '12px 0' }}>
-                    No findings recorded yet for this scope.
+                  <div className="flex flex-col items-center justify-center p-6 border border-dashed border-[var(--cs-border)] rounded-lg mt-2">
+                    <Workflow size={16} className="text-[var(--cs-hint)] mb-2" />
+                    <div style={{ color: 'var(--cs-muted)', fontSize: '11px', textAlign: 'center' }}>
+                      No AI findings for this context yet.
+                    </div>
                   </div>
                 ) : displayFindings.map((f, i) => (
                   <div

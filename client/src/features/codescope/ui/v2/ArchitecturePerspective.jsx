@@ -53,6 +53,13 @@ function ArchitectureGraph({ fileTree, activeFile, visitedFiles }) {
         ...prev,
         [node.id]: !prev[node.id]
       }));
+      useWorkspaceStore.getState().setSelectedFile({
+        name: node.data.name,
+        path: node.id,
+        type: 'directory',
+        fileCount: node.data.fileCount,
+        childrenFiles: node.data.childrenFiles
+      });
     } else if (node.type === 'fileNode') {
       useWorkspaceStore.getState().setSelectedFile({
         name: node.data.name,
@@ -62,12 +69,19 @@ function ArchitectureGraph({ fileTree, activeFile, visitedFiles }) {
     }
   }, []);
 
-  // Opacity fading rule: non-focused subsystems fade to 15% during AI active reads
+  // Opacity fading rule: non-focused subsystems fade to 15%
+  // Focused if it's the active AI file, OR if the user has explicitly selected it (Semantic Zoom)
   const processedNodes = useMemo(() => {
-    if (!activeFile) return nodes;
+    const userSelectedFolder = useWorkspaceStore.getState().selectedFile?.type === 'directory' 
+      ? useWorkspaceStore.getState().selectedFile.path 
+      : null;
+      
+    // If nothing is actively selected or being read by AI, everything is fully visible
+    if (!activeFile && !userSelectedFolder) return nodes;
 
-    // Determine current parent container
+    // Determine current parent container for AI focus
     const findParentPath = (tree, target, currentParent = null) => {
+      if (!target) return null;
       for (const item of tree) {
         if (item.path === target) return currentParent;
         if (item.children) {
@@ -79,11 +93,14 @@ function ArchitectureGraph({ fileTree, activeFile, visitedFiles }) {
     };
     const activeParent = findParentPath(fileTree, activeFile);
 
-    if (!activeParent) return nodes;
-
     return nodes.map(node => {
-      // A node is focused if it IS the active parent directory, or if it's the active file itself
-      const isFocused = node.id === activeParent || node.id === activeFile;
+      // A node is focused if it IS the active parent directory (AI), the active file (AI), 
+      // or the user specifically clicked this folder to semantically zoom in.
+      const isAiFocused = node.id === activeParent || node.id === activeFile;
+      const isUserFocused = node.id === userSelectedFolder;
+      
+      const isFocused = (activeFile && isAiFocused) || (!activeFile && isUserFocused);
+      
       return {
         ...node,
         style: {
@@ -93,7 +110,7 @@ function ArchitectureGraph({ fileTree, activeFile, visitedFiles }) {
         }
       };
     });
-  }, [nodes, activeFile, fileTree]);
+  }, [nodes, activeFile, fileTree, useWorkspaceStore.getState().selectedFile]);
 
   return (
     <div className="w-full h-full relative" style={{ background: 'var(--cs-bg)' }}>
