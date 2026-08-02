@@ -276,3 +276,25 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-08-01T19:05:00+05:30*
 
+
+## Sprint — Workspace UI V2 Shared Components & Investigation Perspectives Refinements
+
+**Commits**
+- `ef5c52c` chore(client): update dependencies
+- `5acbdb9` feat(codescope): update workspace perspectives, routing, and store
+- `7463a5f` feat(codescope): introduce UniversalCodeViewer and refine UI components
+- `43b87a8` refactor(codescope): replace ReviewPanel with InvestigationReportSheet
+- `b7436c2` chore(logs): add latest investigation session recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **Dependencies**: Updated package dependencies for latest client packages.
+- **UI Perspectives**: Updated all workspace perspectives (Architecture, Investigation), panel routing, and enhanced the workspace store integration.
+- **UI Refinements**: Introduced UniversalCodeViewer shared component, and updated FileViewer, LaunchExperience, AIOverlayEditor, and RepositoryReadyState.
+- **Legacy Cleanup**: Completely replaced the deprecated ReviewPanel with the new InvestigationReportSheet.
+- **Logs**: Captured and added 21 recent investigation session log recordings.
+
+*Recorded on 2026-08-02T11:30:00+05:30*
+
