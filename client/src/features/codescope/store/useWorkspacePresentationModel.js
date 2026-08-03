@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useInvestigationSession, SESSION_STATES } from './useInvestigationSession';
+import { useWorkspaceStore } from './useWorkspaceStore';
 
 /**
  * Rule 16: WorkspacePresentationModel Adapter
@@ -10,26 +11,35 @@ import { useInvestigationSession, SESSION_STATES } from './useInvestigationSessi
  * by the v2 UI components. UI components must remain pure, render-only functions.
  */
 export function useWorkspacePresentationModel() {
-  const currentActiveFile = useInvestigationSession(s => s.currentActiveFile);
-  const currentLine       = useInvestigationSession(s => s.currentLine);
-  const currentReason     = useInvestigationSession(s => s.currentReason);
-  const processedEvents   = useInvestigationSession(s => s.processedEvents);
-  const focusContext      = useInvestigationSession(s => s.focusContext);
-  const sessionState      = useInvestigationSession(s => s.sessionState);
+  const aiFocusFile = useInvestigationSession(s => s.aiFocusFile);
+  const currentLine = useInvestigationSession(s => s.currentLine);
+  const currentReason = useInvestigationSession(s => s.currentReason);
+  const processedEvents = useInvestigationSession(s => s.processedEvents);
+  const focusContext = useInvestigationSession(s => s.focusContext);
+  const sessionState = useInvestigationSession(s => s.sessionState);
+
+  const userSelectedFile = useWorkspaceStore(s => s.userSelectedFile);
+
+  // Deriving display state: User interaction takes precedence over AI focus
+  const displayedFile = userSelectedFile || aiFocusFile;
 
   // ── 1. AIOverlayEditor Contract ──
   const attention = useMemo(() => {
-    if (!currentActiveFile) return {};
-    const filePath = typeof currentActiveFile === 'string'
-      ? currentActiveFile
-      : currentActiveFile?.path;
+    if (!displayedFile) return {};
+    const filePath = typeof displayedFile === 'string'
+      ? displayedFile
+      : displayedFile?.path;
+      
+    // If the user selected a file, the AI isn't reading it, so don't show the 'read' animation
+    const isAiControlling = !userSelectedFile || userSelectedFile === aiFocusFile;
+      
     return {
-      file:   filePath,
-      line:   currentLine || 1,
-      type:   sessionState === SESSION_STATES.PLAYING ? 'read' : 'appear',
-      reason: currentReason,
+      file: filePath,
+      line: isAiControlling ? (currentLine || 1) : null,
+      type: (isAiControlling && sessionState === SESSION_STATES.PLAYING) ? 'read' : 'appear',
+      reason: isAiControlling ? currentReason : 'User Selection',
     };
-  }, [currentActiveFile, currentLine, currentReason, sessionState]);
+  }, [displayedFile, userSelectedFile, aiFocusFile, currentLine, currentReason, sessionState]);
 
   const runtimeStatus = useMemo(() => {
     if (focusContext.status === 'review') return 'resolved';
@@ -53,22 +63,29 @@ export function useWorkspacePresentationModel() {
 
   const tabs = useMemo(() => {
     const seen = new Set();
-    return processedEvents
+    const eventFiles = processedEvents
       .filter(e => (e.type === 'file.selected' || e.type === 'appear') && e.file)
-      .filter(e => {
-        if (seen.has(e.file)) return false;
-        seen.add(e.file);
+      .map(e => e.file);
+      
+    // Always ensure userSelectedFile is in the tabs if they clicked it
+    if (userSelectedFile) {
+       eventFiles.push(typeof userSelectedFile === 'string' ? userSelectedFile : userSelectedFile.path);
+    }
+    
+    return eventFiles.filter(f => {
+        if (seen.has(f)) return false;
+        seen.add(f);
         return true;
       })
-      .map(e => ({ id: e.file, name: e.file, path: e.file }));
-  }, [processedEvents]);
+      .map(f => ({ id: f, name: f, path: f }));
+  }, [processedEvents, userSelectedFile]);
 
   const activeTabId = useMemo(() => {
-    if (!currentActiveFile) return null;
-    return typeof currentActiveFile === 'string'
-      ? currentActiveFile
-      : currentActiveFile?.path;
-  }, [currentActiveFile]);
+    if (!displayedFile) return null;
+    return typeof displayedFile === 'string'
+      ? displayedFile
+      : displayedFile?.path;
+  }, [displayedFile]);
 
   // ── 2. InvestigationPanel Contract ──
   const timelineEvents = useMemo(() => {
@@ -133,7 +150,27 @@ export function useWorkspacePresentationModel() {
   }, [focusContext.relatedNodes]);
 
   const answer = focusContext.answer;
-  const error = sessionState === SESSION_STATES.ERROR ? currentReason : null;
+  const selectedTimelineEventId = useWorkspaceStore(s => s.selectedTimelineEventId);
+  const onReturnToPresent = () => useWorkspaceStore.getState().setSelectedTimelineEventId(null);
+  
+  const selectedRepo = useWorkspaceStore(s => s.selectedRepo);
+  const onSelectFile = (file) => useWorkspaceStore.getState().setUserSelectedFile(file);
+  const repositoryContext = useInvestigationSession(s => s.repositoryContext);
+  const isUnderstandingMode = useInvestigationSession(s => s.metadata.isUnderstandingMode);
+
+  // ── 4. Camera Ownership Contract ──
+  const userCamera = useWorkspaceStore(s => s.userCamera);
+  // Derived AI camera based on aiFocusFile
+  const aiCamera = useMemo(() => {
+    if (!aiFocusFile) return null;
+    return { node: aiFocusFile, x: 0, y: 0, zoom: 1 };
+  }, [aiFocusFile]);
+  
+  const currentCamera = userCamera || aiCamera;
+  const onReturnToAI = () => {
+    useWorkspaceStore.getState().setUserSelectedFile(null);
+    useWorkspaceStore.getState().setUserCamera(null);
+  };
 
   return {
     presentation: {
@@ -148,7 +185,18 @@ export function useWorkspacePresentationModel() {
       findings,
       relatedSymbols,
       answer,
-      error
+      error,
+      onAnimationComplete,
+      selectedTimelineEventId,
+      onReturnToPresent,
+      selectedRepo,
+      userSelectedFile,
+      onSelectFile,
+      repositoryContext,
+      isUnderstandingMode,
+      currentCamera,
+      userCamera,
+      onReturnToAI
     },
     raw: {
       sessionState,
