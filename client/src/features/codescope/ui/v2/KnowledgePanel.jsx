@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
 import { Check, ChevronRight, GitBranch, Workflow, TestTube, Send } from 'lucide-react';
 
-// Mocks removed: injected via presentation adapter props
-
-
 const ACTIONS = [
   { id: 'dep-map',  icon: GitBranch,  label: 'View dependency map' },
   { id: 'explain',  icon: Workflow,   label: 'Explain this flow'   },
@@ -26,11 +23,17 @@ function SectionHeader({ label }) {
   );
 }
 
-import { useWorkspaceStore } from '../../store/useWorkspaceStore';
-
-export default function KnowledgePanel({ repo, findings = [], relatedSymbols = [], onNewInvestigation, selectedFile }) {
+export default function KnowledgePanel({ 
+  repo, 
+  findings = [], 
+  relatedSymbols = [], 
+  onNewInvestigation, 
+  selectedFile,
+  selectedTimelineEventId,
+  onReturnToPresent 
+}) {
   const [askQuery, setAskQuery] = useState('');
-  const selectedTimelineEventId = useWorkspaceStore(s => s.selectedTimelineEventId);
+  const [activeTab, setActiveTab] = useState('repository'); // 'repository' or 'investigation'
 
   const activeFilePath = typeof selectedFile === 'string' ? selectedFile : selectedFile?.path;
   const displayFindings = activeFilePath
@@ -39,7 +42,6 @@ export default function KnowledgePanel({ repo, findings = [], relatedSymbols = [
 
   const handleAction = (id) => {
     console.log(`KnowledgePanel action clicked: ${id}`);
-    // No-op for now.
   };
 
   const handleAsk = (e) => {
@@ -58,224 +60,96 @@ export default function KnowledgePanel({ repo, findings = [], relatedSymbols = [
         background: 'var(--cs-panel)',
       }}
     >
-      {/* ── Header ── */}
+      {/* ── Header with Tabs ── */}
       <div
-        className="flex items-center justify-between flex-shrink-0 px-5"
-        style={{ height: '40px', borderBottom: '1px solid var(--cs-border)' }}
+        className="flex flex-col flex-shrink-0"
+        style={{ borderBottom: '1px solid var(--cs-border)' }}
       >
-        <span style={{
-          color: 'var(--cs-faint)',
-          fontSize: '9px',
-          fontWeight: 700,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-        }}>
-          Knowledge
-        </span>
-        <div
-          className="flex items-center gap-1.5 px-2 py-0.5 rounded"
-          style={{ background: 'var(--cs-editor)', border: '1px solid var(--cs-border)' }}
-        >
-          <span style={{ color: 'var(--cs-accent)', fontSize: '10px' }}>✦</span>
-          <span style={{ color: 'var(--cs-muted)', fontSize: '10px', fontWeight: 500 }}>
-            Sourcegraph MCP
+        <div className="flex items-center justify-between px-5" style={{ height: '40px' }}>
+          <span style={{
+            color: 'var(--cs-faint)',
+            fontSize: '9px',
+            fontWeight: 700,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+          }}>
+            Knowledge
           </span>
+          <div
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded"
+            style={{ background: 'var(--cs-editor)', border: '1px solid var(--cs-border)' }}
+          >
+            <span style={{ color: 'var(--cs-accent)', fontSize: '10px' }}>✦</span>
+            <span style={{ color: 'var(--cs-muted)', fontSize: '10px', fontWeight: 500 }}>
+              Sourcegraph MCP
+            </span>
+          </div>
+        </div>
+        
+        {/* Tabs */}
+        <div className="flex px-5 gap-4">
+          <button
+            onClick={() => setActiveTab('repository')}
+            style={{
+              paddingBottom: '8px',
+              fontSize: '11px',
+              color: activeTab === 'repository' ? 'var(--cs-text)' : 'var(--cs-muted)',
+              borderBottom: activeTab === 'repository' ? '2px solid var(--cs-accent)' : '2px solid transparent',
+              background: 'transparent',
+              fontWeight: activeTab === 'repository' ? 600 : 400
+            }}
+          >
+            Repository
+          </button>
+          <button
+            onClick={() => setActiveTab('investigation')}
+            style={{
+              paddingBottom: '8px',
+              fontSize: '11px',
+              color: activeTab === 'investigation' ? 'var(--cs-text)' : 'var(--cs-muted)',
+              borderBottom: activeTab === 'investigation' ? '2px solid var(--cs-accent)' : '2px solid transparent',
+              background: 'transparent',
+              fontWeight: activeTab === 'investigation' ? 600 : 400
+            }}
+          >
+            Investigation
+          </button>
         </div>
       </div>
 
       {/* ── Scrollable body ── */}
       <div className="flex-1 overflow-y-auto no-scrollbar min-h-0">
-        {selectedTimelineEventId ? (
-          /* ── TIMELINE EVENT CONTEXT ── */
+        
+        {activeTab === 'repository' && (
           <div style={{ padding: '24px' }} className="flex flex-col gap-6 animate-fade-in">
+            {/* ── REPOSITORY OVERVIEW ── */}
             <div>
-              <SectionHeader label="Historical Context" />
-              <div className="text-[13px] text-[var(--cs-text)] leading-relaxed">
-                Viewing investigation state at this past moment. 
-                (Time-travel context is limited in v1).
-              </div>
-              <button 
-                onClick={() => useWorkspaceStore.getState().setSelectedTimelineEventId(null)}
-                className="mt-4 text-[11px] text-[var(--cs-accent)] hover:underline"
-              >
-                Return to present
-              </button>
-            </div>
-          </div>
-        ) : selectedFile?.type === 'directory' ? (
-          /* ── FOLDER / SUBSYSTEM CONTEXT LAYOUT ── */
-          <div style={{ padding: '24px' }} className="flex flex-col gap-6 animate-fade-in">
-            <div>
-              <SectionHeader label="Subsystem Focus" />
-              <div className="text-sm font-bold text-[var(--cs-text)] font-mono truncate">{selectedFile.name}/</div>
-              <div className="text-[10px] text-[var(--cs-hint)] font-mono mt-1 truncate">{selectedFile.path}</div>
+              <SectionHeader label="Repository Context" />
+              <div className="text-sm font-bold text-[var(--cs-text)] font-mono truncate">{repo?.name || 'Workspace'}</div>
+              {repo?.repositorySummary && (
+                <div className="text-[11px] text-[var(--cs-muted)] mt-2 leading-relaxed italic">
+                  {repo.repositorySummary}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div className="p-3 rounded-lg border flex flex-col" style={{ borderColor: 'var(--cs-border)', background: 'rgba(255,255,255,0.01)' }}>
                 <span className="text-[10px] text-[var(--cs-hint)] uppercase tracking-wider">Total Files</span>
                 <span className="text-lg font-mono text-[var(--cs-text)] font-bold mt-1">
-                  {selectedFile.fileCount || 0}
+                  {repo?.fileCount || 0}
                 </span>
               </div>
               <div className="p-3 rounded-lg border flex flex-col" style={{ borderColor: 'var(--cs-border)', background: 'rgba(255,255,255,0.01)' }}>
-                <span className="text-[10px] text-[var(--cs-hint)] uppercase tracking-wider">Entry Points</span>
+                <span className="text-[10px] text-[var(--cs-hint)] uppercase tracking-wider">Framework</span>
                 <span className="text-lg font-mono text-[var(--cs-text)] font-bold mt-1">
-                  {selectedFile.childrenFiles?.filter(f => f.name.includes('route') || f.name.includes('controller') || f.name.includes('api')).length || 0}
+                  {repo?.framework || 'Unknown'}
                 </span>
               </div>
             </div>
 
-            <div>
-              <SectionHeader label="Included Files" />
-              <div className="space-y-1.5 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
-                {selectedFile.childrenFiles && selectedFile.childrenFiles.length > 0 ? (
-                  selectedFile.childrenFiles.map((file, idx) => (
-                    <div 
-                      key={idx} 
-                      className="text-[11px] font-mono text-[var(--cs-muted)] truncate flex items-center justify-between p-1 hover:bg-[var(--cs-editor)] rounded"
-                    >
-                      <span className="truncate">📄 {file.name}</span>
-                      <span className="text-[9px] text-[var(--cs-hint)] uppercase">{file.name.split('.').pop()}</span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-[11px] text-[var(--cs-hint)] italic">No files in this scope.</div>
-                )}
-              </div>
-            </div>
-            
-            <div className="mt-2 p-3 rounded-lg border border-[var(--cs-border)] bg-[rgba(255,255,255,0.01)]">
-               <SectionHeader label="AI Subsystem Summary" />
-               <div className="text-[12px] text-[var(--cs-muted)] italic leading-relaxed">
-                 This subsystem likely contains {selectedFile.name}-related domain logic. Start an investigation to map its exact responsibilities.
-               </div>
-            </div>
-          </div>
-        ) : (
-          /* ── FILE OR GLOBAL CONTEXT LAYOUT ── */
-          <>
-            {/* ── FILE CONTEXT (IF FILE SELECTED) ── */}
-            {activeFilePath && (
-              <div style={{ padding: '24px 24px 0' }} className="animate-fade-in">
-                <SectionHeader label="File Focus" />
-                <div className="text-sm font-bold text-[var(--cs-text)] font-mono truncate">{activeFilePath.split('/').pop()}</div>
-                <div className="text-[10px] text-[var(--cs-hint)] font-mono mt-1 truncate">{activeFilePath}</div>
-                
-                <div className="grid grid-cols-2 gap-2 mt-4">
-                  <div className="p-2 rounded border flex flex-col" style={{ borderColor: 'var(--cs-border)', background: 'rgba(255,255,255,0.01)' }}>
-                    <span className="text-[9px] text-[var(--cs-hint)] uppercase tracking-wider">Exports</span>
-                    <span className="text-[11px] font-mono text-[var(--cs-text)] mt-1 truncate">
-                      Default, {relatedSymbols.filter(s => s.file === activeFilePath).length} Named
-                    </span>
-                  </div>
-                  <div className="p-2 rounded border flex flex-col" style={{ borderColor: 'var(--cs-border)', background: 'rgba(255,255,255,0.01)' }}>
-                    <span className="text-[9px] text-[var(--cs-hint)] uppercase tracking-wider">Used In</span>
-                    <span className="text-[11px] font-mono text-[var(--cs-text)] mt-1 truncate">
-                      {Math.floor(Math.random() * 5) + 1} Files
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── FINDINGS ── */}
-            <div style={{ padding: '24px 24px 0' }}>
-              <SectionHeader label={activeFilePath ? `AI Findings for File` : "Global Findings"} />
-
-              {/* Denser file list */}
-              <div className="space-y-0">
-                {displayFindings.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center p-6 border border-dashed border-[var(--cs-border)] rounded-lg mt-2">
-                    <Workflow size={16} className="text-[var(--cs-hint)] mb-2" />
-                    <div style={{ color: 'var(--cs-muted)', fontSize: '11px', textAlign: 'center' }}>
-                      No AI findings for this context yet.
-                    </div>
-                  </div>
-                ) : displayFindings.map((f, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 rounded cursor-pointer transition-colors duration-[220ms]"
-                    style={{ height: '28px', padding: '0 4px', borderRadius: '4px' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--cs-editor)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                  >
-                    {f.active ? (
-                      <Check size={10} style={{ color: 'var(--cs-green)', flexShrink: 0 }} />
-                    ) : (
-                      <span style={{ color: 'transparent', width: '10px', display: 'inline-block' }} />
-                    )}
-                    <span style={{
-                      color: f.active ? 'var(--cs-text)' : 'var(--cs-muted)',
-                      fontSize: '11px',
-                      fontFamily: 'var(--cs-mono)',
-                      flex: 1,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {f.text}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* ── RELATED SYMBOLS ── */}
-            <div style={{ padding: '40px 24px 0' }}>
-              <SectionHeader label="Related Symbols" />
-              <div className="space-y-0">
-                {relatedSymbols.length === 0 ? (
-                  <div style={{ color: 'var(--cs-muted)', fontSize: '11px', padding: '12px 0' }}>
-                    No related symbols identified.
-                  </div>
-                ) : relatedSymbols.map((item, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between rounded cursor-pointer transition-colors duration-[220ms]"
-                    style={{ height: '28px', padding: '0 4px', borderRadius: '4px' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--cs-editor)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div
-                        className="w-[8px] h-[8px] rounded-full border flex items-center justify-center flex-shrink-0"
-                        style={{ borderColor: 'var(--cs-hint)' }}
-                      />
-                      <span style={{
-                        color: 'var(--cs-text)',
-                        fontSize: '11px',
-                        fontFamily: 'var(--cs-mono)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {item.symbol}
-                      </span>
-                    </div>
-                    <span style={{ color: 'var(--cs-hint)', fontSize: '9.5px', fontFamily: 'var(--cs-mono)', flexShrink: 0 }}>
-                      {item.file}:{item.line}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              
-              <button style={{
-                color: 'var(--cs-accent)',
-                fontSize: '10px',
-                fontFamily: 'var(--cs-sans)',
-                fontWeight: 500,
-                background: 'transparent',
-                border: 'none',
-                padding: '12px 4px 0',
-                cursor: 'pointer',
-              }}>
-                View all references →
-              </button>
-            </div>
-
             {/* ── ACTIONS ── */}
-            <div style={{ padding: '40px 24px 24px' }}>
+            <div style={{ marginTop: '16px' }}>
               <SectionHeader label="Actions" />
               <div className="space-y-2">
                 {ACTIONS.map(action => (
@@ -307,7 +181,119 @@ export default function KnowledgePanel({ repo, findings = [], relatedSymbols = [
                 ))}
               </div>
             </div>
-          </>
+          </div>
+        )}
+
+        {activeTab === 'investigation' && (
+          <div style={{ padding: '24px 0' }} className="flex flex-col gap-6 animate-fade-in">
+            {selectedTimelineEventId ? (
+              /* ── TIMELINE EVENT CONTEXT ── */
+              <div style={{ padding: '0 24px' }}>
+                <SectionHeader label="Historical Context" />
+                <div className="text-[13px] text-[var(--cs-text)] leading-relaxed">
+                  Viewing investigation state at this past moment. 
+                </div>
+                <button 
+                  onClick={onReturnToPresent}
+                  className="mt-4 text-[11px] text-[var(--cs-accent)] hover:underline"
+                >
+                  Return to present
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* ── FILE CONTEXT (IF FILE SELECTED) ── */}
+                {activeFilePath && (
+                  <div style={{ padding: '0 24px' }}>
+                    <SectionHeader label="File Focus" />
+                    <div className="text-sm font-bold text-[var(--cs-text)] font-mono truncate">{activeFilePath.split('/').pop()}</div>
+                    <div className="text-[10px] text-[var(--cs-hint)] font-mono mt-1 truncate">{activeFilePath}</div>
+                  </div>
+                )}
+
+                {/* ── FINDINGS ── */}
+                <div style={{ padding: '0 24px' }}>
+                  <SectionHeader label={activeFilePath ? `Evidence for File` : "Investigation Evidence"} />
+
+                  <div className="space-y-0">
+                    {displayFindings.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center p-6 border border-dashed border-[var(--cs-border)] rounded-lg mt-2">
+                        <Workflow size={16} className="text-[var(--cs-hint)] mb-2" />
+                        <div style={{ color: 'var(--cs-muted)', fontSize: '11px', textAlign: 'center' }}>
+                          No AI findings for this context yet.
+                        </div>
+                      </div>
+                    ) : displayFindings.map((f, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-2 rounded cursor-pointer transition-colors duration-[220ms]"
+                        style={{ height: '28px', padding: '0 4px', borderRadius: '4px' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--cs-editor)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        {f.active ? (
+                          <Check size={10} style={{ color: 'var(--cs-green)', flexShrink: 0 }} />
+                        ) : (
+                          <span style={{ color: 'transparent', width: '10px', display: 'inline-block' }} />
+                        )}
+                        <span style={{
+                          color: f.active ? 'var(--cs-text)' : 'var(--cs-muted)',
+                          fontSize: '11px',
+                          fontFamily: 'var(--cs-mono)',
+                          flex: 1,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {f.text}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── RELATED SYMBOLS ── */}
+                <div style={{ padding: '0 24px' }}>
+                  <SectionHeader label="Related Symbols" />
+                  <div className="space-y-0">
+                    {relatedSymbols.length === 0 ? (
+                      <div style={{ color: 'var(--cs-muted)', fontSize: '11px', padding: '12px 0' }}>
+                        No related symbols identified.
+                      </div>
+                    ) : relatedSymbols.map((item, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between rounded cursor-pointer transition-colors duration-[220ms]"
+                        style={{ height: '28px', padding: '0 4px', borderRadius: '4px' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--cs-editor)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className="w-[8px] h-[8px] rounded-full border flex items-center justify-center flex-shrink-0"
+                            style={{ borderColor: 'var(--cs-hint)' }}
+                          />
+                          <span style={{
+                            color: 'var(--cs-text)',
+                            fontSize: '11px',
+                            fontFamily: 'var(--cs-mono)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {item.symbol}
+                          </span>
+                        </div>
+                        <span style={{ color: 'var(--cs-hint)', fontSize: '9.5px', fontFamily: 'var(--cs-mono)', flexShrink: 0 }}>
+                          {item.file}:{item.line}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
 

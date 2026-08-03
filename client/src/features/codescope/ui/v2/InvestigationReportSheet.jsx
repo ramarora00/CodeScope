@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, FileText, CheckCircle2, ChevronDown, ListChecks, FileCode2 } from 'lucide-react';
+import { Sparkles, FileText, CheckCircle2, ChevronDown, ListChecks, FileCode2, RefreshCw } from 'lucide-react';
 
 /**
  * InvestigationReportSheet
@@ -8,7 +8,7 @@ import { Sparkles, FileText, CheckCircle2, ChevronDown, ListChecks, FileCode2 } 
  * as a bottom-sheet. It includes a cinematic "Synthesizing" phase before rendering
  * the highly structured final report.
  */
-export default function InvestigationReportSheet({ answer, error, onClose }) {
+export default function InvestigationReportSheet({ answer, error, onClose, onRetryInvestigation }) {
   const [phase, setPhase] = useState('synthesizing'); // 'synthesizing' | 'ready'
   const [synStep, setSynStep] = useState(0);
 
@@ -109,6 +109,21 @@ export default function InvestigationReportSheet({ answer, error, onClose }) {
               <div className="p-6 rounded-xl" style={{ border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)' }}>
                 <h4 style={{ color: 'var(--cs-error)', fontWeight: 500, marginBottom: '8px' }}>Investigation Failed</h4>
                 <p style={{ fontSize: '13px', color: 'rgba(252, 165, 165, 0.8)', lineHeight: 1.6 }}>{error}</p>
+                {onRetryInvestigation && (
+                  <button
+                    onClick={onRetryInvestigation}
+                    className="mt-5 flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-medium transition-colors"
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.12)',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
+                      color: 'rgba(252, 165, 165, 0.9)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <RefreshCw size={12} />
+                    Retry Investigation
+                  </button>
+                )}
               </div>
             ) : (
               <>

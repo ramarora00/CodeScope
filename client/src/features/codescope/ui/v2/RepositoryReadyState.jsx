@@ -1,8 +1,7 @@
 import React from 'react';
-import { useInvestigationSession } from '../../store/useInvestigationSession';
+import { Database, Folder, Shield, Zap } from 'lucide-react';
 
-export default function RepositoryReadyState({ repo, onNewInvestigation }) {
-  const repositoryContext = useInvestigationSession(s => s.repositoryContext);
+export default function RepositoryReadyState({ repo, repositoryContext, onNewInvestigation }) {
   
   // Use real stats if available, fallback to some counts
   const stats = repositoryContext.stats || {
