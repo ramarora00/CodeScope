@@ -32,7 +32,7 @@ export function useWorkspaceLifecycle({ repo, activeInvestigation, onNewInvestig
     }
 
     if (repo.status === 'ready') {
-      if (!useInvestigationSession.getState().repositoryContext.findings.length && !activeInvestigation) {
+      if (!repo.understandingHash && !activeInvestigation) {
         setBootStatus('Initializing understanding pass...');
         setBootPhase('understanding');
         if (onNewInvestigation) {

@@ -23,6 +23,10 @@ export const useInvestigationSession = create((set, get) => ({
   sessionState: SESSION_STATES.IDLE,
   playbackProfile: PLAYBACK_PROFILES.NORMAL,
   
+  // UI Orchestration
+  isAnimating: false,
+  completeAnimation: () => set({ isAnimating: false }),
+
   // Event Queues
   incomingEvents: [],
   processedEvents: [],
@@ -65,7 +69,9 @@ export const useInvestigationSession = create((set, get) => ({
   },
   
   // Derived visible UI state (what the user actually sees at this moment)
-  currentActiveFile: null,
+  // aiFocusFile: owned by AI runtime (useInvestigationSession)
+  // userSelectedFile: owned by user interaction (useWorkspaceStore)
+  aiFocusFile: null,
   currentReason: null,
   fileProgress: 0,
   currentLine: 0,
@@ -90,7 +96,7 @@ export const useInvestigationSession = create((set, get) => ({
       processedEvents: [],
       bookmarks: [],
       statistics: { filesRead: 0, jumps: 0, symbolsDiscovered: 0 },
-      currentActiveFile: null,
+      aiFocusFile: null,
       currentReason: null,
       fileProgress: 0,
       currentLine: 0,
@@ -180,6 +186,7 @@ export const useInvestigationSession = create((set, get) => ({
   resetSession: (repoId) => {
     set({
       sessionState: SESSION_STATES.IDLE,
+      isAnimating: false,
       incomingEvents: [],
       processedEvents: [],
       bookmarks: [],
@@ -187,7 +194,7 @@ export const useInvestigationSession = create((set, get) => ({
       metadata: { sessionId: null, repoId, budget: null, isUnderstandingMode: false },
       repositoryContext: { framework: null, findings: [], stats: { filesIndexed: 0, entryPoints: 0, services: 0 } },
       focusContext: { id: null, mission: null, status: 'repository', currentStep: null, answer: null, confidence: null, findings: [], relatedNodes: [] },
-      currentActiveFile: null,
+      aiFocusFile: null,
       currentReason: null,
       fileProgress: 0,
       currentLine: 0,
@@ -247,8 +254,8 @@ export const useInvestigationSession = create((set, get) => ({
       
       case 'file.selected':
         set((state) => ({ 
-          currentActiveFile: event.file, 
-          currentReason: event.reason, 
+        aiFocusFile: event.file, 
+        currentReason: event.reason, 
           fileProgress: 0, 
           currentLine: 0, 
           totalLines: 0,
@@ -331,7 +338,7 @@ export const useInvestigationSession = create((set, get) => ({
     
     if (targetEvent) {
       if (targetEvent.file) {
-        set({ currentActiveFile: targetEvent.file, currentReason: targetEvent.reason || 'History Replay' });
+        set({ aiFocusFile: targetEvent.file, currentReason: targetEvent.reason || 'History Replay' });
       }
     }
   },
