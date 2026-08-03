@@ -30,10 +30,10 @@ const IGNORE_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', 'coverage'
  * Runs AST parsing in a worker thread to avoid blocking the main event loop.
  * Accepts a batch of raw file objects, returns parsed results.
  */
-const runParserWorker = (files) => {
+const runParserWorker = (files, repoPath) => {
   return new Promise((resolve, reject) => {
     const worker = new Worker(path.join(__dirname, '../utils/parseWorker.js'), {
-      workerData: { files }
+      workerData: { files, repoPath }
     });
     worker.on('message', resolve);
     worker.on('error', reject);
@@ -94,15 +94,7 @@ const collectFilesFromDisk = (dirPath, relativePath = '') => {
       rawFiles.push(...collectFilesFromDisk(fullPath, relPath));
     } else {
       const language = path.extname(entry).slice(1);
-      let content = null;
-      if (TEXT_EXTENSIONS.includes(language)) {
-        try {
-          content = fs.readFileSync(fullPath, 'utf8');
-        } catch (e) {
-          console.error(`Error reading ${entry}:`, e.message);
-        }
-      }
-      rawFiles.push({ path: relPath, content, language, filename: entry });
+      rawFiles.push({ path: relPath, language, filename: entry });
     }
   }
   return rawFiles;
@@ -145,15 +137,15 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
     indexingEmitter.emit('progress', { repoId, step: 'parsing', status: 'running' });
 
     // Parse files in worker thread (CPU-intensive, off main thread)
-    const parsableFiles = rawFiles.filter(f => f.content && TEXT_EXTENSIONS.includes(f.language));
-    const nonParsableFiles = rawFiles.filter(f => !f.content || !TEXT_EXTENSIONS.includes(f.language));
+    const parsableFiles = rawFiles.filter(f => TEXT_EXTENSIONS.includes(f.language));
+    const nonParsableFiles = rawFiles.filter(f => !TEXT_EXTENSIONS.includes(f.language));
 
     let parsedResults = [];
     if (parsableFiles.length > 0) {
       const workerBatchSize = 100;
       for (let i = 0; i < parsableFiles.length; i += workerBatchSize) {
         const batch = parsableFiles.slice(i, i + workerBatchSize);
-        const batchResults = await runParserWorker(batch);
+        const batchResults = await runParserWorker(batch, repoPath);
         parsedResults.push(...batchResults);
       }
     }
