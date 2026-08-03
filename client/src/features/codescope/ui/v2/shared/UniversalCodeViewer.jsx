@@ -79,10 +79,32 @@ export default function UniversalCodeViewer({
   aiPhase = 'searching',
   memoryFiles = [],
   answer,
+  onAnimationComplete,
 }) {
   const listRef = useRef(null);
 
   const activeFile = activeTabId || attention.file;
+
+  // ── PACING EFFECT ──
+  // This is the core boundary for Step 2.
+  // The backend runs as fast as possible. The Orchestrator pauses itself.
+  // We simulate visual animation time here, then signal the Orchestrator to continue.
+  useEffect(() => {
+    if (!onAnimationComplete) return;
+    
+    // Only fire complete if we actually got a signal to animate (or we are active)
+    let delay = 100; // default safe fallback
+    if (attention.type === 'read') delay = 50;
+    else if (attention.type === 'jump') delay = 350;
+    else if (attention.type === 'appear') delay = 150;
+
+    const timer = setTimeout(() => {
+      onAnimationComplete();
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [attention.file, attention.line, attention.type, runtimeStatus, onAnimationComplete]);
+
   const activeMemoryFile = memoryFiles.find(m => m.name === activeFile || m.file === activeFile);
   const content = activeMemoryFile?.content || (activeFile ? '// Loading file content...' : '');
   const language = activeMemoryFile?.language || 'javascript';
