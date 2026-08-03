@@ -20,7 +20,7 @@ export default function PerspectiveRouter({
   const getPerspective = () => {
     switch (perspective) {
       case 'files':
-        return <ExplorerPerspective onNewInvestigation={onNewInvestigation} />;
+        return <ExplorerPerspective onNewInvestigation={onNewInvestigation} presentation={presentation} />;
       case 'branch':
         return <ArchitecturePerspective presentation={presentation} />;
       case 'investigation':

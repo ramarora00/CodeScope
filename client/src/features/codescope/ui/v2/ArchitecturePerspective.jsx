@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import ReactFlow, { Background, ReactFlowProvider } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import { API_BASE } from '../../../../config/api';
 import KnowledgePanel from './KnowledgePanel';
 
@@ -16,22 +15,21 @@ const nodeTypes = {
   fileNode: FileNode
 };
 
-function ArchitectureGraph({ fileTree, activeFile, visitedFiles }) {
-  // Read and persist expand/collapse states across perspective mounts in local storage
-  const [expandedFolders, setExpandedFolders] = useState(() => {
-    try {
-      const saved = localStorage.getItem('codescope_map_expanded');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+// ArchitectureGraph: pure rendering sub-component — no store access.
+// All user selection mutations are piped via onSelectFile callback.
+import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 
-  useEffect(() => {
-    localStorage.setItem('codescope_map_expanded', JSON.stringify(expandedFolders));
-  }, [expandedFolders]);
+function ArchitectureGraph({ fileTree, activeFile, visitedFiles, userSelectedFile, onSelectFile }) {
+  const explorerState = useWorkspaceStore(s => s.explorerState);
+  const setExplorerState = useWorkspaceStore(s => s.setExplorerState);
+  const expandedFolders = explorerState.expandedFolders;
+  const setExpandedFolders = (updater) => {
+    setExplorerState(prev => ({
+      ...prev,
+      expandedFolders: typeof updater === 'function' ? updater(prev.expandedFolders) : updater
+    }));
+  };
 
-  // Compute container layout
   const { nodes, edges } = useArchitectureLayout({
     fileTree,
     expandedFolders,
@@ -39,21 +37,23 @@ function ArchitectureGraph({ fileTree, activeFile, visitedFiles }) {
     activeFile
   });
 
-  // Track parent changes for AI camera centering
+  const userCamera = useWorkspaceStore(s => s.userCamera);
+
   useAICameraController({
     activeFile,
     fileTree,
-    setExpandedFolders
+    setExpandedFolders,
+    allowAIPan: !userCamera
   });
 
-  // Folder toggling node clicks
+  // Folder/file node clicks → write ONLY to userSelectedFile, never AI session
   const onNodeClick = useCallback((event, node) => {
     if (node.type === 'folderContainer') {
       setExpandedFolders(prev => ({
         ...prev,
         [node.id]: !prev[node.id]
       }));
-      useWorkspaceStore.getState().setSelectedFile({
+      onSelectFile({
         name: node.data.name,
         path: node.id,
         type: 'directory',
@@ -61,25 +61,20 @@ function ArchitectureGraph({ fileTree, activeFile, visitedFiles }) {
         childrenFiles: node.data.childrenFiles
       });
     } else if (node.type === 'fileNode') {
-      useWorkspaceStore.getState().setSelectedFile({
+      onSelectFile({
         name: node.data.name,
         path: node.id,
         type: 'file'
       });
     }
-  }, []);
+  }, [onSelectFile]);
 
   // Opacity fading rule: non-focused subsystems fade to 15%
-  // Focused if it's the active AI file, OR if the user has explicitly selected it (Semantic Zoom)
+  const userSelectedFolder = userSelectedFile?.type === 'directory' ? userSelectedFile.path : null;
+
   const processedNodes = useMemo(() => {
-    const userSelectedFolder = useWorkspaceStore.getState().selectedFile?.type === 'directory' 
-      ? useWorkspaceStore.getState().selectedFile.path 
-      : null;
-      
-    // If nothing is actively selected or being read by AI, everything is fully visible
     if (!activeFile && !userSelectedFolder) return nodes;
 
-    // Determine current parent container for AI focus
     const findParentPath = (tree, target, currentParent = null) => {
       if (!target) return null;
       for (const item of tree) {
@@ -94,13 +89,9 @@ function ArchitectureGraph({ fileTree, activeFile, visitedFiles }) {
     const activeParent = findParentPath(fileTree, activeFile);
 
     return nodes.map(node => {
-      // A node is focused if it IS the active parent directory (AI), the active file (AI), 
-      // or the user specifically clicked this folder to semantically zoom in.
       const isAiFocused = node.id === activeParent || node.id === activeFile;
       const isUserFocused = node.id === userSelectedFolder;
-      
       const isFocused = (activeFile && isAiFocused) || (!activeFile && isUserFocused);
-      
       return {
         ...node,
         style: {
@@ -110,7 +101,19 @@ function ArchitectureGraph({ fileTree, activeFile, visitedFiles }) {
         }
       };
     });
-  }, [nodes, activeFile, fileTree, useWorkspaceStore.getState().selectedFile]);
+  }, [nodes, activeFile, fileTree, userSelectedFolder]);
+
+  const architectureState = useWorkspaceStore(s => s.architectureState);
+  const setArchitectureState = useWorkspaceStore(s => s.setArchitectureState);
+  const setUserCamera = useWorkspaceStore(s => s.setUserCamera);
+
+  const onMoveEnd = useCallback((event, viewport) => {
+    setArchitectureState({ camera: viewport });
+    // Any manual pan/zoom claims the camera for the user
+    if (event) {
+      setUserCamera(viewport);
+    }
+  }, [setArchitectureState, setUserCamera]);
 
   return (
     <div className="w-full h-full relative" style={{ background: 'var(--cs-bg)' }}>
@@ -119,7 +122,8 @@ function ArchitectureGraph({ fileTree, activeFile, visitedFiles }) {
         edges={edges}
         nodeTypes={nodeTypes}
         onNodeClick={onNodeClick}
-        fitView
+        onMoveEnd={onMoveEnd}
+        defaultViewport={architectureState.camera}
         minZoom={0.05}
         maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
@@ -131,13 +135,16 @@ function ArchitectureGraph({ fileTree, activeFile, visitedFiles }) {
   );
 }
 
-export default function ArchitecturePerspective({ presentation }) {
-  const repo = useWorkspaceStore(s => s.selectedRepo);
-  const selectedFile = useWorkspaceStore(s => s.selectedFile);
-  const [fileTree, setFileTree] = useState([]);
-  const [loading, setLoading] = useState(true);
+// ArchitecturePerspective: receives all state via presentation prop — no Zustand reads except for Graph Data.
+import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 
-  // Derive active focus path and visited footprints
+export default function ArchitecturePerspective({ presentation }) {
+  const fileTree = useWorkspaceStore(s => s.fileTree);
+
+  const repo = presentation?.selectedRepo;
+  const userSelectedFile = presentation?.userSelectedFile;
+  const onSelectFile = presentation?.onSelectFile;
+
   const activeFile = presentation?.attention?.file || null;
   const visitedFiles = useMemo(() => {
     const set = new Set();
@@ -149,19 +156,7 @@ export default function ArchitecturePerspective({ presentation }) {
     return set;
   }, [presentation?.tabs]);
 
-  useEffect(() => {
-    if (!repo?.id) return;
-    setLoading(true);
-    fetch(`${API_BASE}/api/repo/${repo.id}/files`)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setFileTree(data);
-      })
-      .catch(err => console.error('[ArchitectureMap] Failed to load files:', err))
-      .finally(() => setLoading(false));
-  }, [repo?.id]);
-
-  if (loading) {
+  if (!fileTree || fileTree.length === 0) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-[var(--cs-bg)]">
         <div className="w-6 h-6 rounded-full border-2 border-[var(--cs-accent)] border-t-transparent animate-spin mb-4" />
@@ -178,15 +173,24 @@ export default function ArchitecturePerspective({ presentation }) {
           <ArchitectureGraph 
             fileTree={fileTree} 
             activeFile={activeFile} 
-            visitedFiles={visitedFiles} 
+            visitedFiles={visitedFiles}
+            userSelectedFile={userSelectedFile}
+            onSelectFile={onSelectFile}
           />
         </ReactFlowProvider>
         
-        {/* Rootless metadata indicator */}
-        <div className="absolute top-4 left-4 z-10 select-none pointer-events-none">
+        <div className="absolute top-4 left-4 z-10 select-none pointer-events-none flex flex-col gap-2 items-start">
           <span className="text-[9px] font-mono font-bold tracking-[0.15em] uppercase text-[var(--cs-hint)] bg-[var(--cs-panel)] px-2 py-1 rounded border border-[var(--cs-border)] shadow-sm">
             {repo?.name || 'Workspace'} / Map
           </span>
+          {presentation?.userCamera && (
+            <button 
+              onClick={presentation.onReturnToAI}
+              className="pointer-events-auto bg-[var(--cs-editor)] hover:bg-[var(--cs-panel)] text-[var(--cs-accent)] text-[10px] font-mono px-3 py-1 rounded border border-[var(--cs-border)] shadow-sm transition-colors"
+            >
+              Resume AI Camera Focus
+            </button>
+          )}
         </div>
       </div>
 
@@ -199,8 +203,10 @@ export default function ArchitecturePerspective({ presentation }) {
           repo={repo}
           findings={presentation?.findings || []}
           relatedSymbols={presentation?.relatedSymbols || []}
-          onNewInvestigation={undefined} // Map has no new-investigation triggers
-          selectedFile={selectedFile}
+          onNewInvestigation={undefined}
+          selectedFile={userSelectedFile}
+          selectedTimelineEventId={presentation?.selectedTimelineEventId}
+          onReturnToPresent={presentation?.onReturnToPresent}
         />
       </div>
     </div>

@@ -4,7 +4,6 @@ import AIOverlayEditor from './AIOverlayEditor';
 import KnowledgePanel from './KnowledgePanel';
 import InvestigationReportSheet from './InvestigationReportSheet';
 import RepositoryReadyState from './RepositoryReadyState';
-import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 
 export default function InvestigationPerspective({
   bootPhase,
@@ -17,8 +16,6 @@ export default function InvestigationPerspective({
   startedAt,
   onNewInvestigation,
 }) {
-  const repo = useWorkspaceStore(s => s.selectedRepo);
-  const selectedFile = useWorkspaceStore(s => s.selectedFile);
   const [reportDismissed, setReportDismissed] = useState(false);
   
   // Show report if there is an answer/error and it hasn't been dismissed by the user
@@ -44,7 +41,7 @@ export default function InvestigationPerspective({
           planSteps={presentation.planSteps}
           startedAt={startedAt}
           memoryFiles={memoryFiles}
-          repo={repo}
+          repo={presentation.selectedRepo}
           activeInvestigation={activeInvestigation}
           onNewInvestigation={onNewInvestigation}
         />
@@ -63,7 +60,7 @@ export default function InvestigationPerspective({
         }}
       >
         {bootPhase === 'ready' && (!activeInvestigation || isUnderstandingMode) ? (
-          <RepositoryReadyState repo={repo} onNewInvestigation={onNewInvestigation} />
+          <RepositoryReadyState repo={presentation.selectedRepo} repositoryContext={presentation.repositoryContext} onNewInvestigation={onNewInvestigation} />
         ) : (
           <AIOverlayEditor
             tabs={presentation.tabs}
@@ -76,6 +73,7 @@ export default function InvestigationPerspective({
             aiPhase={presentation.aiPhase}
             memoryFiles={memoryFiles}
             answer={presentation.answer}
+            onAnimationComplete={presentation.onAnimationComplete}
           />
         )}
       </div>
@@ -93,11 +91,13 @@ export default function InvestigationPerspective({
         }}
       >
         <KnowledgePanel
-          repo={repo}
+          repo={presentation.selectedRepo}
           findings={presentation.findings}
           relatedSymbols={presentation.relatedSymbols}
           onNewInvestigation={onNewInvestigation}
-          selectedFile={selectedFile}
+          selectedFile={presentation.userSelectedFile}
+          selectedTimelineEventId={presentation.selectedTimelineEventId}
+          onReturnToPresent={presentation.onReturnToPresent}
         />
       </div>
 
@@ -107,6 +107,7 @@ export default function InvestigationPerspective({
           answer={presentation.answer} 
           error={presentation.error}
           onClose={() => setReportDismissed(true)} 
+          onRetryInvestigation={activeInvestigation ? () => onNewInvestigation(activeInvestigation.query || activeInvestigation.title, activeInvestigation.mode) : undefined}
         />
       )}
     </div>
