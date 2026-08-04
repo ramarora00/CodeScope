@@ -32,10 +32,13 @@ export function useAICameraController({ activeFile, fileTree = [], setExpandedFo
 
     if (parentSubsystem) {
       // Auto-expand folder when AI enters it
-      setExpandedFolders(prev => ({
-        ...prev,
-        [parentSubsystem]: true
-      }));
+      setExpandedFolders(prev => {
+        if (prev[parentSubsystem]) return prev;
+        return {
+          ...prev,
+          [parentSubsystem]: true
+        };
+      });
 
       // Only pan camera if parent subsystem has changed (threshold gate)
       if (lastSubsystemRef.current !== parentSubsystem) {
