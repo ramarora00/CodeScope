@@ -10,25 +10,31 @@ import { useAICameraController } from './architecture/useAICameraController';
 import FolderContainer from './architecture/FolderContainer';
 import FileNode from './architecture/FileNode';
 
-const nodeTypes = {
-  folderContainer: FolderContainer,
-  fileNode: FileNode
-};
+// Node types will be memoized inside the component
 
 // ArchitectureGraph: pure rendering sub-component — no store access.
 // All user selection mutations are piped via onSelectFile callback.
-import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
+import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 
 function ArchitectureGraph({ fileTree, activeFile, visitedFiles, userSelectedFile, onSelectFile }) {
+  const nodeTypes = useMemo(() => ({
+    folderContainer: FolderContainer,
+    fileNode: FileNode
+  }), []);
+
   const explorerState = useWorkspaceStore(s => s.explorerState);
   const setExplorerState = useWorkspaceStore(s => s.setExplorerState);
   const expandedFolders = explorerState.expandedFolders;
-  const setExpandedFolders = (updater) => {
-    setExplorerState(prev => ({
-      ...prev,
-      expandedFolders: typeof updater === 'function' ? updater(prev.expandedFolders) : updater
-    }));
-  };
+  const setExpandedFolders = useCallback((updater) => {
+    setExplorerState((prev) => {
+      const nextFolders = typeof updater === "function" ? updater(prev.expandedFolders) : updater;
+      if (nextFolders === prev.expandedFolders) return prev;
+      return {
+        ...prev,
+        expandedFolders: nextFolders
+      };
+    });
+  }, [setExplorerState]);
 
   const { nodes, edges } = useArchitectureLayout({
     fileTree,
@@ -136,7 +142,6 @@ function ArchitectureGraph({ fileTree, activeFile, visitedFiles, userSelectedFil
 }
 
 // ArchitecturePerspective: receives all state via presentation prop — no Zustand reads except for Graph Data.
-import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 
 export default function ArchitecturePerspective({ presentation }) {
   const fileTree = useWorkspaceStore(s => s.fileTree);

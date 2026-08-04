@@ -40,14 +40,22 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
   useEffect(() => {
     if (!repo?.id) return;
     if (fileTree.length > 0) return; // Already loaded
+    if (bootPhase === 'booting') return; // Wait until repo is ready
     
-    fetch(`${API_BASE}/api/repo/${repo.id}/files`)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setFileTree(data);
-      })
-      .catch(err => console.error('[WorkspaceRoot] Failed to load files:', err));
-  }, [repo?.id, fileTree.length, setFileTree]);
+    const fetchFiles = () => {
+      fetch(`${API_BASE}/api/repo/${repo.id}/files`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) setFileTree(data);
+          else throw new Error('Invalid file tree data');
+        })
+        .catch(err => {
+          console.error('[WorkspaceRoot] Failed to load files, retrying...', err);
+          setTimeout(fetchFiles, 2000);
+        });
+    };
+    fetchFiles();
+  }, [repo?.id, fileTree.length, setFileTree, bootPhase]);
 
   // memoryFiles: fetch content for every file the AI has visited
   const [memoryFiles, setMemoryFiles] = useState([]);
