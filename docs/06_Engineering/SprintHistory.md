@@ -276,3 +276,74 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-08-01T19:05:00+05:30*
 
+
+## Sprint — Workspace UI V2 Shared Components & Investigation Perspectives Refinements
+
+**Commits**
+- `ef5c52c` chore(client): update dependencies
+- `5acbdb9` feat(codescope): update workspace perspectives, routing, and store
+- `7463a5f` feat(codescope): introduce UniversalCodeViewer and refine UI components
+- `43b87a8` refactor(codescope): replace ReviewPanel with InvestigationReportSheet
+- `b7436c2` chore(logs): add latest investigation session recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **Dependencies**: Updated package dependencies for latest client packages.
+- **UI Perspectives**: Updated all workspace perspectives (Architecture, Investigation), panel routing, and enhanced the workspace store integration.
+- **UI Refinements**: Introduced UniversalCodeViewer shared component, and updated FileViewer, LaunchExperience, AIOverlayEditor, and RepositoryReadyState.
+- **Legacy Cleanup**: Completely replaced the deprecated ReviewPanel with the new InvestigationReportSheet.
+- **Logs**: Captured and added 21 recent investigation session log recordings.
+
+*Recorded on 2026-08-02T11:30:00+05:30*
+
+
+## Sprint — Foundation Contracts, SSE Transport, and Presentation Models Unification
+
+**Commits**
+- `1bcd828` fix(server): update database schema, repository routes, session manager, and parser
+- `05edd56` refactor(codescope): remove legacy runtime models, layout engine, and obsolete panes
+- `53e4db3` feat(codescope): introduce SSE connection transport and refine workspace lifecycle events
+- `941e573` feat(codescope): unify presentation models, playback controls, and perspective views
+- `5defd0b` docs(foundation): add domain events and presentation contract specs, plus logs
+
+**Status**
+? Completed
+
+**Summary**
+- **Server Fixes**: Updated database schema along with repo routes, session manager, and the parse worker.
+- **Legacy Purge**: Dropped deprecated RealRuntime, ClaudeRuntime, layout engines, and old observation panes (8 files removed).
+- **SSE Transport**: Added useSSEConnection inside codescope transport layer to improve stream stability.
+- **UI Unification**: Merged playback controls and domain events into presentation models. Refined perspectives (Architecture, Investigation, Explorer).
+- **Foundation Documentation**: Formalized Domain Events and Presentation Contracts.
+- **Logs**: Captured and added 3 latest investigation session log recordings.
+
+*Recorded on 2026-08-03T19:51:00+05:30*
+
+
+## Sprint — Workspace Event Router, Presentation Model, and UI Architecture Improvements
+
+**Commits**
+- `6284171` chore(logs): add latest investigation session recordings
+- `713a794` feat(codescope): refine workspace lifecycle and investigation session stores
+- `5c09af7` feat(codescope): update workspace presentation model and add SSE connection transport
+- `6d1f300` feat(codescope): enhance v2 perspectives and perspective router
+- `52267dd` feat(codescope): refine v2 knowledge panel, report sheet, and workspace root
+- `6026a06` feat(codescope): update AI camera controller and UniversalCodeViewer
+- `0100d1d` docs(foundation): add domain events and presentation contracts documentation
+
+**Status**
+? Completed
+
+**Summary**
+- **Logs**: Captured 3 recent investigation session log recordings.
+- **Stores & Hooks**: Split codescope state updates into multiple commits. Refined workspace lifecycle, investigation session, playback controller, and event router.
+- **Transport**: Extracted SSE connection into a dedicated hook in the transport layer, combined with presentation model updates.
+- **UI Perspectives**: Updated all workspace perspectives (Architecture, Investigation, Explorer) and the core PerspectiveRouter.
+- **UI Components**: Enhanced the KnowledgePanel, InvestigationReportSheet, and RepositoryReadyState, keeping batch size strictly under 5 files per commit.
+- **Architecture View**: Updated AI camera controller and UniversalCodeViewer.
+- **Foundation Documentation**: Added deep-dives on Domain Events and Presentation Contracts to formalize the architecture.
+
+*Recorded on 2026-08-03T19:56:00+05:30*
+

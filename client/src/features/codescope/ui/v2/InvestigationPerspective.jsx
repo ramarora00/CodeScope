@@ -1,10 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import InvestigationPanel from './InvestigationPanel';
 import AIOverlayEditor from './AIOverlayEditor';
 import KnowledgePanel from './KnowledgePanel';
-import ReviewPanel from './ReviewPanel';
+import InvestigationReportSheet from './InvestigationReportSheet';
 import RepositoryReadyState from './RepositoryReadyState';
-import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 
 export default function InvestigationPerspective({
   bootPhase,
@@ -17,10 +16,13 @@ export default function InvestigationPerspective({
   startedAt,
   onNewInvestigation,
 }) {
-  const repo = useWorkspaceStore(s => s.selectedRepo);
-  const selectedFile = useWorkspaceStore(s => s.selectedFile);
+  const [reportDismissed, setReportDismissed] = useState(false);
+  
+  // Show report if there is an answer/error and it hasn't been dismissed by the user
+  const showReport = (presentation.answer || presentation.error) && !reportDismissed;
+
   return (
-    <>
+    <div className="flex-1 flex min-h-0 bg-[var(--cs-bg)] gap-[2px] relative overflow-hidden">
       {/* Investigation */}
       <div
         className="animate-settle flex-shrink-0"
@@ -39,7 +41,7 @@ export default function InvestigationPerspective({
           planSteps={presentation.planSteps}
           startedAt={startedAt}
           memoryFiles={memoryFiles}
-          repo={repo}
+          repo={presentation.selectedRepo}
           activeInvestigation={activeInvestigation}
           onNewInvestigation={onNewInvestigation}
         />
@@ -58,7 +60,7 @@ export default function InvestigationPerspective({
         }}
       >
         {bootPhase === 'ready' && (!activeInvestigation || isUnderstandingMode) ? (
-          <RepositoryReadyState repo={repo} />
+          <RepositoryReadyState repo={presentation.selectedRepo} repositoryContext={presentation.repositoryContext} onNewInvestigation={onNewInvestigation} />
         ) : (
           <AIOverlayEditor
             tabs={presentation.tabs}
@@ -71,11 +73,12 @@ export default function InvestigationPerspective({
             aiPhase={presentation.aiPhase}
             memoryFiles={memoryFiles}
             answer={presentation.answer}
+            onAnimationComplete={presentation.onAnimationComplete}
           />
         )}
       </div>
 
-      {/* Knowledge or Review */}
+      {/* Knowledge Panel always stays mounted */}
       <div
         className="animate-settle flex-shrink-0"
         style={{
@@ -87,18 +90,26 @@ export default function InvestigationPerspective({
           animationDelay: '180ms',
         }}
       >
-        {(presentation.answer || presentation.error) ? (
-          <ReviewPanel answer={presentation.answer} error={presentation.error} />
-        ) : (
-          <KnowledgePanel
-            repo={repo}
-            findings={presentation.findings}
-            relatedSymbols={presentation.relatedSymbols}
-            onNewInvestigation={onNewInvestigation}
-            selectedFile={selectedFile}
-          />
-        )}
+        <KnowledgePanel
+          repo={presentation.selectedRepo}
+          findings={presentation.findings}
+          relatedSymbols={presentation.relatedSymbols}
+          onNewInvestigation={onNewInvestigation}
+          selectedFile={presentation.userSelectedFile}
+          selectedTimelineEventId={presentation.selectedTimelineEventId}
+          onReturnToPresent={presentation.onReturnToPresent}
+        />
       </div>
-    </>
+
+      {/* Cinematic Bottom Sheet Overlay */}
+      {showReport && (
+        <InvestigationReportSheet 
+          answer={presentation.answer} 
+          error={presentation.error}
+          onClose={() => setReportDismissed(true)} 
+          onRetryInvestigation={activeInvestigation ? () => onNewInvestigation(activeInvestigation.query || activeInvestigation.title, activeInvestigation.mode) : undefined}
+        />
+      )}
+    </div>
   );
 }

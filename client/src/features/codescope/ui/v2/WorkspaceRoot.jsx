@@ -3,7 +3,6 @@ import CommandBar from './CommandBar';
 import MacOSTitleBar from './MacOSTitleBar';
 import Dock from './Dock';
 import PerspectiveRouter from './PerspectiveRouter';
-import ReviewPanel from './ReviewPanel';
 import { API_BASE } from '../../../../config/api';
 
 // ── Behavior Layer ──────────────────────────────────────────────
@@ -15,7 +14,7 @@ import { useWorkspaceLifecycle } from '../../hooks/useWorkspaceLifecycle';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 
 export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvestigation }) {
-  const { selectedRepo: repo, setSelectedFile } = useWorkspaceStore();
+  const { selectedRepo: repo } = useWorkspaceStore();
   
   // ── PRESENTATION-ONLY state (does not affect behavior) ──────────
   const [dockActive, setDockActive] = useState('investigation');
@@ -31,18 +30,30 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
     rawSessionState: raw.sessionState
   });
   
-  // ── BRIDGE: Mount SSE event router ─
   useInvestigationEventRouter(repo?.id, activeInvestigation);
   usePlaybackController();
+  
+  // ── Global Graph Data (Loaded once per repo) ──
+  const setFileTree = useWorkspaceStore(s => s.setFileTree);
+  const fileTree = useWorkspaceStore(s => s.fileTree);
+  
+  useEffect(() => {
+    if (!repo?.id) return;
+    if (fileTree.length > 0) return; // Already loaded
+    
+    fetch(`${API_BASE}/api/repo/${repo.id}/files`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setFileTree(data);
+      })
+      .catch(err => console.error('[WorkspaceRoot] Failed to load files:', err));
+  }, [repo?.id, fileTree.length, setFileTree]);
 
   // memoryFiles: fetch content for every file the AI has visited
   const [memoryFiles, setMemoryFiles] = useState([]);
   useEffect(() => {
     if (!repo?.id || !presentation.activeTabId) return;
     const filePath = presentation.activeTabId;
-    
-    // Sync the global selected file when tab changes
-    setSelectedFile({ name: filePath.split(/[\\/]/).pop(), path: filePath, type: 'file' });
     
     if (memoryFiles.find(m => m.file === filePath || m.name === filePath)) return;
 
@@ -77,12 +88,11 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
   }, [repo?.id]);
 
   const handleSelectTab = useCallback(id => {
-    useInvestigationSession.getState().receiveEvent({
-      type: 'file.selected', file: id, reason: 'User selected tab'
-    });
+    // User explicitly clicked a tab → write to userSelectedFile, not AI session
+    useWorkspaceStore.getState().setUserSelectedFile({ name: id.split(/[\\/]/).pop(), path: id, type: 'file' });
   }, []);
 
-  const isUnderstandingMode = useInvestigationSession(s => s.metadata.isUnderstandingMode);
+  const isUnderstandingMode = presentation.isUnderstandingMode;
 
   const handleCloseTab = useCallback(id => {
     // Tab close is presentation-only; we don't purge events from the store

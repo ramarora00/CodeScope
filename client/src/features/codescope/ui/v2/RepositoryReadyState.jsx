@@ -1,14 +1,19 @@
 import React from 'react';
-import { useInvestigationSession } from '../../store/useInvestigationSession';
+import { Database, Folder, Shield, Zap } from 'lucide-react';
 
-export default function RepositoryReadyState({ repo }) {
-  const repositoryContext = useInvestigationSession(s => s.repositoryContext);
+export default function RepositoryReadyState({ repo, repositoryContext, onNewInvestigation }) {
   
   // Use real stats if available, fallback to some counts
   const stats = repositoryContext.stats || {
     filesIndexed: 0,
     entryPoints: 0,
     services: 0
+  };
+
+  const handleSuggestionClick = (suggestion) => {
+    if (onNewInvestigation) {
+      onNewInvestigation(`Investigate the ${suggestion.toLowerCase()} of this repository`);
+    }
   };
 
   return (
@@ -53,9 +58,46 @@ export default function RepositoryReadyState({ repo }) {
           </div>
         </div>
 
-        <div className="mt-4 text-center">
-          <p style={{ color: 'var(--cs-hint)', fontSize: '14px', fontStyle: 'italic' }}>
-            Ask anything about this repository to begin an investigation.
+        <div className="mt-4 flex flex-col gap-3">
+          <span style={{ color: 'var(--cs-faint)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+            Suggested Investigations
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {[
+              'Authentication Flow',
+              'State Management',
+              'API Layer',
+              'Performance Hotspots',
+              'Folder Structure'
+            ].map(suggestion => (
+              <button 
+                key={suggestion}
+                className="px-3 py-1.5 rounded-full text-[12px] whitespace-nowrap"
+                style={{ 
+                  background: 'var(--cs-bg)', 
+                  border: '1px solid var(--cs-border)',
+                  color: 'var(--cs-hint)',
+                  transition: 'all 0.2s ease',
+                  cursor: 'pointer'
+                }}
+                onMouseOver={e => {
+                  e.currentTarget.style.background = 'var(--cs-hover)';
+                  e.currentTarget.style.color = 'var(--cs-text)';
+                  e.currentTarget.style.borderColor = 'var(--cs-text)';
+                }}
+                onMouseOut={e => {
+                  e.currentTarget.style.background = 'var(--cs-bg)';
+                  e.currentTarget.style.color = 'var(--cs-hint)';
+                  e.currentTarget.style.borderColor = 'var(--cs-border)';
+                }}
+                onClick={() => handleSuggestionClick(suggestion)}
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+          <p className="mt-4" style={{ color: 'var(--cs-hint)', fontSize: '13px', fontStyle: 'italic' }}>
+            Or use the command bar above to ask your own question.
           </p>
         </div>
       </div>

@@ -1,87 +1,73 @@
 import { useEffect, useRef } from 'react';
 import { useInvestigationSession, SESSION_STATES } from './useInvestigationSession';
 
-// Event specific delays (base delay logic)
-// These delays are multiplied by the playbackProfile.speedMultiplier
-const getEventDelayMs = (eventType, baseDelayMs) => {
-  switch (eventType) {
-    case 'investigation.started': return 300;
-    case 'file.selected': return 150;
-    case 'file.read.started': return 80;
-    case 'file.read.progress': return Math.max(50, baseDelayMs); 
-    case 'file.read.completed': return 250;
-    case 'jump.started': return 300;
-    case 'jump.completed': return 200;
-    case 'return.started': return 200;
-    case 'symbol.discovered': return 120;
-    case 'evidence.added': return 200;
-    case 'investigation.completed': return 400;
-    default: return baseDelayMs;
-  }
+const isBlockingEvent = (type) => {
+  // Define which events require the Orchestrator to pause and wait for UI animation
+  return ['file.selected', 'file.read.progress', 'file.read.completed', 'jump.started'].includes(type);
 };
 
 /**
- * usePlaybackController
+ * usePlaybackController (Playback Orchestrator)
  * 
- * A headless hook that runs the event consumption loop.
- * It subscribes to the Zustand store, and when in PLAYING state,
- * it recursively calls `setTimeout` to pop events off the queue.
+ * Orchestrates the execution of the investigation timeline.
+ * It strictly separates backend speed from UI pacing by awaiting
+ * a 'UI Animation Completed' signal before pulling the next event.
+ * 
+ * ARCHITECTURAL RULE: The Playback Orchestrator may know only the current event
+ * and animation completion status. It must never know about repositories, graphs,
+ * timelines, knowledge panels, explorers, or AI state.
  */
 export function usePlaybackController() {
   const consumeNextEvent = useInvestigationSession(state => state.consumeNextEvent);
   const sessionState = useInvestigationSession(state => state.sessionState);
+  const isAnimating = useInvestigationSession(state => state.isAnimating);
   const playbackProfile = useInvestigationSession(state => state.playbackProfile);
   
-  // Ref to hold the current timeout ID so we can clear it if paused/unmounted
-  const timeoutRef = useRef(null);
+  const loopRef = useRef(null);
 
   useEffect(() => {
-    // We only run the loop if we are PLAYING
     if (sessionState !== SESSION_STATES.PLAYING) {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
+      if (loopRef.current) {
+        clearTimeout(loopRef.current);
+        loopRef.current = null;
       }
       return;
     }
-
-    let isSubscribed = true;
+    
+    // Orchestrator pauses until the Presentation layer signals it has finished animating
+    if (isAnimating) {
+      return;
+    }
 
     const processNext = () => {
-      if (!isSubscribed) return;
+      // Safety check in case state changed during timeout
+      if (useInvestigationSession.getState().sessionState !== SESSION_STATES.PLAYING) return;
+      if (useInvestigationSession.getState().isAnimating) return;
 
       const event = consumeNextEvent();
       
       if (!event) {
-        // No more events (queue is empty)
-        // Note: the backend might still be sending. If it's done, it sends 'investigation.completed'
-        // which the reducer handles and changes state to COMPLETED, causing this effect to re-run and stop.
-        // If it's just temporarily empty but receiving, we could change state back to RECEIVING.
+        // Queue is empty, return to RECEIVING state to await more events
         useInvestigationSession.setState({ sessionState: SESSION_STATES.RECEIVING });
         return;
       }
 
-      // Calculate delay for the NEXT tick based on the event we just processed
-      const rawDelay = getEventDelayMs(event.type, playbackProfile.baseDelayMs);
-      const scaledDelay = Math.floor(rawDelay * playbackProfile.speedMultiplier);
-
-      // If we are in INSTANT mode, we can process immediately with no delay (or 0ms via setTimeout)
-      if (playbackProfile.speedMultiplier >= 100) {
-        // To prevent call stack exceeded, we still use 0ms timeout
-        timeoutRef.current = setTimeout(processNext, 0);
+      if (isBlockingEvent(event.type) && playbackProfile.speedMultiplier < 100) {
+        // Orchestrator hands control to the UI. The UI MUST call completeAnimation()
+        useInvestigationSession.setState({ isAnimating: true });
       } else {
-        timeoutRef.current = setTimeout(processNext, scaledDelay);
+        // Non-blocking event or instant mode: immediately trigger next tick
+        loopRef.current = setTimeout(processNext, 0);
       }
     };
 
-    // Kick off the loop
-    processNext();
+    // Kick off the orchestrator loop
+    loopRef.current = setTimeout(processNext, 0);
 
     return () => {
-      isSubscribed = false;
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
+      if (loopRef.current) {
+        clearTimeout(loopRef.current);
       }
     };
-  }, [sessionState, consumeNextEvent, playbackProfile]);
+  }, [sessionState, isAnimating, consumeNextEvent, playbackProfile.speedMultiplier]);
 }

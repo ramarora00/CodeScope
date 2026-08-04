@@ -1,13 +1,14 @@
 import React from 'react';
 import FileExplorer from '../../../../components/FileExplorer';
 import FileViewer from '../../../../components/FileViewer';
-import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import KnowledgePanel from './KnowledgePanel';
-import { useWorkspacePresentationModel } from '../../store/useWorkspacePresentationModel';
 
-export default function ExplorerPerspective({ onNewInvestigation }) {
-  const { selectedRepo: repo, selectedFile, setSelectedFile } = useWorkspaceStore();
-  const { presentation } = useWorkspacePresentationModel();
+// ExplorerPerspective is a PURE layout component.
+// It receives all state via presentation prop — no Zustand.
+export default function ExplorerPerspective({ onNewInvestigation, presentation }) {
+  const repo = presentation.selectedRepo;
+  const selectedFile = presentation.userSelectedFile;
+  const setSelectedFile = presentation.onSelectFile;
 
   return (
     <div className="flex-1 flex min-h-0 bg-[var(--cs-bg)] gap-[2px]">
@@ -56,6 +57,8 @@ export default function ExplorerPerspective({ onNewInvestigation }) {
           relatedSymbols={presentation.relatedSymbols}
           onNewInvestigation={onNewInvestigation}
           selectedFile={selectedFile}
+          selectedTimelineEventId={presentation.selectedTimelineEventId}
+          onReturnToPresent={presentation.onReturnToPresent}
         />
       </div>
     </div>

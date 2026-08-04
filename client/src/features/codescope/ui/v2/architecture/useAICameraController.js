@@ -7,7 +7,7 @@ import { useReactFlow } from 'reactflow';
  * Automatically shifts the graph layout focus and camera positioning
  * based on subsystem-level transitions of active AI investigation.
  */
-export function useAICameraController({ activeFile, fileTree = [], setExpandedFolders }) {
+export function useAICameraController({ activeFile, fileTree = [], setExpandedFolders, allowAIPan = true }) {
   const { fitBounds, getNodes } = useReactFlow();
   const lastSubsystemRef = useRef(null);
 
@@ -43,6 +43,7 @@ export function useAICameraController({ activeFile, fileTree = [], setExpandedFo
 
         // Yield to layout render loop
         setTimeout(() => {
+          if (!allowAIPan) return;
           const flowNodes = getNodes();
           const targetNode = flowNodes.find(n => n.id === parentSubsystem);
 
@@ -60,5 +61,5 @@ export function useAICameraController({ activeFile, fileTree = [], setExpandedFo
         }, 100);
       }
     }
-  }, [activeFile, fileTree, fitBounds, getNodes, setExpandedFolders]);
+  }, [activeFile, fileTree, fitBounds, getNodes, setExpandedFolders, allowAIPan]);
 }

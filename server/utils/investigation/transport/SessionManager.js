@@ -120,6 +120,20 @@ class SessionManager {
       
       console.log(`[SessionManager] Engine execute finished for session: ${sessionId}`);
 
+      // If this was an understanding pass, persist the hash and summary to the DB
+      if (mode === 'understanding') {
+        const crypto = require('crypto');
+        const hash = crypto.createHash('sha256').update(JSON.stringify(planData.plan)).digest('hex');
+        await prisma.repo.update({
+          where: { id: repoId },
+          data: {
+            understandingHash: hash,
+            repositorySummary: planData.plan.hypothesis || 'Repository indexed successfully.'
+          }
+        });
+        console.log(`[SessionManager] Saved understandingHash for repo: ${repoId}`);
+      }
+
     } finally {
       console.log(`[SessionManager] Cleanup for session: ${sessionId}`);
       // 4. Cleanup (idempotent — cancelInvestigation may have already cleaned up)

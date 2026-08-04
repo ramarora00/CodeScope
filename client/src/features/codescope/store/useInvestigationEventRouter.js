@@ -1,96 +1,78 @@
-import { useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { useInvestigationSession, SESSION_STATES } from './useInvestigationSession';
 import { investigationRecorder } from './InvestigationRecorder';
+import { useSSEConnection } from '../transport/useSSEConnection';
 import { API_BASE } from '../../../config/api';
 
 /**
- * Single Event Translation Layer (Rule 10)
- * Connects to SSE, normalizes events, and dispatches them to the Workspace Store.
+ * useInvestigationEventRouter
+ *
+ * Architecture: Lifecycle → useSSEConnection → useInvestigationEventRouter → useInvestigationSession
+ *
+ * Responsibilities:
+ *   - Builds the SSE URL from (repoId + activeInvestigation)
+ *   - Delegates connection lifecycle to useSSEConnection
+ *   - Maps raw domain events to session store actions (the ONLY store-aware layer)
+ *   - Does NOT own the EventSource
+ *   - Does NOT contain connection retry logic
  */
 export function useInvestigationEventRouter(repoId, activeInvestigation) {
-  const [error, setError] = useState(null);
-  
-  // Get store actions
-  const startSession = useInvestigationSession(state => state.startSession);
-  const receiveEvent = useInvestigationSession(state => state.receiveEvent);
-  const errorSession = useInvestigationSession(state => state.errorSession);
-  const sessionState = useInvestigationSession(state => state.sessionState);
-  const metadata = useInvestigationSession(state => state.metadata);
+  const startSession  = useInvestigationSession(s => s.startSession);
+  const receiveEvent  = useInvestigationSession(s => s.receiveEvent);
+  const errorSession  = useInvestigationSession(s => s.errorSession);
 
-  useEffect(() => {
-    console.log('[EventRouter] useEffect triggered.', { repoId, activeId: activeInvestigation?.id, sessionState, metadataSessionId: metadata?.sessionId });
-    
-    // Only connect if we have a repo and an active investigation requested
-    if (!repoId || !activeInvestigation) {
-      console.log('[EventRouter] Missing repoId or activeInvestigation. Skipping.');
+  // ── Build the SSE URL ──────────────────────────────────────────
+  const enabled = Boolean(repoId && activeInvestigation);
+  const mode    = activeInvestigation?.mode || 'investigation';
+  const mission = activeInvestigation?.title || activeInvestigation?.query || '';
+  const url     = enabled
+    ? `${API_BASE}/api/repo/${repoId}/investigate/stream?mission=${encodeURIComponent(mission)}&mode=${encodeURIComponent(mode)}`
+    : null;
+
+  // ── Event Handlers (store mutations only) ─────────────────────
+  const onOpen = useCallback(() => {
+    if (activeInvestigation) {
+      startSession(activeInvestigation.id || 'mission', repoId);
+    }
+  }, [activeInvestigation, repoId, startSession]);
+
+  const onEvent = useCallback((rawEvent) => {
+    // 1. Formal recording (audit trail)
+    investigationRecorder.append(rawEvent);
+    // 2. Dispatch to session store reducer
+    receiveEvent(rawEvent);
+  }, [receiveEvent]);
+
+  const onError = useCallback((err) => {
+    const state = useInvestigationSession.getState();
+
+    // Graceful close: backend finished cleanly
+    const hasCompletedEvent =
+      state.incomingEvents.some(e => e.type === 'investigation.completed') ||
+      state.processedEvents.some(e => e.type === 'investigation.completed');
+
+    const alreadyTerminal =
+      hasCompletedEvent ||
+      state.sessionState === SESSION_STATES.COMPLETED ||
+      state.sessionState === SESSION_STATES.CANCELLED ||
+      state.sessionState === SESSION_STATES.ERROR;
+
+    if (alreadyTerminal) {
+      console.log('[EventRouter] SSE closed normally (investigation already terminal).');
       return;
     }
 
-    let eventSource;
-    try {
-      // Phase 1: Mission starts -> SSE Connected
-      const mode = activeInvestigation.mode || 'investigation';
-      const url = `${API_BASE}/api/repo/${repoId}/investigate/stream?mission=${encodeURIComponent(activeInvestigation.title || activeInvestigation.query || '')}&mode=${encodeURIComponent(mode)}`;
-      console.log(`[EventRouter] Connecting to ${url}`);
-      
-      startSession(activeInvestigation.id || 'mission', repoId);
-      
-      eventSource = new EventSource(url);
+    console.error('[EventRouter] Unexpected SSE error:', err);
+    errorSession();
+  }, [errorSession]);
 
-      eventSource.onopen = () => {
-        console.log('[EventRouter] SSE Connection Established');
-        setError(null);
-      };
-
-      eventSource.onmessage = (e) => {
-        try {
-          const rawEvent = JSON.parse(e.data);
-          
-          // Rule 12 prep: Append to formal recorder first
-          investigationRecorder.append(rawEvent);
-          
-          // Add them to the Event Log (Workspace Store)
-          receiveEvent(rawEvent);
-        } catch (err) {
-          console.error('[EventRouter] Failed to parse SSE event:', err);
-        }
-      };
-
-      eventSource.onerror = (err) => {
-        const state = useInvestigationSession.getState();
-        const hasCompletedEvent = 
-          state.incomingEvents.some((e) => e.type === "investigation.completed") ||
-          state.processedEvents.some((e) => e.type === "investigation.completed");
-        
-        if (
-          hasCompletedEvent ||
-          state.sessionState === SESSION_STATES.COMPLETED ||
-          state.sessionState === SESSION_STATES.CANCELLED ||
-          state.sessionState === SESSION_STATES.ERROR
-        ) {
-          console.log("[EventRouter] SSE stream closed normally or already handled.");
-          eventSource.close();
-          return;
-        }
-        console.error("[EventRouter] SSE Error:", err);
-        setError("Connection lost to investigation stream.");
-        errorSession();
-        eventSource.close();
-      };
-    } catch (err) {
-      console.error('[EventRouter] Setup error:', err);
-      setError('Failed to setup investigation stream.');
-      errorSession();
-    }
-
-    return () => {
-      if (eventSource) {
-        console.log('[EventRouter] Closing SSE Connection');
-        eventSource.close();
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repoId, activeInvestigation?.id]);
-
-  return { error };
+  // ── Delegate connection ownership to transport layer ──────────
+  useSSEConnection({
+    url,
+    enabled,
+    onOpen,
+    onEvent,
+    onError,
+  });
 }
+
