@@ -819,15 +819,23 @@ router.get('/:id/file/content', async (req, res) => {
   const repo = await prisma.repo.findUnique({ where: { id: req.params.id } });
   if (!repo) return res.status(404).json({ error: 'Repo not found' });
 
-  const fullPath = path.join(repo.localPath, filePath);
-  const fileRecord = await prisma.file.findUnique({
-    where: { repoId_path: { repoId: req.params.id, path: filePath } }
-  });
-
-  if (fileRecord) {
-    return res.json({ content: fileRecord.content || fs.readFileSync(fullPath, 'utf8'), metadata: fileRecord.metadata });
+  try {
+    const fullPath = path.join(repo.localPath, filePath);
+    const fileRecord = await prisma.file.findUnique({
+      where: { repoId_path: { repoId: req.params.id, path: filePath } }
+    });
+    
+    const stats = fs.statSync(fullPath);
+    if (stats.isDirectory()) {
+      return res.status(400).json({ error: 'Requested path is a directory' });
+    }
+    if (fileRecord) {
+      return res.json({ content: fileRecord.content || fs.readFileSync(fullPath, 'utf8'), metadata: fileRecord.metadata });
+    }
+    res.json({ content: fs.readFileSync(fullPath, 'utf8') });
+  } catch (e) {
+    return res.status(404).json({ error: 'File not found on disk' });
   }
-  res.json({ content: fs.readFileSync(fullPath, 'utf8') });
 });
 
 // @route   GET /api/repo/:id/dependencies

@@ -185,8 +185,6 @@ export function useWorkspacePresentationModel() {
       findings,
       relatedSymbols,
       answer,
-      error,
-      onAnimationComplete,
       selectedTimelineEventId,
       onReturnToPresent,
       selectedRepo,
