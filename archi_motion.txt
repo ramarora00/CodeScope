@@ -1,0 +1,703 @@
+**Architecture Workspace — AI's mental model, 500-2000 files, maximum calm**
+
+One reframe before anything else: this is not a graph. It is a **territory**. AI has read the repository. This workspace is how AI *remembers* it — spatially, hierarchically, by meaning. User is not operating a visualization tool. User is entering AI's memory.
+
+---
+
+**Information hierarchy — 50 to 2000 files**
+
+Scale problem: 2000 nodes rendered = anxiety, not insight. Solution = progressive disclosure driven by *cognitive budget*, not file count.
+
+Rule: never more than 9 meaningful elements visible at any zoom level, regardless of repo size. This number is fixed. Repo size only affects *depth available*, never *breadth shown at once*.
+
+50-file repo: 3 zoom levels deep (domain → file → symbol).
+500-file repo: 4 zoom levels (domain → subdomain → file → symbol).
+2000-file repo: 5 zoom levels (domain → subdomain → module → file → symbol).
+
+User never confronts 2000 files. User confronts 5-7 domains. Always.
+
+---
+
+**Semantic zoom — every level**
+
+**L0 — Territory view** (entry point, always)
+
+Single abstract shape representing entire repo. Not nodes. Not a graph. A *mass* — soft, organic, slightly asymmetric form suggesting internal complexity without revealing it. Think: looking at a city from high altitude. You see districts, rough size, character. Not streets.
+
+3-5 domain labels float near mass surface. Large Inter, medium weight, very low contrast (30% white on dark). No connecting lines. Just labels near where those domains "live" in the mass. Repo character determined by mass shape/density — large dense core + small satellites suggests monolith + utilities. Several equal clusters suggests microservices. Shape itself = first information.
+
+**L1 — Domain view**
+
+Camera pushes into territory. Mass dissolves, 5-7 domain clusters emerge — soft rounded forms, named, sized by relative importance (measured by cross-reference density, not file count). Still no individual files visible. Clusters slightly separated, breathing room between them. This level = "what are the major concerns of this system."
+
+**L2 — Subdomain view** (repos 500+)
+
+Push into one cluster. It opens into 4-8 module groups. Still no files. This level skipped entirely for repos under ~150 files — too many empty zoom levels kills rhythm.
+
+**L3 — File view**
+
+First level showing individual files. Nodes become distinct — circles, soft, sized by connectivity. Labels appear (filename only, no extension, no path). Still never more than 9 prominent, rest dim to near-invisible until hovered.
+
+**L4 — Symbol view**
+
+Inside single file. Functions, classes, exports as small dots around a central file node. Lines between dots = call relationships within file. This level only reached via deliberate drill or AI investigation. Not the default destination.
+
+---
+
+**Camera behavior**
+
+Camera has two modes. They feel completely different.
+
+**AI-driven**: slow, deliberate, cinematic. Never faster than 1.2s for any move. Always ease-in-out with soft landing. Camera knows where it's going — no searching, no hesitation. Movements feel *authored*, like a documentary camera operator. Slight deceleration on arrival, just before stop (final 15% of move, speed drops to 20%) — gives landing physical weight.
+
+**User-driven**: responsive but still graceful. Pinch/scroll zoom: smooth continuous, no snap-to-level (snapping = mechanical). Pan: follows finger/cursor with minimal lag, slight inertia on release (not bounce, just smooth deceleration over 400ms). Never jarring.
+
+Camera never teleports. Even search-and-jump (long distance): continuous zoom-out to sufficient altitude, reorient, zoom-in to target — full journey, fast but uncut (800ms total for short jumps, 1.2s for far jumps). Cuts break the "territory" illusion.
+
+---
+
+**AI navigation vs user navigation**
+
+Distinction must be visually legible at all times — user must always know who's driving.
+
+**AI navigating**: very subtle viewport edge treatment — 2px inner glow, accent color, 6% opacity. Not a border. Almost subliminal. Small text indicator top-right: `AI navigating` — Inter 12px, 40% opacity, no background, no pill/badge.
+
+**User navigating**: glow fades over 400ms. Indicator swaps to `Exploring` — same position, same style, just text change. This single swap is enough.
+
+Handoff user→AI: if AI needs camera back for investigation, doesn't yank it. Camera eases out of user position (1s), AI takes over smoothly. Never a fight for control.
+
+Handoff AI→user: user touches trackpad/scroll → immediate response but AI's last position remembered. `Resume AI view` appears — small, bottom-right, quiet text only, no button border. User ignores it = stays in control. User taps it = camera glides back to AI position (600ms).
+
+---
+
+**Folder expansion philosophy**
+
+Folders do NOT expand in-place like file trees. Expansion = zoom in. There is no accordion. There is no tree. There is only depth.
+
+Clicking a cluster = entering it. The cluster fills viewport. Its children appear *within* the space the cluster occupied. Old siblings don't disappear — they recede (scale down slightly, opacity drops to 20%) and remain as spatial context at edges. User always knows where they came from.
+
+"Back" = zoom out, siblings brighten, children dissolve back into parent cluster form. This is continuous space, not hierarchical navigation state.
+
+No folder can be "expanded while viewing siblings" — you're either inside or outside. This constraint prevents the half-expanded chaos of tree views and most graph tools.
+
+---
+
+**Animation choreography**
+
+Every transition has three beats: **anticipation**, **move**, **settle**.
+
+Anticipation: currently focused element very subtly brightens (100ms, barely perceptible) — subconscious signal "this is the thing that's about to become important."
+
+Move: camera/content moves (600-1200ms depending on distance).
+
+Settle: arriving elements don't snap to final state — fade-in over final 200ms of move, as if materializing. Gives "arriving" sensation rather than "rendered."
+
+Cross-dissolve rule: elements leaving viewport fade out 150ms before elements entering begin fading in — avoids simultaneous competing motion. Eye has one thing to track at a time.
+
+Stagger rule: when multiple nodes appear simultaneously (entering new zoom level), stagger their fade-in 40ms apart — not random order, always center-outward (most important node first, then its immediate neighbors). Teaches hierarchy through reveal sequence.
+
+---
+
+**Node visual language**
+
+Shape encodes type:
+- Domain cluster: soft blob/cloud form, no hard edge
+- Module group: rounded rectangle, very soft corners (24px radius)
+- File: circle
+- Symbol: small dot (60% size of file node)
+
+No icons. No file-extension badges. No color coding by language/type.
+
+Size encodes importance: cross-reference count determines diameter. Most-referenced file in cluster = largest node in cluster. This makes architectural significance immediately legible without reading a single label.
+
+Color: monochromatic. One accent hue, varying only in opacity (brightness) based on AI's investigation history. Files AI has deeply examined: full opacity. Untouched files: 25% opacity. Recently referenced: 80%. This alone creates a heat map of AI's attention without ever showing a literal heat map.
+
+Edges (connections): rendered only when relevant — hover a node or AI focuses on it → its edges appear (200ms fade-in), thin (0.5px), low opacity (25%). At rest, no edges visible globally. Global edge rendering = one of the most common premium graph product mistakes (covered below). Absence of edges = calm. Appearance of edges on focus = revelation.
+
+---
+
+**Search behavior**
+
+Command bar accepts semantic queries, not filename search.
+
+`Where does auth happen?` → camera flies to auth cluster, nodes within it brighten sequentially by relevance (same stagger as zoom-in, 40ms apart, center-outward from most relevant).
+
+`How does X connect to Y?` → camera positions to show both nodes simultaneously at optimal zoom level (auto-calculates framing), edge between them draws on (animated, single path traces from X to Y, 600ms) — only this edge, all others stay hidden.
+
+`Show me what AI investigated` → camera retraces investigation path (time-lapse, see time-travel below).
+
+Search doesn't open a results list. Search moves the camera. Always. Results ARE the camera destination — there is no intermediate UI.
+
+---
+
+**Selection states**
+
+Single selection: node brightens to 100% opacity, thin ring appears (1px, accent color, 4px outside node edge, 200ms fade-in). Connected edges appear (fade-in 200ms, thin). Everything else dims 10% — very subtle, not dramatic dimming. Selected node's label appears if not already visible.
+
+Multi-selection (future): same treatment, multiple rings, edges between selected nodes highlighted more than edges to unselected nodes (opacity 60% vs 25%).
+
+Hover state (pre-selection): node brightens slightly (to 70% if was dim, to 110% if was full), label appears if not shown, one-line AI summary appears as floating line below label (same summary from Explorer redesign, consistency preserved):
+`Handles session token validation`
+No box, no tooltip border, just text floating in space, Inter 12px italic, 55% opacity. Disappears 200ms after hover ends.
+
+---
+
+**Hover behavior**
+
+Hover distance matters. If cursor within ~40px of node but not directly over it: node brightens slightly (ambient awareness, 150ms). Directly over: full hover state activates (200ms). This gradient of response = "alive" sensation vs binary on/off of standard tools.
+
+Hover on edge (when visible): edge brightens to 60%, both connected nodes brighten to 80%, other edges dim slightly — keeps attention on the relationship without cluttering.
+
+Cursor in empty space: no reaction from nodes (unlike some graph tools that do ambient disturbance effects — avoid, too playful, wrong register).
+
+---
+
+**AI investigation inside graph**
+
+When investigation runs and user is watching Architecture:
+
+Camera follows AI as designed (slow, authored). As AI reads a file, that file node brightens (200ms), a soft pulse radiates outward once (not looping — single pulse, like a stone dropped in water, 600ms total diameter expansion, fades to nothing). This = "AI just read this."
+
+As AI finds a connection (evidence linking two files): edge between them draws on live, animated trace (single path, 400ms). Edge stays visible for duration of investigation (it's now "found" evidence), brightens the connection from the rest.
+
+Knowledge panel (right, per layout rules, untouched) → each finding that lands there simultaneously causes corresponding node in graph to gain a small filled dot indicator (bottom-right of node, accent color, 4px, fades in 200ms). This = cross-panel linking in Architecture. Hover that dot → finding card highlights in Knowledge panel. Single coherent system.
+
+AI pausing on a file (cursor dwelling, per Investigation redesign): node pulses a second time — same single-pulse behavior, slightly slower (800ms) — reads as "AI is really looking at this one."
+
+---
+
+**Time-travel behavior**
+
+After investigation completes: scrubber appears, bottom of canvas, minimal — thin horizontal line with single handle. No timestamp labels by default (clutter). Drag handle left → graph state rewinds: nodes dim in reverse order of AI's attention sequence, edges un-draw in reverse, focus nodes return to pre-investigation opacity. Drag right → replay forward.
+
+This is not a playback control. It's a *memory scrub*. Framing matters — label above scrubber, quietly:
+
+`Investigation memory`
+
+Not "Playback." Not "History." Memory = AI's register.
+
+Scrubbing speed: fast enough to be useful, slowed at investigation "moments" (when significant findings landed) — subtle resistance in handle at those points, like detents. User feels the rhythm of the investigation even while scrubbing. 3-5 detent points per typical investigation.
+
+Scrubber dismisses automatically when user navigates away or starts new investigation. Never clutters baseline state.
+
+---
+
+**Multi-investigation future**
+
+Multiple investigations on same repo accumulate in Architecture as visual layers. Each investigation = distinct "attention trail" in slightly different opacity shade of same accent hue. Trails don't merge — user can toggle individual investigations via quiet pill list bottom-left (investigation names/dates, small, monospace). Active investigation = full opacity trail. Hidden = invisible. Comparing two = both visible simultaneously, different opacity levels distinguishing them.
+
+This future state planned for now via naming conventions (investigation = session, not "chat") and the trail/dot visual language — these scale naturally to multi-investigation without redesign.
+
+---
+
+**Empty state**
+
+Repository just cloned, Architecture opened before Understanding completes: center shows single abstract mass in near-empty state — same L0 territory form but dimmer (40% opacity), label reads:
+
+`AI is still reading this repository`
+
+No spinner. No progress bar. Mass itself subtly grows over time as understanding accumulates (imperceptible in short term, visible if user watches 30+ seconds). When Understanding completes → mass reaches full opacity, domain labels materialize (staggered 300ms apart). Entry into Architecture = natural, earned, not blocked by loading gate.
+
+---
+
+**Loading state (entering Architecture from another perspective)**
+
+Not a blank canvas appearing. Camera starts at maximum altitude (L0 territory view), mass materializes first (300ms fade-in from nothing), then labels (staggered), then camera offers to push in if AI has active focus (gently zooms toward most-relevant domain, 1.5s, slow) — or holds at L0 if no active investigation. User always enters from above, always oriented before anything complex is shown.
+
+---
+
+**Transition Investigation → Architecture**
+
+User switches from Investigation while AI is mid-investigation.
+
+Transition: center editor pane (Investigation) cross-fades (400ms) while Architecture canvas fades in simultaneously — not sequential, simultaneous overlap at 200ms mark creates spatial continuity feeling (you're not switching apps, you're changing viewpoint on same event).
+
+Camera arrives at Architecture showing current AI focus (whatever file AI just read) already centered, already at L3 (file level) — you arrive where the action is, not at L0 overview. This is the exception to "always enter from L0" rule — mid-investigation you arrive at the current moment.
+
+Timeline panel (left) remains active, same entries, same state — reinforces single coherent workspace rotating, not new view opening.
+
+---
+
+**Transition back Investigation ← Architecture**
+
+User switches back: cross-fade same (400ms), editor pane returns to exact file/scroll position AI was at (or is at, if still running). No state loss. No "where was I." The spatial identity of the Investigation is preserved — you left a room and came back.
+
+---
+
+**Premium motion principles**
+
+Ease curves: ease-in-out for all transitions (cubic-bezier(0.4, 0, 0.2, 1) territory). No linear motion anywhere — linear = mechanical. No bounce/spring except Knowledge panel node settle (documented in Investigation redesign, controlled, one spot only).
+
+Duration hierarchy:
+- Micro (hover, opacity): 150-200ms
+- Element (node appear, label fade): 200-300ms
+- Local (zoom level within cluster): 500-700ms
+- Global (cross-domain camera move): 900-1200ms
+- Arrival (entering Architecture): 1500ms full sequence
+
+Nothing faster than 150ms (feels glitchy). Nothing slower than 1500ms for user-initiated action (feels broken).
+
+Simultaneity rule: never more than two things animating at once in same spatial region. Stagger everything else. Eye can only track one story at a time.
+
+---
+
+**Psychological feeling**
+
+User should feel: I am a geologist looking at a terrain map someone else made — the AI made it, it reflects the AI's understanding, I am navigating it. Not building it, not exploring a raw landscape, not operating a tool. Reading a made thing.
+
+Calm comes from: predictability of camera behavior, strict node budget, absence of edge clutter, consistent motion language. Trust comes from: AI's investigation traces visible in node opacity history, evidence dots on nodes linking to findings, semantic summary on hover. Premium comes from: restraint — what's absent (edges at rest, labels by default, status noise) is as deliberate as what's present.
+
+---
+
+**Things NOT to show**
+
+- Never show all edges simultaneously (most common graph mistake — makes every graph look like a hairball).
+- Never show file extensions in node labels (IDE register, wrong).
+- Never use rainbow color coding by file type/language (complexity theater, not insight).
+- Never show a global node count / "2,847 files" counter (induces anxiety, not confidence).
+- Never show a minimap (minimap = "there's too much to see at once" confession).
+- Never animate camera continuously without user/AI intent (ambient drift at node level fine, camera drift = nauseating).
+- Never show empty cluster nodes at L0 (clusters with <3 files should merge into nearest parent until they earn individual status).
+- Never let labels overlap (unlabeled > overlapping — if labels would collide, suppress all but hovered).
+- Never use force-directed layout as default (organic but chaotic — fixed semantic positions per zoom level are calmer, more legible).
+- Never show loading spinners inside the canvas (breaks territory illusion).
+
+---
+
+**Brutal critique of common graph mistakes**
+
+**Mistake 1: Show everything at once.** Every force-directed graph tool does this. D3 default behavior. Result: 500 nodes, 3000 edges, meaningless hairball. User learns nothing. Feels overwhelmed. Closes tab. Fix: aggressive culling, zoom levels, node budget.
+
+**Mistake 2: Animate on physics.** Nodes jiggling via physics simulation looks dynamic but communicates chaos, not understanding. Repository structure is not chaotic — it was designed. Represent it as designed, not as simulated physics. Fix: fixed semantic positions.
+
+**Mistake 3: Color = type.** 12 colors for 12 file types. Looks like a Skittles bag. Colors compete, no hierarchy, eye can't rest. Fix: monochromatic with opacity-as-signal.
+
+**Mistake 4: Edges always visible.** The relationship graph of a real codebase is deeply interconnected. Show all edges = show nothing. Fix: edges appear only on focus, as revelation not default.
+
+**Mistake 5: Zoom = scale.** Most tools zoom = same graph but bigger. Semantic zoom = different information at each level. The graph at L0 is not the same information as L3 — it's a different representation of the same territory. Most tools never implement this. Fix: design each zoom level as its own information layer, not just the same nodes bigger.
+
+**Mistake 6: Search = filter.** Searching "auth" highlights auth-related nodes, dims everything else. Useful for finding nodes, disastrous for understanding — you lose spatial context of where auth lives relative to everything else. Fix: search = camera movement to destination, not dimming filter.
+
+**Mistake 7: Graph as primary UI.** Graphs are comprehension tools, not navigation tools. Making them primary forces users to use a spatial tool for non-spatial tasks. Fix: graph is one perspective, one instrument, answering one question ("how is everything connected"). Not a dashboard, not a home screen.
+
+**Mistake 8: No idle state design.** What does graph look like when nothing is happening? Most tools: frozen nodes, all edges visible, same cluttered state as during use. Fix: idle = calm default (minimal labels, no edges, subtle collective drift) — graph should feel restful when not being used, ready not demanding.
+
+---
+
+**If presented at exhibition, what would they remember one week later**
+
+Not the graph. Not the nodes.
+
+They'd remember the camera move — watching the repository territory materialize from a single glowing mass, then the slow documentary-camera push into the auth cluster, then a single edge drawing on between two files like a thought connecting. And the one-line caption at the bottom:
+
+`following the token through the system`
+
+That moment. That's what they'd remember.
+
+
+
+----------------------------
+micro interaction
+**CodeScope Micro-interaction Bible**
+*Final animation specification. Every state. Every timing. Every curve.*
+
+---
+
+## FOUNDATION
+
+**Easing vocabulary — 4 curves, nothing else**
+
+`Standard` — cubic-bezier(0.4, 0.0, 0.2, 1) — default for everything moving through space
+`Enter` — cubic-bezier(0.0, 0.0, 0.2, 1) — elements entering viewport, starts fast, lands soft
+`Exit` — cubic-bezier(0.4, 0.0, 1.0, 1) — elements leaving, starts slow, accelerates out
+`Snap` — cubic-bezier(0.2, 0.0, 0.0, 1.0) — one spot: Knowledge panel finding settle only
+
+No bounce. No spring except that one. No linear motion anywhere.
+
+**Duration vocabulary — 6 values, nothing else**
+
+`Instant` — 100ms — opacity flickers, cursor changes
+`Micro` — 150ms — hover states, focus rings
+`Short` — 200ms — element state changes, label appears
+`Medium` — 300ms — panel updates, card appears
+`Long` — 500ms — perspective-level transitions
+`Cinematic` — 800-1200ms — camera moves, workspace transitions
+
+Everything maps to one of these. No 175ms. No 420ms. Consistency IS the polish.
+
+---
+
+## HOVER STATES
+
+**File tree row (Explorer)**
+- Duration: Micro (150ms)
+- Curve: Standard
+- Behavior: background tint appears (accent @ 4% opacity), no border, no shadow
+- Label: if truncated, full name appears as floating inline extension (not tooltip box), 200ms delay before appearing (prevents flicker on accidental pass-through)
+- AI summary line: fades in 80ms after label, Inter 12px italic, 55% opacity
+- Exit: 100ms, faster than enter (snappy exit = responsive feel)
+
+**Node in Architecture**
+- Duration: 150ms enter, 100ms exit
+- Curve: Standard
+- Behavior: opacity lifts (+20% of current value, not absolute), edges appear (200ms, cascaded from node outward)
+- Summary floats below label: same as Explorer, same timing
+- Outer glow: 0 → 6px blur, accent @ 12% opacity, 150ms — barely perceptible, adds depth not drama
+
+**Timeline entry (Investigation)**
+- Duration: 100ms
+- Curve: Standard
+- Behavior: left border accent bar brightens (30%→60% opacity), background tint (accent @ 3%), no movement
+- Never scale. Never translate. Text rows don't move on hover — movement = instability.
+
+**Knowledge panel finding card**
+- Duration: 150ms
+- Behavior: card background lifts (from 0% to 5% white overlay), source line in editor simultaneously brightens (150ms, cross-panel link — same timing, feels unified)
+- Border: stays absent. Hover ≠ selected.
+
+**Command bar**
+- Duration: 150ms
+- Behavior: border opacity lifts (20%→40%), no color change, no shadow jump
+- Placeholder text: stays visible until first character typed (never hides on hover)
+
+**Dock icons**
+- Duration: 150ms
+- Behavior: icon opacity 50%→85%, tooltip appears after 400ms hold (not instant — prevents tooltip spam during navigation)
+- Tooltip: no box, no border — text only, Inter 12px, dim, floats 8px right of icon, 200ms fade-in
+- Active perspective icon: 100% opacity, small accent dot beneath (4px circle), static
+
+**Top bar elements (breadcrumb, profile)**
+- Duration: 100ms
+- Behavior: opacity 60%→90%, nothing else
+
+**Bottom runtime bar**
+- Duration: 200ms
+- Behavior: dim text brightens slightly (40%→65%), no other change
+- Intent: should feel barely interactive — this is telemetry, not navigation
+
+---
+
+## CLICK / PRESS STATES
+
+**Universal click response**
+Every interactive element: scale 100%→98.5% on mousedown (80ms, Standard), back to 100% on mouseup (100ms, Enter). Imperceptible at glance, felt subconsciously — physicality of pressing.
+
+Exception: text-only elements (links, labels) — no scale, only opacity dip (100%→80%, 80ms). Scale on text = blurry, wrong.
+
+**Dock icon click**
+- Scale press (above) + perspective transition initiates (Long, 500ms)
+- Icon accent dot transitions to new perspective icon via cross-fade (200ms), never instant swap
+
+**Node click (Architecture)**
+- Scale press on node
+- Camera initiates move toward node (Cinematic, 900ms)
+- During camera move: clicked node brightens first (100ms), ring materializes (200ms, fade only — no scale-in on ring, rings don't grow, they appear)
+
+**Finding card click**
+- Scale press
+- Editor scrolls to source line (300ms, Standard scroll, not instant jump)
+- Source line highlight brightens (200ms) — draw attention after arrival, not during scroll
+
+**Timeline step click**
+- Scale press
+- Step re-highlights (if completed) or expands detail (if current)
+- No panel navigation. Timeline is read-only once logged.
+
+**Command bar submit**
+- Text lifts-and-fades (described in Investigation redesign)
+- Bar itself: brief single pulse on border (opacity flicker 40%→70%→40%, 300ms total) — "received" signal
+- Never shows loading spinner inside bar. Spinner is wrong register here.
+
+---
+
+## FOCUS STATES (keyboard)
+
+**Universal focus ring**
+1px ring, accent color, 40% opacity, 2px offset from element edge. Never thicker. Never colored fill.
+
+Appears: 150ms fade-in (Micro). Disappears: 100ms fade-out (Instant — focus loss should vanish quickly, not linger like hover).
+
+Keyboard-only rule: focus ring only appears on keyboard navigation (Tab/arrow keys). Mouse click does not show ring — click shows press state instead. This is the single biggest polish differentiator from default browser behavior.
+
+**Command bar focused**
+Ring + border lifts to 60% opacity (from default 20%) + placeholder text fades to 30% (dimmer, making invisible space for input) — all 150ms, Standard.
+
+**Tree row focused (keyboard)**
+Same as hover tint + focus ring. Both simultaneously — you need both signals for keyboard users.
+
+**Architecture node focused (keyboard)**
+Ring + edges appear (same as hover). Arrow keys move focus to connected nodes — camera follows at Cinematic speed (900ms) if focused node is off-screen, Short speed (200ms) if on-screen.
+
+---
+
+## PANEL UPDATES
+
+**Timeline entry appearing**
+- Slide up 8px + fade in, 200ms, Enter curve
+- Stagger: each entry 250ms after previous — never batch appear
+- Text: Inter for prose, Geist Mono for numbers/counts, never mixed in same line
+
+**Knowledge panel finding arriving (2-stage)**
+Stage 1: card slides in from right 8px + fades, 200ms, Enter — title only visible, collapsed height
+Stage 2: auto-expand 400ms after stage 1 completes, height animates open 250ms, Standard — content fades in during height expand (simultaneous, not after)
+Never stages overlap. The pause between = the "settle" beat.
+
+**Runtime status word swap**
+Cross-fade in-place: outgoing word fades (100ms Exit), incoming fades in (150ms Enter), 50ms overlap at middle — total 200ms, zero layout shift. Same monospace width preserved between words (use fixed-width container).
+
+**Right panel expanding/collapsing**
+Width animates: 250ms, Standard. Content inside: fades in after panel reaches full width (100ms delay + 150ms fade) — never content visible during width animation (half-width text looks broken).
+
+**Bottom bar data update (latency number changes)**
+Number cross-fades in-place, 150ms — same as status word swap. Never slides, never jumps.
+
+---
+
+## AI ANIMATIONS
+
+**AI cursor (Understanding + Investigation)**
+2px vertical bar, accent color, 70% opacity, 0 blink rate — it moves, never blinks. Blink = waiting. This cursor is always doing something.
+
+Movement between lines: not instant, not animated travel — cuts to new position but cut itself takes 50ms (too fast to track, subconsciously registered as movement, not teleport). Variable timing between cuts: 80-600ms dwell per line depending on AI's assessed relevance of that line. Dwell variation IS the communication — uniform dwell = mechanical.
+
+**Syntax highlight wash (file opening during Understanding)**
+Color applies top-to-bottom as wave: 150ms to complete full file length, Standard curve on timing distribution — top lines reach full color first, bottom lines trail. On very long files: wave completes at viewport bottom then continues silently off-screen (user never waits for whole file).
+
+**Single-pulse radiation (Architecture, AI reads a node)**
+From node center: single ring expands outward (0px → 40px radius), opacity 30%→0%, duration 600ms, Standard. Happens once per AI attention. Never loops. Looping pulse = loading spinner energy, wrong.
+
+**AI caption appearing (Understanding/Investigation/Architecture)**
+Fade in: 200ms, Enter. Hold: context-dependent (1.5-2.5s). Fade out: 200ms, Exit. One caption at a time — incoming waits for outgoing to fully exit before starting. Zero stack. Zero queue visible.
+
+**Edge drawing on (Architecture, investigation finds connection)**
+Single path traces from source node to target, 400ms, Standard — path draws like ink, not a wipe. Start point is source node, growth direction = toward target. Arrive at target with 50ms ease-out deceleration. Edge stays.
+
+**Knowledge dot appearing on Architecture node (cross-panel)**
+4px dot fades in at node's bottom-right, 200ms, Enter. Never scales in (dots don't grow into existence). If multiple findings reference same node: dot brightens (+20% opacity per additional finding, max 100%) rather than multiplying — single dot, growing confidence.
+
+---
+
+## TRANSITIONS (perspective switches)
+
+**Global rule**: switching perspectives = rotating one workspace. Never feels like page navigation.
+
+**Any → Any transition**
+Outgoing content: fade to 0%, 200ms, Exit curve (accelerates out)
+Incoming content: 80ms pause (dark beat — workspace breathes), then fade from 0%, Long 500ms, Enter curve (decelerates in, soft landing)
+Shared chrome (top bar, dock, bottom bar): never transitions — stays 100% visible throughout. Shared chrome = proof of single workspace.
+
+**Investigation → Architecture (mid-investigation)**
+Exception to standard: simultaneous cross-dissolve (no dark beat pause) — 400ms overlap, both panels at 50% during crossover. Feels like changing camera angle, not switching rooms.
+Camera arrives at current AI focus (L3 zoom level), not L0 — arrives where action is.
+
+**Understanding → Investigation (completion)**
+Described in Understanding redesign: continuous dissolve, no hard cut. Key addition here: duration = Long (500ms), Standard curve, staggered panel sequence (editor→timeline→knowledge→command bar, 150ms apart).
+
+---
+
+## LOADING STATES
+
+**Repository cloning/indexing (pre-Understanding)**
+Single centered line, Inter 15px, 40% opacity, no spinner, char-by-char appearance 15ms/char — the only place character stagger used. Changes every 4-8s:
+`cloning repository`
+`reading file structure`
+`building index`
+`almost ready`
+
+Words cross-fade (200ms), not slide. Never a progress percentage.
+
+**Architecture building**
+Mass materializes at L0 (300ms fade-in), domain labels stagger in (300ms apart each). No "loading" text — mass growing IS the loading state. When complete: mass reaches full opacity, camera offers push-in.
+
+**Finding generating (Investigation, AI working)**
+Knowledge panel: after each investigation step completes, brief subtle shimmer on panel header (not skeleton loader — 200ms, single horizontal brightness wave, 8% opacity lift, once). Then finding card arrives via 2-stage entry. Never spinner inside panel.
+
+**Command bar awaiting first question (post-Understanding)**
+Placeholder text: `Ask about this repository…` — appears via same char-stagger (15ms/char) as initial loading copy, one time only, never repeats. Cursor focus ring already active, suggesting readiness.
+
+---
+
+## TOOLTIPS
+
+**Rule: tooltips are last resort, not first response**
+Before adding tooltip, ask: can the label be shown inline? Can the context be ambient? Tooltip only when neither possible.
+
+**Appearance**
+No box. No border. No background (or near-invisible: 85% backdrop-filter blur on dark bg, no solid fill). Text only: Inter 12px, 55% opacity white. Floats 8px from element.
+
+**Timing**
+Appears: 400ms hover delay (prevents spam) + 200ms fade-in.
+Disappears: 100ms fade-out (Instant, snappy).
+
+**Placement**
+Preferred: right of element. If clipped: left. Never below (overlaps content). Never above dock items (viewport edge).
+
+**Content rules**
+One line maximum. No punctuation at end. No "Click to..." prefix. Label only.
+`Investigation history` not `Click to view investigation history`
+
+---
+
+## SELECTION STATES
+
+**Single file selection (Explorer)**
+Row: background tint (accent @ 8%), slightly stronger than hover (4%)
+Left edge: 2px accent bar, full opacity, fades in 150ms
+Text: brightens to 100% opacity from whatever relevance-driven opacity it had
+No checkmark. No bold text. Color + edge = sufficient.
+
+**Single node selection (Architecture)**
+Ring: 1px, accent color, 80% opacity, 4px outside node edge, fades in 200ms
+Node: opacity to 100%
+Connected edges: appear 200ms (same as hover, slightly faster since selection is deliberate)
+Non-connected nodes: dim 15% — subtle, not dramatic. Partial dim = "others still exist," heavy dim = "others don't matter."
+
+**Text selection (Answer Report, findings)**
+System default text selection, no override. Overriding text selection = fighting the user. Never do this.
+
+---
+
+## EMPTY STATES
+
+**Explorer (pre-Understanding complete)**
+Single line, center of panel, Inter 14px, 35% opacity:
+`AI is reading the repository`
+Nothing else. No illustration. No button.
+
+**Explorer (Understanding complete, no investigations yet)**
+`I've read all of this. Ask me anything, or look around.`
+Same treatment. One line. Stays until first file clicked.
+
+**Timeline (pre-investigation)**
+No placeholder text. Panel exists but empty. Absence = appropriate — nothing has happened yet. "No investigations yet" text is unnecessary UI commentary.
+
+**Architecture (pre-Understanding)**
+Mass form at 40% opacity, dim, slowly breathing (opacity 40%→45%→40%, 8s loop — imperceptible in short view, alive in extended view).
+One line, Inter 13px, 35% opacity, centered beneath mass:
+`AI is still reading this repository`
+When Understanding completes: line fades out (300ms), mass brightens to full (500ms), domain labels materialize.
+
+**Knowledge panel (no findings yet)**
+Empty. No text. Panel header visible, content area dark. Same as Timeline — absence is correct. Placeholder copy = patronizing.
+
+---
+
+## ERROR STATES
+
+**Command bar (unrecognized query)**
+Border pulses once: opacity 20%→60%→20%, 400ms total, single cycle, Standard. Does not turn red. Does not shake (shake = aggressive, wrong register).
+Below bar, one quiet line appears (same char-stagger, 15ms/char):
+`Couldn't understand that — try rephrasing`
+Inter 13px, 50% opacity, fades out after 4s (600ms Exit fade). Never persists.
+
+**Network / AI error (investigation fails)**
+Timeline: current active step's dot goes from filled accent → filled dim gray (300ms crossfade) — signals stopped, not broken.
+Bottom runtime bar Status word cross-fades to: `interrupted` — same word-swap mechanic, same timing. No modal. No banner. No red color.
+Small quiet text appears below timeline step:
+`Investigation paused — try again`
+Same fade-in/out behavior as caption. Accent color never used for errors — keeps accent reserved for AI focus only.
+
+**Catastrophic error (can't clone, can't index)**
+Only time a centered message appears in main canvas. Same dark canvas, single centered block:
+Top line: Inter 15px, 60% opacity: `Couldn't reach this repository`
+Bottom line: Inter 13px, 35% opacity: `Check the URL and try again`
+No red. No icon. No button (retry via command bar, not a button). Gap between lines: 8px.
+
+---
+
+## SUCCESS STATES
+
+**Understanding complete**
+No "Done!" banner. No checkmark animation. No modal.
+Success = the workspace transition itself. Dissolve begins. That IS the success signal.
+Only addition: runtime status word silently cross-fades to `ready` — one word, same mechanics, 150ms.
+
+**Finding confirmed (AI lands evidence)**
+Knowledge panel 2-stage card entry IS the success animation. No additional flourish.
+Corresponding Architecture node gains confidence dot. That's it.
+
+**Investigation concludes**
+Status word cross-fades: `concluding` → `report ready`, 150ms.
+Answer Report overlay begins rising (350ms, Enter). No fanfare. Report arrival = conclusion signal.
+
+**Report dismissed**
+Overlay exits (250ms, Exit scale + fade). Background brightens (300ms, Standard). Workspace returns exactly as left.
+No "Investigation complete" toast. No summary banner. Clean.
+
+---
+
+## KEYBOARD INTERACTIONS
+
+**Tab navigation**
+Moves focus through interactive elements in spatial order (top-left to bottom-right). Focus ring appears (keyboard-only, as specified above). No focus traps except command bar when explicitly opened.
+
+**Escape hierarchy**
+1 press: close tooltip/hover state
+2 presses (or 1 if nothing to close): dismiss Answer Report if open
+3 presses (or escalating): return camera to AI view if user has control (Architecture)
+Never: Escape closes the workspace or navigates away. Escape = retreat, not exit.
+
+**Arrow keys (Architecture, node focused)**
+Move focus to connected node in direction of arrow (approximate). Camera follows if off-screen (Cinematic, 900ms). If multiple nodes in direction: nearest by angle wins. No jump animation — same camera-move mechanics as click.
+
+**Arrow keys (Explorer, tree focused)**
+Up/down: move row focus (100ms tint transition per row)
+Right: expand folder (camera-equivalent = zoom, but in tree = reveal children with stagger 40ms each)
+Left: collapse or move to parent
+No sound. No physics.
+
+**Slash key**
+Opens command bar from anywhere, regardless of current perspective. Bar fades in (150ms) with cursor already active. No animation besides the standard command bar enter state.
+
+**Number keys 1-5 (perspective shortcuts)**
+Switch perspective via keyboard: same transition behavior as dock click. No visual indicator on key press beyond the transition itself — no keyboard shortcut toast notification (interrupts the "present" feeling).
+
+---
+
+## TIMING MASTER TABLE
+
+| Interaction | Duration | Curve |
+|---|---|---|
+| Hover enter | 150ms | Standard |
+| Hover exit | 100ms | Instant |
+| Focus ring appear | 150ms | Standard |
+| Focus ring disappear | 100ms | Instant |
+| Click press | 80ms | Standard |
+| Click release | 100ms | Enter |
+| Caption fade in | 200ms | Enter |
+| Caption fade out | 200ms | Exit |
+| Finding card arrive | 200ms | Enter |
+| Finding card expand | 250ms | Standard |
+| Timeline entry appear | 200ms | Enter |
+| Timeline stagger gap | 250ms | — |
+| Panel word swap | 150ms | Standard |
+| Node ring appear | 200ms | Enter |
+| Edge draw | 400ms | Standard |
+| Node pulse | 600ms | Standard |
+| Perspective transition | 500ms | Enter |
+| Camera short | 200ms | Standard |
+| Camera medium | 900ms | Standard |
+| Camera cinematic | 1200ms | Standard |
+| Report overlay rise | 350ms | Enter |
+| Report overlay dismiss | 250ms | Exit |
+| Workspace dissolve | 500ms | Enter |
+| Architecture mass appear | 300ms | Enter |
+| Domain label stagger | 300ms apart | Enter |
+| Error pulse | 400ms | Standard |
+| Tooltip appear | 200ms (+400ms delay) | Standard |
+| Tooltip disappear | 100ms | Instant |
+
+---
+
+## RULES THAT OVERRIDE EVERYTHING
+
+1. One primary animation per spatial region at a time. Stagger everything else.
+2. Accent color = AI's attention only. User hover = neutral gray. Never share this channel.
+3. Exit always faster than enter. Things leaving get out of the way.
+4. No animation communicates nothing. If it moves, it means something.
+5. When in doubt: slower, simpler, less.
+6. The resting state is as designed as the active state. Idle ≠ undesigned.
+
+---
+
+This is the specification. Every interaction covered. Every number justified. Implement exactly this or deliberately deviate with written rationale. No arbitrary values. No "feels right" without this document's backing.
