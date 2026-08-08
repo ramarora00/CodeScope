@@ -172,8 +172,8 @@ export default function ArchitecturePerspective({ presentation }) {
 
   return (
     <div className="flex-1 flex min-h-0 bg-[var(--cs-bg)] gap-[2px]">
-      {/* Map Canvas */}
-      <div className="flex-1 min-h-0 bg-[var(--cs-bg)] animate-fade-in relative rounded-xl border border-[var(--cs-border)] overflow-hidden">
+      {/* Map Canvas (takes over center space) */}
+      <div className="flex-1 min-h-0 bg-[var(--cs-bg)] relative rounded-xl border border-[var(--cs-border)] overflow-hidden shadow-[var(--cs-shadow-panel)]">
         <ReactFlowProvider>
           <ArchitectureGraph 
             fileTree={fileTree} 
@@ -197,22 +197,6 @@ export default function ArchitecturePerspective({ presentation }) {
             </button>
           )}
         </div>
-      </div>
-
-      {/* Contextual Intelligence Sidebar */}
-      <div 
-        className="flex-shrink-0 bg-[var(--cs-panel)] rounded-xl border border-[var(--cs-border)] overflow-hidden shadow-[var(--cs-shadow-panel)] animate-settle"
-        style={{ animationDelay: '180ms' }}
-      >
-        <KnowledgePanel
-          repo={repo}
-          findings={presentation?.findings || []}
-          relatedSymbols={presentation?.relatedSymbols || []}
-          onNewInvestigation={undefined}
-          selectedFile={userSelectedFile}
-          selectedTimelineEventId={presentation?.selectedTimelineEventId}
-          onReturnToPresent={presentation?.onReturnToPresent}
-        />
       </div>
     </div>
   );
