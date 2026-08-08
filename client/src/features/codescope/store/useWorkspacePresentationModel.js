@@ -17,6 +17,10 @@ export function useWorkspacePresentationModel() {
   const processedEvents = useInvestigationSession(s => s.processedEvents);
   const focusContext = useInvestigationSession(s => s.focusContext);
   const sessionState = useInvestigationSession(s => s.sessionState);
+  const investigationState = useInvestigationSession(s => s.investigationState);
+  const isAsset = useInvestigationSession(s => s.isAsset);
+  const activeCognitiveEvent = useInvestigationSession(s => s.activeCognitiveEvent);
+  const commitActiveCognitiveEvent = useInvestigationSession(s => s.commitActiveCognitiveEvent);
 
   const userSelectedFile = useWorkspaceStore(s => s.userSelectedFile);
 
@@ -144,10 +148,25 @@ export function useWorkspacePresentationModel() {
   const relatedSymbols = useMemo(() => {
     return (focusContext.relatedNodes || []).map(r => ({
       symbol: r.name || r.id,
-      file: r.file || 'unknown',
-      line: r.line || 1
+      type: r.type,
+      location: typeof r.source === 'string' ? r.source : r.source?.file
     }));
   }, [focusContext.relatedNodes]);
+
+  const intelligenceStream = useMemo(() => {
+    const stream = [];
+    let idCounter = 1;
+    for (const e of processedEvents) {
+      if (e.type === 'evidence.added') {
+        stream.push({ id: idCounter++, type: 'Evidence', text: e.fact, source: e.source, active: true });
+      } else if (e.type === 'knowledge.added') {
+        stream.push({ id: idCounter++, type: 'Just learned', text: e.knowledge, source: e.source, active: true });
+      } else if (e.type === 'symbol.discovered') {
+        stream.push({ id: idCounter++, type: 'Following', text: `Discovered ${e.symbol}`, source: e.source, active: true });
+      }
+    }
+    return stream.reverse();
+  }, [processedEvents]);
 
   const answer = focusContext.answer;
   const selectedTimelineEventId = useWorkspaceStore(s => s.selectedTimelineEventId);
@@ -172,9 +191,41 @@ export function useWorkspacePresentationModel() {
     useWorkspaceStore.getState().setUserCamera(null);
   };
 
+  const isResolving = focusContext.status === 'review';
+
+  // ── 3. AI Memory Map Contract (FileExplorer) ──
+  const aiMemoryMap = useMemo(() => {
+    const map = {};
+    for (const e of processedEvents) {
+      const ts = new Date(e.timestamp || Date.now()).getTime();
+      if (e.type === 'file.selected' || e.type === 'jump.completed') {
+        const file = e.file || e.to;
+        if (!file) continue;
+        if (!map[file]) map[file] = { state: 'scanned', summary: null, lastInvestigatedTime: ts };
+        map[file].lastInvestigatedTime = ts;
+      }
+      if (e.type === 'file.read.completed') {
+        if (!map[e.file]) map[e.file] = { state: 'scanned', summary: null, lastInvestigatedTime: ts };
+        map[e.file].state = 'investigated';
+        map[e.file].lastInvestigatedTime = ts;
+      }
+      if (e.type === 'evidence.added') {
+        const file = e.source;
+        if (file) {
+          if (!map[file]) map[file] = { state: 'scanned', summary: null, lastInvestigatedTime: ts };
+          map[file].state = 'core';
+          map[file].summary = e.fact;
+          map[file].lastInvestigatedTime = ts;
+        }
+      }
+    }
+    return map;
+  }, [processedEvents]);
+
   return {
     presentation: {
       attention,
+      isAsset,
       runtimeStatus,
       insight,
       aiPhase,
@@ -184,7 +235,10 @@ export function useWorkspacePresentationModel() {
       planSteps,
       findings,
       relatedSymbols,
+      intelligenceStream,
       answer,
+      isResolving,
+      aiMemoryMap,
       selectedTimelineEventId,
       onReturnToPresent,
       selectedRepo,
@@ -196,8 +250,13 @@ export function useWorkspacePresentationModel() {
       userCamera,
       onReturnToAI
     },
+    orchestration: {
+      activeCognitiveEvent,
+      commitActiveCognitiveEvent
+    },
     raw: {
       sessionState,
+      investigationState,
       focusContext
     }
   };
