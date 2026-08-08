@@ -11,6 +11,9 @@ import { API_BASE } from '../../../config/api';
 export function useWorkspaceLifecycle({ repo, activeInvestigation, onNewInvestigation, rawSessionState }) {
   const [bootPhase, setBootPhase] = useState('booting');
   const [bootStatus, setBootStatus] = useState('Connecting...');
+  const [currentFile, setCurrentFile] = useState(null);
+  const [currentLine, setCurrentLine] = useState(null);
+  const [currentContent, setCurrentContent] = useState(null);
   const bootStartedRef = useRef(false);
 
   useEffect(() => {
@@ -61,6 +64,12 @@ export function useWorkspaceLifecycle({ repo, activeInvestigation, onNewInvestig
         const data = JSON.parse(e.data);
         if (data.step && data.status === 'running') {
           setBootStatus(STEP_LABELS[data.step] || data.step);
+          
+          if (data.file) {
+            setCurrentFile(data.file);
+            if (data.line) setCurrentLine(data.line);
+            if (data.content) setCurrentContent(data.content);
+          }
         }
         if (data.step === 'ready' && data.status === 'done') {
           eventSource.close();
@@ -88,5 +97,5 @@ export function useWorkspaceLifecycle({ repo, activeInvestigation, onNewInvestig
     }
   }, [bootPhase, rawSessionState]);
 
-  return { bootPhase, bootStatus };
+  return { bootPhase, bootStatus, currentFile, currentLine, currentContent };
 }

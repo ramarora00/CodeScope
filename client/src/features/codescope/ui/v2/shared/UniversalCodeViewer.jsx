@@ -19,15 +19,27 @@ function getShikiHighlighter() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// AI OPACITY MODEL
+// AI ATTENTION WINDOW
 // ─────────────────────────────────────────────────────────────────
-function lineOpacity(dist, isAiActive) {
-  if (!isAiActive) return 1.0;
-  if (dist === 0) return 1.00;
-  if (dist <= 2)  return 0.55;
-  if (dist <= 4)  return 0.28;
-  if (dist <= 6)  return 0.12;
-  return 0.05;
+function getLineStyle(lineNum, aiLine, isAiActive) {
+  if (!isAiActive) return { opacity: 1.0, isUnderstood: false, isFootprint: false };
+
+  const dist = lineNum - aiLine;
+
+  // Active reading area (current line + up to 3 lines ahead)
+  if (dist >= 0 && dist <= 3) return { opacity: 1.0, isUnderstood: false, isFootprint: false };
+
+  // Nearby ahead
+  if (dist > 3 && dist <= 10) return { opacity: 0.75, isUnderstood: false, isFootprint: false };
+
+  // Far ahead
+  if (dist > 10) return { opacity: 0.35, isUnderstood: false, isFootprint: false };
+
+  // Nearby behind (Memory trace)
+  if (dist < 0 && dist >= -8) return { opacity: 0.85, isUnderstood: true, isFootprint: dist >= -2 };
+
+  // Far behind
+  return { opacity: 0.5, isUnderstood: true, isFootprint: false };
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -71,6 +83,7 @@ function ReadingDots({ active }) {
 export default function UniversalCodeViewer({
   tabs = [],
   activeTabId,
+  isAsset,
   onSelectTab,
   onCloseTab,
   attention = {},
@@ -79,37 +92,186 @@ export default function UniversalCodeViewer({
   aiPhase = 'searching',
   memoryFiles = [],
   answer,
-  onAnimationComplete,
+  orchestration,
+  activeInvestigation,
 }) {
   const listRef = useRef(null);
 
   const activeFile = activeTabId || attention.file;
 
-  // ── PACING EFFECT ──
-  // This is the core boundary for Step 2.
-  // The backend runs as fast as possible. The Orchestrator pauses itself.
-  // We simulate visual animation time here, then signal the Orchestrator to continue.
+  // ── PACING & READING ANIMATION CHOREOGRAPHY ──
+  const [animatedAiLine, setAnimatedAiLine] = useState(attention.line || 1);
+
+  const aiLine = animatedAiLine || attention.line || null;
+  const isUnderstandingMode = activeInvestigation?.mode === 'understanding';
+  const isAiActive = !isUnderstandingMode && runtimeStatus === 'reading' && !!aiLine && attention.file === activeFile;
+  const { activeCognitiveEvent, commitActiveCognitiveEvent } = orchestration || {};
+
+  const isResolved = runtimeStatus === 'resolved' && !activeCognitiveEvent;
+  const confidence = isResolved ? 'High' : attention.type === 'insight' ? 'High' : 'Medium';
+
+  // ── PHASE B/C: BELIEVABLE COGNITION (Evidence Commit Pipeline) ──
+  // When file changes, reset AI cursor to top to avoid jumping from bottom
   useEffect(() => {
-    if (!onAnimationComplete) return;
-    
-    // Only fire complete if we actually got a signal to animate (or we are active)
-    let delay = 100; // default safe fallback
-    if (attention.type === 'read') delay = 50;
-    else if (attention.type === 'jump') delay = 350;
-    else if (attention.type === 'appear') delay = 150;
+    setAnimatedAiLine(1);
+    if (listRef.current) {
+      if (typeof listRef.current.scrollToItem === 'function') listRef.current.scrollToItem(0, 'center');
+      else if (typeof listRef.current.scrollToRow === 'function') listRef.current.scrollToRow({ index: 0, align: 'center' });
+    }
+  }, [activeFile]);
 
-    const timer = setTimeout(() => {
-      onAnimationComplete();
-    }, delay);
+  useEffect(() => {
+    if (!activeCognitiveEvent) return;
 
-    return () => clearTimeout(timer);
-  }, [attention.file, attention.line, attention.type, runtimeStatus, onAnimationComplete]);
+    // If the user has navigated away to a different file, we still need to consume the events 
+    // so the investigation doesn't stall. We just consume them instantly without visual delay.
+    if (!isAiActive) {
+      commitActiveCognitiveEvent();
+      return;
+    }
+
+    const type = activeCognitiveEvent.type;
+    const isEditorEvent = ['file.read.progress', 'file.read.completed', 'file.selected', 'jump.started', 'evidence.added', 'knowledge.added', 'investigation.completed', 'planner.completed'].includes(type);
+
+    if (!isEditorEvent) {
+      commitActiveCognitiveEvent();
+      return;
+    }
+
+    if (type === 'file.read.progress') {
+      const maxLines = Math.max(1, activeCognitiveEvent.totalLines || tokenizedLinesRef.current?.length || 1);
+      const targetLine = Math.min(activeCognitiveEvent.line, maxLines);
+
+      // Believable Cognition: Jump directly to the relevant block, no theatrical scanning.
+      setAnimatedAiLine(targetLine);
+      const scrollIndex = Math.max(0, Math.min(targetLine - 1, maxLines - 1));
+      try {
+        if (listRef.current) {
+          if (typeof listRef.current.scrollToItem === 'function') listRef.current.scrollToItem(scrollIndex, 'center');
+          else if (typeof listRef.current.scrollToRow === 'function') listRef.current.scrollToRow({ index: scrollIndex, align: 'center' });
+        }
+      } catch (_) { /* Suppress transient RangeError during file transitions */ }
+
+      // Short hold to visually digest the block
+      const holdDuration = 600 + Math.random() * 400; // 600-1000ms pause
+      const activeTimeout = setTimeout(() => commitActiveCognitiveEvent(), holdDuration);
+
+      return () => clearTimeout(activeTimeout);
+    }
+    else if (type === 'jump.started' || type === 'file.selected') {
+      // ANTICIPATION: Wait 300ms thinking beat before jump
+      const maxLines = Math.max(1, tokenizedLinesRef.current?.length || 1);
+      const targetLine = Math.min(activeCognitiveEvent.line || attention.line || 1, maxLines);
+      setTimeout(() => {
+        setAnimatedAiLine(targetLine);
+        const scrollIndex = Math.min(targetLine - 1, maxLines - 1);
+        try {
+          if (listRef.current) {
+            if (typeof listRef.current.scrollToItem === 'function') listRef.current.scrollToItem(scrollIndex, 'center');
+            else if (typeof listRef.current.scrollToRow === 'function') listRef.current.scrollToRow({ index: scrollIndex, align: 'center' });
+          }
+        } catch (_) { }
+        // Arrive and orient
+        setTimeout(() => commitActiveCognitiveEvent(), 700);
+      }, 400); // 400ms thinking beat before jumping
+    }
+    else if (type === 'file.read.completed') {
+      // CONCLUDE FILE: Pause to synthesize before moving on
+      setTimeout(() => commitActiveCognitiveEvent(), 900);
+    }
+    else if (type === 'evidence.added' || type === 'knowledge.added') {
+      // DISCOVER / VERIFY: Pronounced pause as AI internalizes the evidence
+      setTimeout(() => commitActiveCognitiveEvent(), 1000);
+    }
+    else if (type === 'planner.completed') {
+      // PLAN: Brief pause to finalize strategy
+      setTimeout(() => commitActiveCognitiveEvent(), 800);
+    }
+    else if (type === 'investigation.completed') {
+      // THE SILENT TRANSITION: 
+      // 1. Cursor stops.
+      // 2. Footer changes to "Concluding".
+      // 3. Absolute silence for 1500ms before the report rises.
+      setTimeout(() => commitActiveCognitiveEvent(), 1500);
+    }
+  }, [activeCognitiveEvent, commitActiveCognitiveEvent, animatedAiLine, attention.line, isAiActive]);
+
+  // --- RUNTIME TRUTHFULNESS: Provable Narration (Lagged) ---
+  // The footer always lags visible cognition slightly, never leading it.
+  const [provableNarration, setProvableNarration] = useState('');
+
+  useEffect(() => {
+    if (!isAiActive) {
+      setProvableNarration('Ready');
+      return;
+    }
+    if (activeCognitiveEvent?.type === 'investigation.completed') {
+      setProvableNarration('Concluding');
+      return;
+    }
+    if (activeCognitiveEvent?.type === 'jump.started' || activeCognitiveEvent?.type === 'file.selected') {
+      const target = activeCognitiveEvent.file || activeCognitiveEvent.to || '';
+      setProvableNarration(`Following ${target.split('/').pop()}`);
+      return;
+    }
+
+    const currentTokens = tokenizedLinesRef.current || [];
+    const lineTokens = currentTokens[Math.max(0, (animatedAiLine || 1) - 1)];
+
+    if (lineTokens) {
+      const text = lineTokens.map(t => t.content).join('').trim();
+      const lower = text.toLowerCase();
+
+      let targetCaption = 'Reading logic';
+      if (lower.includes('import ') || lower.includes('export ') || lower.includes('require(')) {
+        targetCaption = 'Reading imports';
+      } else if (lower.includes('auth') || lower.includes('jwt') || lower.includes('passport') || lower.includes('login') || lower.includes('session') || lower.includes('token') || lower.includes('cookie')) {
+        targetCaption = 'Checking authentication flow';
+      } else if (lower.includes('request') || lower.includes('req') || lower.includes('res') || lower.includes('route') || lower.includes('get(') || lower.includes('post(') || lower.includes('put(') || lower.includes('delete(')) {
+        targetCaption = 'Following request lifecycle';
+      } else if (lower.includes('middleware') || lower.includes('use(') || lower.includes('next(') || lower.includes('cors') || lower.includes('helmet')) {
+        targetCaption = 'Verifying middleware chain';
+      } else if (lower.includes('catch') || lower.includes('throw ') || lower.includes('error') || lower.includes('retry') || lower.includes('backoff') || lower.includes('reject(')) {
+        targetCaption = 'Tracing retry chain & errors';
+      } else if (lower.includes('config') || lower.includes('setup') || lower.includes('env') || lower.includes('process.env')) {
+        targetCaption = 'Reading configuration';
+      } else if (text.startsWith('//') || text.startsWith('/*')) {
+        targetCaption = 'Reading comments';
+      } else if (text.includes('class ') || text.includes('function ') || text.includes('=>')) {
+        targetCaption = 'Inspecting signature';
+      }
+
+      // Introduce a 150ms lag so visual cursor movement is seen first
+      const timeoutId = setTimeout(() => {
+        setProvableNarration(targetCaption);
+      }, 150);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [animatedAiLine, activeCognitiveEvent, isAiActive]);
+
+  const activeNarration = activeCognitiveEvent && activeCognitiveEvent.text
+    ? activeCognitiveEvent.text
+    : provableNarration;
 
   const activeMemoryFile = memoryFiles.find(m => m.name === activeFile || m.file === activeFile);
   const content = activeMemoryFile?.content || (activeFile ? '// Loading file content...' : '');
-  const language = activeMemoryFile?.language || 'javascript';
+  const getLanguage = (path) => {
+    if (!path) return 'javascript';
+    const ext = path.split('.').pop().toLowerCase();
+    if (['json', 'md', 'html', 'css'].includes(ext)) return ext;
+    if (['ts', 'tsx'].includes(ext)) return 'typescript';
+    return 'javascript';
+  };
+  const language = activeMemoryFile?.language || getLanguage(activeFile);
 
   const [tokenizedLines, setTokenizedLines] = useState([]);
+  const tokenizedLinesRef = useRef([]);
+
+  useEffect(() => {
+    tokenizedLinesRef.current = tokenizedLines;
+  }, [tokenizedLines]);
+
   const [listHeight, setListHeight] = useState(600);
   const containerRef = useRef(null);
 
@@ -127,16 +289,18 @@ export default function UniversalCodeViewer({
   // Tokenize using Shiki asynchronously
   useEffect(() => {
     let isMounted = true;
-    
+
+    // Clear tokens immediately on file change to prevent stale content survival race condition
+    setTokenizedLines([]);
+
     if (!content || !activeFile) {
-      setTokenizedLines([]);
       return;
     }
 
     const tokenizeContent = async () => {
       try {
         const hl = await getShikiHighlighter();
-        
+
         let langToUse = language;
         if (!hl.getLoadedLanguages().includes(langToUse)) {
           langToUse = 'javascript';
@@ -163,17 +327,25 @@ export default function UniversalCodeViewer({
     return () => { isMounted = false; };
   }, [content, language, activeFile]);
 
-  const aiLine = attention.line ?? null;
-  const isAiActive = runtimeStatus === 'reading' && !!aiLine && attention.file === activeFile;
-  const isResolved = runtimeStatus === 'resolved';
-  const confidence = isResolved ? 'High' : attention.type === 'insight' ? 'High' : 'Medium';
+  const [hoverLine, setHoverLine] = useState(null);
 
-  // Softly scroll editor to keep AI focus visible — only on insight/jump, never on read
   useEffect(() => {
-    if (!listRef.current || !aiLine) return;
-    if (attention.type !== 'insight' && attention.type !== 'appear') return;
-    listRef.current.scrollToRow ? listRef.current.scrollToRow(aiLine - 1) : listRef.current.scrollToItem(aiLine - 1, 'center');
-  }, [aiLine, attention.type]);
+    const handleEditorHighlight = (e) => {
+      const detail = e.detail;
+      if (detail && (detail.file === activeFile || detail.file === activeFile.split('/').pop())) {
+        setHoverLine(detail.line);
+        if (listRef.current && detail.line) {
+          const safeIdx = Math.max(0, detail.line - 1);
+          if (typeof listRef.current.scrollToItem === 'function') listRef.current.scrollToItem(safeIdx, 'center');
+          else if (typeof listRef.current.scrollToRow === 'function') listRef.current.scrollToRow({ index: safeIdx, align: 'center' });
+        }
+      } else {
+        setHoverLine(null);
+      }
+    };
+    window.addEventListener('editor-highlight', handleEditorHighlight);
+    return () => window.removeEventListener('editor-highlight', handleEditorHighlight);
+  }, [activeFile]);
 
   // react-window Row renderer
   const Row = ({ index, style }) => {
@@ -181,24 +353,31 @@ export default function UniversalCodeViewer({
     if (!tokens) return null;
 
     const lineNum = index + 1;
-    const dist = aiLine ? Math.abs(lineNum - aiLine) : Infinity;
-    const opacity = lineOpacity(dist, isAiActive);
-    const isAiFocus = isAiActive && dist === 0;
+    const { opacity, isUnderstood, isFootprint } = getLineStyle(lineNum, aiLine || -1, isAiActive);
+
+    // The specific line currently being read (top of the window)
+    const isAiFocus = isAiActive && lineNum === aiLine;
+    const isHovered = hoverLine === lineNum;
 
     return (
       <div
         style={{
           ...style,
-          opacity,
+          opacity: isHovered ? 1.0 : opacity,
           display: 'flex',
           alignItems: 'center',
-          transition: `opacity 280ms cubic-bezier(0.22, 0.61, 0.36, 1)`,
           borderLeft: isAiFocus
-            ? '2px solid rgba(191,200,216,0.55)'
-            : '2px solid transparent',
-          background: isAiFocus
-            ? 'linear-gradient(90deg, rgba(191,200,216,0.06) 0%, rgba(191,200,216,0.01) 60%, transparent 100%)'
-            : 'transparent',
+            ? '2px solid var(--cs-accent)'
+            : isHovered
+              ? '2px solid var(--cs-accent)'
+              : '2px solid transparent',
+          background: isHovered
+            ? 'linear-gradient(90deg, rgba(62,168,255,0.12) 0%, rgba(62,168,255,0.02) 60%, transparent 100%)'
+            : isAiFocus
+              ? 'linear-gradient(90deg, rgba(191,200,216,0.14) 0%, rgba(191,200,216,0.02) 60%, transparent 100%)'
+              : isFootprint
+                ? 'linear-gradient(90deg, rgba(191,200,216,0.04) 0%, rgba(191,200,216,0.01) 60%, transparent 100%)'
+                : 'transparent',
           transition: `opacity 280ms cubic-bezier(0.22, 0.61, 0.36, 1), background 300ms ease, border-color 300ms ease`,
         }}
       >
@@ -209,7 +388,7 @@ export default function UniversalCodeViewer({
             fontFamily: 'var(--cs-mono)',
             fontSize: '12px',
             lineHeight: '24px',
-            color: isAiFocus ? 'rgba(191,200,216,0.7)' : 'rgba(255,255,255,0.15)',
+            color: isAiFocus ? 'var(--cs-accent)' : isHovered ? 'var(--cs-accent)' : isUnderstood ? 'rgba(62,168,255,0.3)' : 'rgba(255,255,255,0.15)',
             userSelect: 'none',
             transition: 'color 220ms ease',
           }}
@@ -250,26 +429,6 @@ export default function UniversalCodeViewer({
       className="flex flex-col flex-1 min-w-0 h-full relative"
       style={{ background: 'var(--cs-editor)' }}
     >
-      {/* ── Hypothesis Pill ── */}
-      {answer && runtimeStatus !== 'resolved' && (
-        <div 
-          className="absolute top-4 left-1/2 -translate-x-1/2 z-10 animate-fade-in flex items-center gap-2"
-          style={{
-            background: 'rgba(9, 9, 11, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid var(--cs-border)',
-            borderRadius: '16px',
-            padding: '6px 14px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
-            maxWidth: '80%',
-          }}
-        >
-          <Sparkles size={12} className="text-[var(--cs-accent)] flex-shrink-0" />
-          <span className="text-[12px] text-[var(--cs-text)] font-medium truncate">
-            {answer}
-          </span>
-        </div>
-      )}
 
       {/* ── Full file — Virtualized ── */}
       <div className="flex-1 overflow-hidden min-h-0 relative animate-crossfade h-full w-full" ref={containerRef}>
@@ -279,6 +438,14 @@ export default function UniversalCodeViewer({
               Waiting for AI to open a file...
             </p>
           </div>
+        ) : isAsset || /\.(png|jpe?g|gif|webp|svg|ico|bmp|mp4|webm|pdf|zip|tar|gz|woff2?|eot|ttf|otf|lock)$/i.test(activeFile) ? (
+          <div className="h-full flex flex-col items-center justify-center">
+            <div style={{ padding: '24px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--cs-border)' }}>
+              <p style={{ color: 'var(--cs-text)', fontSize: '14px', fontFamily: 'var(--cs-mono)', marginBottom: '8px' }}>IMAGE ASSET</p>
+              <p style={{ color: 'var(--cs-hint)', fontSize: '13px', marginBottom: '8px' }}>Not inspected as source code.</p>
+              <p style={{ color: 'var(--cs-faint)', fontSize: '11px', fontFamily: 'var(--cs-mono)' }}>Referenced by investigation.</p>
+            </div>
+          </div>
         ) : tokenizedLines.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <p style={{ color: 'var(--cs-hint)', fontSize: '12px', fontStyle: 'italic' }}>
@@ -287,15 +454,15 @@ export default function UniversalCodeViewer({
           </div>
         ) : (
           <div style={{ height: '100%', width: '100%', position: 'absolute', inset: 0 }}>
-             <List
-                ref={listRef}
-                height={listHeight}
-                rowCount={tokenizedLines.length}
-                rowHeight={24}
-                rowComponent={Row}
-                rowProps={{}}
-                width="100%"
-              />
+            <List
+              listRef={listRef}
+              height={listHeight}
+              rowCount={tokenizedLines.length}
+              rowHeight={24}
+              rowComponent={Row}
+              rowProps={{}}
+              width="100%"
+            />
           </div>
         )}
       </div>
@@ -304,10 +471,9 @@ export default function UniversalCodeViewer({
       <div
         className="flex-shrink-0 flex items-center"
         style={{
-          height: '34px',
-          padding: '0 24px',
+          height: '42px',
+          padding: '0 24px 8px 24px',
           background: 'transparent',
-          borderTop: '1px solid var(--cs-border)',
           zIndex: 10
         }}
       >
@@ -316,7 +482,7 @@ export default function UniversalCodeViewer({
           style={{
             fontFamily: 'var(--cs-mono)',
             fontSize: '11px',
-            color: 'rgba(255,255,255,0.28)',
+            color: 'rgba(255,255,255,0.35)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -325,27 +491,20 @@ export default function UniversalCodeViewer({
         >
           {activeFile ? (
             <>
-              <span style={{ color: isResolved ? 'rgba(255,255,255,0.35)' : isAiActive ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.2)' }}>
-                {isResolved ? 'Analysis complete' : isAiActive ? 'Reading' : 'Ready'}
-              </span>
-              <span style={{ color: 'var(--cs-text)', fontWeight: 500, marginLeft: '5px' }}>{activeFile}</span>
-              {aiLine && (
+              {isResolved ? (
+                <span style={{ color: 'rgba(255,255,255,0.45)' }}>Analysis complete</span>
+              ) : isAiActive ? (
                 <>
-                  <span style={{ margin: '0 6px', opacity: 0.2 }}>·</span>
-                  <span>Line {aiLine}/{tokenizedLines.length}</span>
+                  {activeNarration || 'Following request'}
+                  <span style={{ color: 'var(--cs-accent)', marginLeft: '12px', fontWeight: 600 }}>
+                    {activeFile.split(/[\\/]/).pop()}
+                    <span style={{ opacity: 0.6, marginLeft: '6px', fontWeight: 400 }}>
+                      {Math.min(aiLine || 1, tokenizedLines.length)}/{tokenizedLines.length}
+                    </span>
+                  </span>
                 </>
-              )}
-              {attention.symbol && (
-                <>
-                  <span style={{ margin: '0 6px', opacity: 0.2 }}>·</span>
-                  <span>Focus <span style={{ color: 'rgba(191,200,216,0.65)', fontWeight: 500 }}>{attention.symbol}</span></span>
-                </>
-              )}
-              {(isAiActive || isResolved) && (
-                <>
-                  <span style={{ margin: '0 6px', opacity: 0.2 }}>·</span>
-                  <span>Confidence <span style={{ color: confidence === 'High' ? 'rgba(63,185,80,0.8)' : 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{confidence}</span></span>
-                </>
+              ) : (
+                <span style={{ color: 'rgba(255,255,255,0.35)' }}>{activeNarration || 'Thinking...'}</span>
               )}
             </>
           ) : (
@@ -360,7 +519,7 @@ export default function UniversalCodeViewer({
       {insight && (
         <div
           className="flex-shrink-0 flex items-center gap-3 px-5 animate-slide"
-          style={{ height: '32px', borderTop: '1px solid var(--cs-border)', zIndex: 10 }}
+          style={{ height: '32px', zIndex: 10 }}
         >
           <span style={{ color: 'var(--cs-accent)', fontSize: '11px', flexShrink: 0 }}>✦</span>
           <span style={{

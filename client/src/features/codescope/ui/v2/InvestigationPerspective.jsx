@@ -18,8 +18,9 @@ export default function InvestigationPerspective({
 }) {
   const [reportDismissed, setReportDismissed] = useState(false);
   
-  // Show report if there is an answer/error and it hasn't been dismissed by the user
-  const showReport = (presentation.answer || presentation.error) && !reportDismissed;
+  // Show report ONLY when reading animation/runtimeStatus is resolved (or on error)
+  const isReadingComplete = presentation.runtimeStatus === 'resolved' || Boolean(presentation.error);
+  const showReport = (presentation.answer || presentation.error) && isReadingComplete && !reportDismissed;
 
   return (
     <div className="flex-1 flex min-h-0 bg-[var(--cs-bg)] gap-[2px] relative overflow-hidden">

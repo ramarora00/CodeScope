@@ -10,7 +10,7 @@ function App() {
   const [appState, setAppState] = useState('launch');
   const [repos, setRepos] = useState([]);
   
-  const { selectedRepo, setSelectedRepo, activeInvestigationId, setActiveInvestigationId } = useWorkspaceStore();
+  const { selectedRepo, setSelectedRepo, activeInvestigationId, setActiveInvestigationId, setUserSelectedFile } = useWorkspaceStore();
   
   // Investigation States
   const [investigations, setInvestigations] = useState([]);
@@ -120,6 +120,9 @@ function App() {
         // Ignore — there may not be an active investigation
       }
     }
+
+    // Bug Fix: Clear any manually selected file so the AI can control the active tab during investigation
+    setUserSelectedFile(null);
 
     const newId = Date.now().toString();
     const newInv = {

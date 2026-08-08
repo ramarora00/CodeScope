@@ -85,11 +85,26 @@
   --shadow-glow: 0 0 16px rgba(106, 142, 174, 0.15);
 
   /* ─────────────────────────────────────────
-     11. ANIMATION VARIABLES
+     11. ANIMATION VARIABLES (Unified Motion Language)
   ───────────────────────────────────────── */
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-base: 300ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* Durations */
+  --duration-instant: 100ms;
+  --duration-micro: 150ms;
+  --duration-short: 200ms;
+  --duration-medium: 300ms;
+  --duration-long: 500ms;
+  --duration-cinematic: 1000ms;
+
+  /* Curves */
+  --curve-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
+  --curve-enter: cubic-bezier(0.0, 0.0, 0.2, 1);
+  --curve-exit: cubic-bezier(0.4, 0.0, 1.0, 1);
+  --curve-snap: cubic-bezier(0.2, 0.0, 0.0, 1.0);
+
+  /* Legacy variable mapping to prevent breaking old code temporarily */
+  --transition-fast: var(--duration-micro) var(--curve-standard);
+  --transition-base: var(--duration-medium) var(--curve-standard);
+  --transition-slow: var(--duration-long) var(--curve-standard);
 
   /* ─────────────────────────────────────────
      12. Z-INDEX LAYERS

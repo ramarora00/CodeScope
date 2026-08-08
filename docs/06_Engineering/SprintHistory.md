@@ -347,3 +347,61 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-08-03T19:56:00+05:30*
 
+
+## Sprint — Workspace V2 Architecture and Live Telemetry Enhancements
+
+**Commits**
+- `6974148` feat(codescope): update repo routes and workspace presentation model
+- `71ae1fe` feat(codescope): refine v2 investigation panel, architecture perspective, and workspace root
+- `3555646` feat(codescope): enhance AI camera controller for architecture view
+- `4216b51` chore(logs): add latest investigation session recordings part 1
+- `7bf80b2` chore(logs): add latest investigation session recordings part 2
+- `37f432e` chore(logs): add latest investigation session recordings part 3
+
+**Status**
+? Completed
+
+**Summary**
+- **Server & Store**: Updated repo routes and integrated them into the Workspace Presentation Model.
+- **UI Perspectives**: Refined the InvestigationPanel, ArchitecturePerspective, and WorkspaceRoot components for V2.
+- **Architecture View**: Further enhanced the AI camera controller for fluid architecture view navigation.
+- **Logs**: Captured and safely split 13 new investigation telemetry session recordings into 3 separate batches.
+
+*Recorded on 2026-08-04T11:45:00+05:30*
+
+
+## Sprint — Full UI V2 Overhaul, Animation System, and Shared Component Library
+
+**Commits**
+- `9d1b6ff` fix(server): harden execution engine, session manager, plan builder, and domain events
+- `cc6b167` feat(codescope): refine workspace lifecycle, investigation session, playback, and presentation model
+- `4aa87e3` feat(app): update App routing and enhance file explorer component
+- `8bb49f0` feat(codescope): refine v2 architecture, explorer, and investigation perspectives
+- `34181f0` feat(codescope): update workspace command bar, title bar, root, and ready state
+- `5488383` feat(codescope): update investigation panel, report sheet, knowledge panel, and universal code viewer
+- `4350600` style(client): update global styles, design tokens, and utility classes
+- `dd178de` chore(logs): add all investigation session telemetry recordings
+- `cc44c35` feat(codescope): add AI cursor, shared caption, and transition wrapper shared components
+- `d2d589f` feat(codescope): add animation queue hook and repository reading experience view
+- `5009c12` feat(shared): add cn utility for conditional class name composition
+- `539ddc7` docs(project): add identity and architecture motion reference files
+- `33b8ce2` chore(scratch): add error check debug script
+
+**Status**
+? Completed
+
+**Summary**
+- **Server Hardening**: Tightened ExecutionEngine, SessionManager, UnderstandingPlanBuilder, and domain events with better error handling.
+- **State & Lifecycle**: Refined workspace lifecycle hook, investigation session, playback controller, and presentation model stores.
+- **App Core**: Updated App routing and significantly enhanced the FileExplorer component.
+- **Perspectives**: Refined all three V2 perspectives (Architecture, Explorer, Investigation) and PerspectiveRouter.
+- **Workspace Chrome**: Updated CommandBar, MacOSTitleBar, WorkspaceRoot, and RepositoryReadyState.
+- **Investigation Panels**: Updated InvestigationPanel, InvestigationReportSheet, KnowledgePanel, and UniversalCodeViewer.
+- **Global Styles**: Updated index.css, design tokens, and utility classes.
+- **Telemetry**: All 95 investigation session recordings committed in a single dedicated batch.
+- **Animation System**: Added useAnimationQueue hook, RepositoryReadingExperience view, AICursor, SharedCaption, and TransitionWrapper.
+- **Shared Utilities**: Added cn() class name composition utility.
+- **Docs**: Added Identity.txt and archi_motion.txt project reference files.
+
+*Recorded on 2026-08-08T17:48:00+05:30*
+

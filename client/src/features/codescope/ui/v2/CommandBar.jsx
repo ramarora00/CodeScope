@@ -5,7 +5,7 @@ import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 export default function CommandBar({ branch = 'main', onNewInvestigation }) {
   const repo = useWorkspaceStore(s => s.selectedRepo);
   const org = repo?.name?.split('/')?.[0] ?? 'acme';
-  const repoName = repo?.name?.split('/')?.[1] ?? 'payments-service';
+  const repoName = repo?.name?.split('/')?.pop()?.replace(/-\d{10,}$/, '') ?? 'Workspace';
 
   const [isSearching, setIsSearching] = useState(false);
   const [query, setQuery] = useState('');
@@ -147,21 +147,6 @@ export default function CommandBar({ branch = 'main', onNewInvestigation }) {
 
       {/* Right Actions */}
       <div className="flex items-center gap-4 flex-shrink-0">
-        <div className="flex items-center gap-1.5 opacity-80">
-          <div className="w-1.5 h-1.5 rounded-full bg-green-600" />
-          <span style={{ color: 'var(--cs-hint)', fontSize: '11px', fontWeight: 500 }}>
-            Live
-          </span>
-        </div>
-
-        {/* Sourcegraph MCP badge */}
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md opacity-40">
-          <span style={{ color: 'var(--cs-accent)', fontSize: '10px' }}>✦</span>
-          <span style={{ color: 'var(--cs-hint)', fontSize: '10px', fontWeight: 500 }}>
-            Sourcegraph MCP
-          </span>
-        </div>
-
         {/* Avatar */}
         <div
           className="flex items-center justify-center flex-shrink-0"

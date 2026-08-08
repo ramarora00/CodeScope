@@ -28,10 +28,10 @@
   --bg-hover:     var(--cs-panel-raised);
   --bg-active:    rgba(255,255,255,0.04);
 
-  /* ── Borders — use only rgba(255,255,255,0.04), never solid ── */
-  --cs-border:        rgba(255,255,255,0.04);
-  --cs-border-strong: rgba(255,255,255,0.08);
-  --cs-border-subtle: rgba(255,255,255,0.02);
+  /* ── Borders — use only ultra-subtle rgba, never solid ── */
+  --cs-border:        rgba(255,255,255,0.02);
+  --cs-border-strong: rgba(255,255,255,0.04);
+  --cs-border-subtle: rgba(255,255,255,0.01);
   --border:           var(--cs-border);
   --border-strong:    var(--cs-border-strong);
   --border-subtle:    var(--cs-border-subtle);
@@ -85,12 +85,14 @@
   --syn-punct:     #8B949E;
   --syn-decorator: #79C0FF;
 
-  /* ── Easing — NEVER use linear ── */
-  --ease-premium: cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* ── Easing — Narrative and Calm ── */
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out:     cubic-bezier(0, 0, 0.2, 1);
   --ease-in-out:  cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-calm:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-thought: cubic-bezier(0.22, 0.61, 0.36, 1); /* Phase B Cognitive Animation */
   --ease:         var(--ease-in-out);
-  --transition:   all 220ms var(--ease-out);
+  --transition:   all 300ms var(--ease-calm);
 }
 
 /* ── Reset ── */
@@ -138,6 +140,17 @@ body {
   50%      { transform: scaleY(1.0); }
 }
 
+/* Theme 1: Arrival & Hero Narratives */
+@keyframes arrival-fade {
+  from { opacity: 0; filter: blur(4px); transform: scale(0.98); }
+  to   { opacity: 1; filter: blur(0); transform: scale(1); }
+}
+
+@keyframes hero-settle {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* Panel settle — fades in while rising 6px */
 @keyframes settle {
   from { opacity: 0; transform: translateY(6px); }
@@ -156,9 +169,11 @@ body {
   to   { opacity: 1; }
 }
 
-.animate-rise       { animation: rise 220ms var(--ease-out) both; }
-.animate-fade-in    { animation: fade-in 220ms ease both; }
-.animate-slide      { animation: fade-slide 220ms var(--ease-out) both; }
+.animate-arrival    { animation: arrival-fade 1200ms var(--ease-calm) both; }
+.animate-hero       { animation: hero-settle 800ms var(--ease-calm) both; }
+.animate-rise       { animation: rise 300ms var(--ease-calm) both; }
+.animate-fade-in    { animation: fade-in 300ms ease both; }
+.animate-slide      { animation: fade-slide 300ms var(--ease-calm) both; }
 .animate-pulse-dot  { animation: pulse-dot 2s ease-in-out infinite; }
 .animate-read-blink { animation: read-blink 1.4s ease-in-out infinite; }
 .animate-settle     { animation: settle 250ms var(--ease-out) both; }

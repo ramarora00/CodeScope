@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Check, Send } from 'lucide-react';
 import { API_BASE } from '../../../../config/api';
+import { motion, AnimatePresence } from 'framer-motion';
 
 function ElapsedTimer({ startedAt }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -25,32 +26,32 @@ function ElapsedTimer({ startedAt }) {
 // ─────────────────────────────────────────────────────────────────
 function TimelineEntry({ entry, isActive, memoryFiles }) {
   return (
-    <div style={{ marginBottom: isActive ? '18px' : '4px', paddingLeft: '8px' }}>
+    <div style={{ marginBottom: isActive ? '24px' : '14px', paddingLeft: '8px' }}>
       <div
         className="flex items-start gap-2"
         style={{ minHeight: '26px' }}
       >
         <span style={{
-          color: 'var(--cs-hint)',
-          fontSize: '8.5px',
+          color: 'rgba(255,255,255,0.2)',
+          fontSize: '11px',
           fontFamily: 'var(--cs-mono)',
           flexShrink: 0,
-          width: '28px',
+          width: '36px',
           lineHeight: 1.6,
         }}>
           {entry.timestamp}
         </span>
-        <div className="flex-shrink-0" style={{ paddingTop: '2px', width: '11px', display: 'flex', justifyContent: 'center' }}>
+        <div className="flex-shrink-0" style={{ paddingTop: '5px', width: '11px', display: 'flex', justifyContent: 'center' }}>
           {isActive && (
             <div className="w-[11px] h-[11px] flex items-center justify-center">
-              <div className="w-[6px] h-[6px] rounded-full" style={{ background: 'var(--cs-accent)' }} />
+              <div className="w-[5px] h-[5px] rounded-full" style={{ background: 'var(--cs-accent)' }} />
             </div>
           )}
         </div>
         <div className="flex-1 min-w-0" style={{ paddingTop: '1px' }}>
           <span style={{
-            color: isActive ? 'var(--cs-text)' : 'var(--cs-muted)',
-            fontSize: '11.5px',
+            color: isActive ? 'var(--cs-text)' : 'rgba(255, 255, 255, 0.4)',
+            fontSize: '13px',
             fontWeight: isActive ? 500 : 400,
             display: 'block',
             lineHeight: 1.5,
@@ -58,7 +59,7 @@ function TimelineEntry({ entry, isActive, memoryFiles }) {
             {entry.label}
           </span>
           {entry.sublabel && !isActive && (
-            <span style={{ color: 'var(--cs-faint)', fontSize: '10px', display: 'block', marginTop: '4px', lineHeight: 1.4 }}>
+            <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '12px', display: 'block', marginTop: '6px', lineHeight: 1.4 }}>
               {entry.sublabel}
             </span>
           )}
@@ -67,58 +68,72 @@ function TimelineEntry({ entry, isActive, memoryFiles }) {
 
       {/* Active: compact hierarchical block — one logical unit, no floating labels */}
       {isActive && (
-        <div className="animate-fade-in" style={{ marginTop: '8px', paddingLeft: '39px' }}>
+        <div className="animate-fade-in" style={{ marginTop: '12px', paddingLeft: '47px' }}>
           {/* Single block — all fields in visual flow, tightly packed */}
           <div style={{
-            borderLeft: '1px solid rgba(255,255,255,0.07)',
-            paddingLeft: '12px',
+            borderLeft: '1px solid rgba(255,255,255,0.04)',
+            paddingLeft: '16px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '6px',
+            gap: '12px',
           }}>
             {entry.insight && (
               <div>
-                <div style={{ color: 'rgba(255,255,255,0.22)', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: '2px' }}>
+                <div style={{ color: 'var(--cs-faint)', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '4px' }}>
                   Finding
                 </div>
-                <div style={{ color: 'var(--cs-text)', fontSize: '11.5px', lineHeight: 1.5 }}>
+                <div style={{ color: 'var(--cs-text)', fontSize: '13px', lineHeight: 1.6 }}>
                   {entry.insight}
                 </div>
               </div>
             )}
             {entry.next && (
-              <div style={{ paddingLeft: '12px' }}>
-                <div style={{ color: 'rgba(255,255,255,0.22)', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: '2px' }}>
+              <div>
+                <div style={{ color: 'var(--cs-faint)', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '4px' }}>
                   Next
                 </div>
-                <div style={{ color: 'var(--cs-muted)', fontSize: '11px', lineHeight: 1.5 }}>
+                <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px', lineHeight: 1.6 }}>
                   {entry.next}
                 </div>
               </div>
             )}
             {entry.then && (
-              <div style={{ paddingLeft: '24px' }}>
-                <div style={{ color: 'rgba(255,255,255,0.22)', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: '2px' }}>
+              <div>
+                <div style={{ color: 'var(--cs-faint)', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '4px' }}>
                   Then
                 </div>
-                <div style={{ color: 'var(--cs-faint)', fontSize: '11px', lineHeight: 1.5 }}>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', lineHeight: 1.6 }}>
                   {entry.then}
                 </div>
               </div>
             )}
             {memoryFiles.length > 0 && (
-              <div style={{ paddingLeft: '0px', marginTop: '4px' }}>
-                <div style={{ color: 'rgba(255,255,255,0.15)', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: '3px' }}>
+              <div style={{ marginTop: '4px' }}>
+                <div style={{ color: 'var(--cs-faint)', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '6px' }}>
                   Memory
                 </div>
-                {memoryFiles.map((f, i) => (
-                  <div key={i} className="flex items-center gap-1.5" style={{ paddingLeft: '10px' }}>
-                    <span style={{ color: 'rgba(255,255,255,0.12)', fontSize: '8px' }}>↳</span>
-                    <span style={{ color: 'rgba(191,200,216,0.55)', fontSize: '10px', fontFamily: 'var(--cs-mono)' }}>
-                      {f.file}
-                    </span>
-                  </div>
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {memoryFiles.map((f, i) => (
+                    <div 
+                      key={i} 
+                      className="flex items-center gap-1.5 cursor-pointer hover:bg-white/5 rounded px-1 -mx-1 py-0.5" 
+                      style={{ paddingLeft: '4px' }}
+                      onMouseEnter={() => {
+                        if (f.file) {
+                           window.dispatchEvent(new CustomEvent('editor-highlight', { detail: { file: f.file, line: f.line || 1 } }));
+                        }
+                      }}
+                      onMouseLeave={() => {
+                        window.dispatchEvent(new CustomEvent('editor-highlight', { detail: null }));
+                      }}
+                    >
+                      <span style={{ color: 'rgba(255,255,255,0.12)', fontSize: '8px' }}>↳</span>
+                      <span style={{ color: 'rgba(191,200,216,0.45)', fontSize: '12px', fontFamily: 'var(--cs-mono)' }}>
+                        {f.file}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -131,26 +146,50 @@ function TimelineEntry({ entry, isActive, memoryFiles }) {
 // ─────────────────────────────────────────────────────────────────
 // INVESTIGATION PANEL — 305px, ~15% compressed vs previous
 // ─────────────────────────────────────────────────────────────────
-export default function InvestigationPanel({ timelineEvents = [], planSteps = [], startedAt, memoryFiles = [], repo, activeInvestigation, onNewInvestigation }) {
-  const [askQuery, setAskQuery] = useState('');
+export default function InvestigationPanel({ timelineEvents = [], planSteps = [], startedAt, memoryFiles = [], repo, activeInvestigation, onNewInvestigation, isContext }) {
   const bottomRef = useRef(null);
 
-  const title = repo && repo.id ? `Exploring ${repo.name.split('/').pop()}` : 'Find where JWT authentication breaks for expired sessions.';
+  const repoName = repo?.name?.split('/')?.pop()?.replace(/-\d{10,}$/, '') || 'Workspace';
+  const title = activeInvestigation?.title || (activeInvestigation?.mode === 'understanding' ? `Exploring ${repoName}` : 'Investigation');
 
   const completedSteps = planSteps.filter(s => s.done).length;
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [timelineEvents.length]);
-
-  const handleAsk = (e) => {
-    e.preventDefault();
-    if (askQuery.trim() && onNewInvestigation) {
-      onNewInvestigation(askQuery.trim());
-      setAskQuery('');
+    if (!isContext) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
-  };
+  }, [timelineEvents.length, isContext]);
 
+  // Removed handleAsk
+
+  // Law of Representation: Context Level
+  if (isContext) {
+    return (
+      <div className="flex flex-col items-center h-full pt-8 pb-4 border-r border-transparent hover:bg-white/[0.02] transition-colors w-[48px]">
+        {/* minimalist vertical progress line */}
+        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', color: 'var(--cs-faint)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '32px', opacity: 0.8 }}>
+          Timeline
+        </div>
+        
+        <div className="flex-1 flex flex-col items-center w-full relative">
+          <div className="absolute top-0 bottom-0 w-[1px] bg-[var(--cs-border)]" style={{ opacity: 0.5 }} />
+          {planSteps.map((step, i) => {
+             const topOffset = planSteps.length > 1 ? (i / (planSteps.length - 1)) * 100 : 50;
+             return (
+               <div key={step.id} className="absolute left-1/2 -translate-x-1/2 z-10" style={{ top: `calc(${topOffset}% - 3px)` }}>
+                  <div style={{ 
+                    width: '6px', height: '6px', borderRadius: '50%',
+                    background: step.done ? 'var(--cs-green)' : step.active ? 'var(--cs-text)' : 'var(--cs-border)'
+                  }} />
+               </div>
+             );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Law of Representation: Hero/Supporting Level
   return (
     <div
       className="flex flex-col h-full flex-shrink-0"
@@ -161,20 +200,18 @@ export default function InvestigationPanel({ timelineEvents = [], planSteps = []
     >
       {/* ── Header ── */}
       <div
-        className="flex items-center justify-between flex-shrink-0 px-5"
-        style={{ height: '40px', borderBottom: '1px solid var(--cs-border)' }}
+        className="flex items-center justify-between flex-shrink-0 px-8"
+        style={{ height: '60px', borderBottom: '1px solid rgba(255,255,255,0.02)' }}
       >
         <span style={{
           color: 'var(--cs-faint)',
-          fontSize: '9px',
-          fontWeight: 700,
-          letterSpacing: '0.15em',
-          textTransform: 'uppercase',
+          fontSize: '10px',
+          fontWeight: 600,
+          letterSpacing: '0.05em',
         }}>
           Investigation
         </span>
         <div className="flex items-center gap-3">
-          {startedAt && <ElapsedTimer startedAt={startedAt} />}
           {activeInvestigation && activeInvestigation.status !== 'completed' && activeInvestigation.status !== 'failed' && activeInvestigation.status !== 'cancelled' && (
             <button
               onClick={() => {
@@ -203,162 +240,65 @@ export default function InvestigationPanel({ timelineEvents = [], planSteps = []
       </div>
 
       {/* ── Query ── */}
-      <div style={{ padding: '24px 24px 16px' }} className="flex-shrink-0">
-        <div className="flex items-start gap-2">
-          <p style={{
-            color: 'var(--cs-text)',
-            fontSize: '18px',
-            fontWeight: 600,
-            lineHeight: 1.55,
-            flex: 1,
-          }}>
-            {title}
-          </p>
-          <span style={{ color: 'var(--cs-accent)', fontSize: '13px', flexShrink: 0, marginTop: '1px' }}>✦</span>
-        </div>
+      <div style={{ padding: '24px 32px 16px' }} className="flex-shrink-0">
+        <p style={{
+          color: 'var(--cs-text)',
+          fontSize: '15px',
+          fontWeight: 500,
+          lineHeight: 1.5,
+        }}>
+          {title}
+        </p>
       </div>
 
-      {/* ── Timeline ── */}
-      <div
-        className="flex-1 overflow-y-auto no-scrollbar min-h-0"
-        style={{ padding: '0 24px' }}
-      >
-        {timelineEvents.map((entry, index) => {
-          const isActive = entry.status === 'active';
-          return (
-            <React.Fragment key={entry.id}>
-              <TimelineEntry
-                entry={entry}
-                isActive={isActive}
-                memoryFiles={isActive ? memoryFiles : []}
-              />
-            </React.Fragment>
-          );
-        })}
+      {/* ── Current Focus ── */}
+      {timelineEvents.find(e => e.status === 'active') && (
+        <div className="flex-shrink-0" style={{ padding: '16px 32px' }}>
+          <span style={{ color: 'var(--cs-faint)', fontSize: '10px', marginBottom: '8px', display: 'block' }}>
+            Current focus
+          </span>
+          <div className="flex items-center gap-2">
+            <span style={{ color: 'var(--cs-accent)', fontSize: '12px' }}>✦</span>
+            <span style={{ color: 'var(--cs-text)', fontSize: '13px', fontFamily: 'var(--cs-mono)' }}>
+              {timelineEvents.find(e => e.status === 'active')?.label?.split(' ')?.pop() || 'Processing...'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Trail ── */}
+      <div className="flex-1 overflow-y-auto no-scrollbar min-h-0 flex flex-col gap-3" style={{ padding: '24px 32px' }}>
+        <span style={{ color: 'var(--cs-faint)', fontSize: '10px', marginBottom: '4px', display: 'block' }}>
+          Trail
+        </span>
+        <AnimatePresence initial={false}>
+          {timelineEvents.map((entry, index) => {
+            const isActive = entry.status === 'active';
+            const fileName = entry.label?.split(' ')?.pop() || 'Processing...';
+            return (
+              <motion.div 
+                key={entry.id}
+                layout
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                style={{ 
+                  fontSize: '12px', 
+                  fontFamily: 'var(--cs-mono)',
+                  color: isActive ? 'var(--cs-text)' : 'var(--cs-hint)',
+                  paddingLeft: '14px',
+                  borderLeft: `2px solid ${isActive ? 'var(--cs-accent)' : 'var(--cs-border)'}`,
+                  paddingTop: '2px',
+                  paddingBottom: '2px'
+                }}
+              >
+                {fileName}
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
         <div ref={bottomRef} style={{ height: '24px' }} />
       </div>
 
-      {/* ── Plan ── */}
-      <div
-        className="flex-shrink-0"
-        style={{ padding: '18px 24px 24px', borderTop: '1px solid var(--cs-border)' }}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <span style={{
-            color: 'var(--cs-faint)',
-            fontSize: '9px',
-            fontWeight: 700,
-            letterSpacing: '0.10em',
-            textTransform: 'uppercase',
-          }}>
-            Plan
-          </span>
-          <span style={{ color: 'var(--cs-hint)', fontSize: '10px', fontFamily: 'var(--cs-mono)' }}>
-            {completedSteps} / {planSteps.length}
-          </span>
-        </div>
-
-        {/* Progress bar */}
-        <div style={{ height: '1px', background: 'var(--cs-border)', borderRadius: '1px', overflow: 'hidden', marginBottom: '14px' }}>
-          <div
-            style={{
-              height: '100%',
-              width: `${(completedSteps / planSteps.length) * 100}%`,
-              background: 'var(--cs-green)',
-              transition: 'width 300ms ease-out',
-            }}
-          />
-        </div>
-
-        {/* Step list */}
-        <div className="space-y-[8px]">
-          {planSteps.map(step => (
-            <div
-              key={step.id}
-              className="flex items-center gap-2"
-              style={{
-                height: '26px',
-                padding: '0 6px',
-              }}
-            >
-              <div
-                className="flex items-center justify-center flex-shrink-0"
-                style={{
-                  width: '14px', height: '14px',
-                  color: step.done ? 'var(--cs-green)' : step.active ? 'var(--cs-text)' : 'var(--cs-hint)',
-                }}
-              >
-                <span style={{ fontSize: step.active ? '14px' : '10px', fontFamily: 'var(--cs-mono)', fontWeight: 500, lineHeight: 1 }}>
-                  {step.active ? '•' : step.id}
-                </span>
-              </div>
-              <span style={{
-                fontSize: '11px',
-                color: step.done ? 'var(--cs-hint)' : step.active ? 'var(--cs-text)' : 'var(--cs-faint)',
-                fontWeight: step.active ? 600 : 400,
-                textDecoration: step.active ? 'underline' : 'none',
-                textUnderlineOffset: '3px',
-                textDecorationColor: 'rgba(255,255,255,0.2)',
-                flex: 1,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
-                {step.label}
-              </span>
-              {step.done && (
-                <Check size={12} style={{ color: 'var(--cs-green)' }} className="flex-shrink-0" />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Ask AI ── */}
-      <form onSubmit={handleAsk} style={{ padding: '16px 24px 24px' }}>
-        <div
-          className="flex items-center gap-2"
-          style={{
-            background: 'var(--cs-editor)',
-            border: '1px solid var(--cs-border)',
-            borderRadius: '10px',
-            padding: '9px 12px',
-          }}
-          onFocusCapture={e => e.currentTarget.style.borderColor = 'rgba(191,200,216,0.14)'}
-          onBlurCapture={e => e.currentTarget.style.borderColor = 'var(--cs-border)'}
-        >
-          <input
-            type="text"
-            value={askQuery}
-            onChange={e => setAskQuery(e.target.value)}
-            placeholder="Ask AI about this investigation..."
-            style={{
-              flex: 1,
-              background: 'transparent',
-              border: 'none',
-              outline: 'none',
-              fontFamily: 'var(--cs-sans)',
-              fontSize: '11px',
-              color: 'var(--cs-text)',
-            }}
-            className="placeholder:text-[var(--cs-hint)]"
-          />
-          <button
-            type="submit"
-            disabled={!askQuery.trim()}
-            style={{
-              flexShrink: 0,
-              color: askQuery.trim() ? 'var(--cs-accent)' : 'var(--cs-hint)',
-              background: 'transparent',
-              border: 'none',
-              cursor: askQuery.trim() ? 'pointer' : 'default',
-              transition: 'color 220ms ease',
-            }}
-          >
-            <span style={{ fontSize: '14px', fontFamily: 'var(--cs-sans)', lineHeight: 1 }}>↵</span>
-          </button>
-        </div>
-      </form>
     </div>
   );
 }

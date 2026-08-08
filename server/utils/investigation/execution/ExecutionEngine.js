@@ -73,21 +73,28 @@ class ExecutionEngine {
 
       // 1. Action: READ
       if (step.action === 'read') {
-        this._publish(this.events.fileSelected(step.target, step.reason, plan.confidence));
-        this._publish(this.events.fileReadStarted(step.target, step.reason));
-
-        const lineCount = 30 + (step.target.length * 7) % 300; 
+        const isAsset = /\.(png|jpe?g|gif|svg|pdf|webm|mp4|ico|woff2?|ttf|eot)$/i.test(step.target);
+        this._publish(this.events.stateTransition('READING', { target: step.target }));
+        this._publish(this.events.fileSelected(step.target, step.reason, plan.confidence, isAsset));
         
+        const lineCount = 30 + (step.target.length * 7) % 300; 
+        const startLine = step.startLine || 1;
+        const endLine = step.endLine || lineCount;
+        
+        this._publish(this.events.fileReadStarted(step.target, step.reason, startLine, endLine));
+
+        const regionLines = endLine - startLine;
         const chunks = 5;
         for (let c = 1; c <= chunks; c++) {
           cursor.fileProgress = c / chunks;
-          const currentLine = Math.floor((c / chunks) * lineCount);
+          const currentLine = startLine + Math.floor((c / chunks) * regionLines);
           this._publish(this.events.fileReadProgress(step.target, currentLine, lineCount, null));
           
           if (this.context.isCancelled) return;
         }
 
-        this._publish(this.events.evidenceAdded(`Analyzed structural patterns in ${step.target.split('/').pop()}`, step.target, 0.9));
+        this._publish(this.events.stateTransition('EVIDENCE_EARNED', { target: step.target }));
+        this._publish(this.events.evidenceAdded(`Mapped structural patterns in ${step.target.split('/').pop()}`, step.target, 0.9));
         this._publish(this.events.fileReadCompleted(step.target, lineCount));
       }
 
@@ -95,9 +102,11 @@ class ExecutionEngine {
       else if (step.action === 'jump') {
         cursor.jumps++;
         const fromPath = this.context.currentFile || 'unknown';
+        const isAsset = /\.(png|jpe?g|gif|svg|pdf|webm|mp4|ico|woff2?|ttf|eot)$/i.test(step.target);
+        this._publish(this.events.stateTransition('CROSS_CHECKING', { from: fromPath, to: step.target }));
         this._publish(this.events.jumpStarted(fromPath, step.target, step.reason, 'graph_traversal', null));
-        this._publish(this.events.fileSelected(step.target, `Jumped from ${fromPath}`, plan.confidence));
-        this._publish(this.events.fileReadStarted(step.target, `Checking dependency`));
+        this._publish(this.events.fileSelected(step.target, `Jumped from ${fromPath}`, plan.confidence, isAsset));
+        this._publish(this.events.fileReadStarted(step.target, `Checking dependency`, 1, 10));
         this._publish(this.events.fileReadProgress(step.target, 1, 10, null));
         this._publish(this.events.fileReadCompleted(step.target, 50));
         this._publish(this.events.jumpCompleted(step.target));
@@ -110,6 +119,10 @@ class ExecutionEngine {
         this._publish(this.events.fileSelected(step.target, step.reason, plan.confidence));
       }
     }
+
+    this._publish(this.events.stateTransition('CONCLUSION_READY'));
+    this._publish(this.events.stateTransition('SILENCE'));
+    this._publish(this.events.stateTransition('REPORT_READY'));
 
     const elapsed = Date.now() - cursor.startTime;
     const result = new InvestigationResult(this.context, elapsed);

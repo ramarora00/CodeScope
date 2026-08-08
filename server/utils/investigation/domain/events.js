@@ -36,6 +36,10 @@ class EventFactory {
   }
 
   // --- Core Lifecycle ---
+  stateTransition(newState, metadata = {}) {
+    return { ...this._base('state.transition'), state: newState, metadata };
+  }
+
   investigationStarted(budget) {
     return { ...this._base('investigation.started'), budget };
   }
@@ -62,12 +66,12 @@ class EventFactory {
   }
 
   // --- Execution ---
-  fileSelected(filePath, reason, confidence) {
-    return { ...this._base('file.selected'), file: filePath, reason, confidence };
+  fileSelected(filePath, reason, confidence, isAsset = false) {
+    return { ...this._base('file.selected'), file: filePath, reason, confidence, isAsset };
   }
 
-  fileReadStarted(filePath, reason) {
-    return { ...this._base('file.read.started'), file: filePath, reason };
+  fileReadStarted(filePath, reason, startLine, endLine) {
+    return { ...this._base('file.read.started'), file: filePath, reason, startLine, endLine };
   }
 
   fileReadProgress(filePath, currentLine, totalLines, symbolFocus) {

@@ -76,6 +76,7 @@ class SessionManager {
 
   async _runLifecycle(sessionId, repoId, mission, context, eventFactory, eventBus, mode) {
     try {
+      eventBus.publish(eventFactory.stateTransition('INTERPRETING'));
       console.log(`[SessionManager] Building snapshot for repo: ${repoId}`);
       // 1. Snapshot
       context.applyEvent(eventFactory._base('snapshot.building')); // internal state
@@ -97,6 +98,7 @@ class SessionManager {
           planData = await planner.plan(repoId, mission, { maxSteps: 5 });
         }
         eventBus.publish(eventFactory.plannerCompleted(planData.plan, planData.metadata));
+        eventBus.publish(eventFactory.stateTransition('TARGETS_SELECTED'));
       } catch (plannerErr) {
         console.error(`[SessionManager] Planner failed: ${plannerErr.message}`);
         eventBus.publish(eventFactory.plannerFailed(plannerErr.message));

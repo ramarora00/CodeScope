@@ -42,23 +42,26 @@ export function usePlaybackController() {
     const processNext = () => {
       // Safety check in case state changed during timeout
       if (useInvestigationSession.getState().sessionState !== SESSION_STATES.PLAYING) return;
-      if (useInvestigationSession.getState().isAnimating) return;
-
-      const event = consumeNextEvent();
       
-      if (!event) {
+      // If a Visual Owner is actively animating a cognitive event, pause the loop
+      if (useInvestigationSession.getState().activeCognitiveEvent) {
+        // We poll waiting for the Visual Owner to commit the event
+        loopRef.current = setTimeout(processNext, 50);
+        return;
+      }
+
+      const result = consumeNextEvent();
+      
+      if (!result) {
         // Queue is empty, return to RECEIVING state to await more events
         useInvestigationSession.setState({ sessionState: SESSION_STATES.RECEIVING });
         return;
       }
 
-      if (isBlockingEvent(event.type) && playbackProfile.speedMultiplier < 100) {
-        // Orchestrator hands control to the UI. The UI MUST call completeAnimation()
-        useInvestigationSession.setState({ isAnimating: true });
-      } else {
-        // Non-blocking event or instant mode: immediately trigger next tick
-        loopRef.current = setTimeout(processNext, 0);
-      }
+      // Result contains { event, type }
+      // If cognitive, activeCognitiveEvent is now set in the store, and the next tick will wait for it.
+      // If infrastructure, it was applied instantly.
+      loopRef.current = setTimeout(processNext, 0);
     };
 
     // Kick off the orchestrator loop

@@ -21,6 +21,7 @@ export const SESSION_STATES = {
 export const useInvestigationSession = create((set, get) => ({
   // Core Session State
   sessionState: SESSION_STATES.IDLE,
+  investigationState: 'IDLE',
   playbackProfile: PLAYBACK_PROFILES.NORMAL,
   
   // UI Orchestration
@@ -72,6 +73,7 @@ export const useInvestigationSession = create((set, get) => ({
   // aiFocusFile: owned by AI runtime (useInvestigationSession)
   // userSelectedFile: owned by user interaction (useWorkspaceStore)
   aiFocusFile: null,
+  isAsset: false,
   currentReason: null,
   fileProgress: 0,
   currentLine: 0,
@@ -130,32 +132,68 @@ export const useInvestigationSession = create((set, get) => ({
     });
   },
 
+  // Active event currently being animated by a Visual Owner
+  activeCognitiveEvent: null,
+
   // Called by the Playback Controller loop to process one event
   consumeNextEvent: () => {
-    const { incomingEvents, processedEvents, sessionState } = get();
+    const { incomingEvents, sessionState, activeCognitiveEvent } = get();
     
     if (incomingEvents.length === 0 || sessionState !== SESSION_STATES.PLAYING) {
+      return null;
+    }
+
+    // Do not consume if a cognitive event is actively being performed
+    if (activeCognitiveEvent) {
       return null;
     }
     
     const nextEvent = incomingEvents[0];
     const remainingEvents = incomingEvents.slice(1);
     
-    // Apply event to state
-    get().applyEventToState(nextEvent);
-    
-    // Bound processed events array to prevent unbounded memory leak (Item 26)
-    const newProcessedEvents = [...processedEvents, nextEvent];
+    // TYPE A: Cognitive Events (Must be performed by a Visual Owner before committing)
+    const cognitiveEvents = [
+      'file.selected', 'file.read.progress', 'file.read.completed', 
+      'jump.started', 'evidence.added', 'knowledge.added', 'symbol.discovered', 
+      'planner.completed', 'investigation.completed'
+    ];
+
+    if (cognitiveEvents.includes(nextEvent.type) && get().playbackProfile.speedMultiplier < 100) {
+      // Hold the event for the Visual Owner to perform
+      set({
+        incomingEvents: remainingEvents,
+        activeCognitiveEvent: nextEvent
+      });
+      return { event: nextEvent, type: 'cognitive' };
+    } else {
+      // TYPE B: Infrastructure Events (or Instant Mode) - Apply immediately
+      get().applyEventToState(nextEvent);
+      get()._recordProcessedEvent(nextEvent);
+      
+      set({ incomingEvents: remainingEvents });
+      return { event: nextEvent, type: 'infrastructure' };
+    }
+  },
+
+  // Called by Visual Owners (e.g. Editor) once they finish the Observe -> Understand animation
+  commitActiveCognitiveEvent: () => {
+    const { activeCognitiveEvent } = get();
+    if (!activeCognitiveEvent) return;
+
+    // Apply to timeline, knowledge, etc.
+    get().applyEventToState(activeCognitiveEvent);
+    get()._recordProcessedEvent(activeCognitiveEvent);
+
+    set({ activeCognitiveEvent: null });
+  },
+
+  _recordProcessedEvent: (event) => {
+    const { processedEvents } = get();
+    const newProcessedEvents = [...processedEvents, event];
     if (newProcessedEvents.length > 2000) {
       newProcessedEvents.splice(0, newProcessedEvents.length - 2000);
     }
-    
-    set({
-      incomingEvents: remainingEvents,
-      processedEvents: newProcessedEvents
-    });
-    
-    return nextEvent;
+    set({ processedEvents: newProcessedEvents });
   },
 
   // Playback Controls
@@ -186,6 +224,7 @@ export const useInvestigationSession = create((set, get) => ({
   resetSession: (repoId) => {
     set({
       sessionState: SESSION_STATES.IDLE,
+      investigationState: 'IDLE',
       isAnimating: false,
       incomingEvents: [],
       processedEvents: [],
@@ -195,6 +234,7 @@ export const useInvestigationSession = create((set, get) => ({
       repositoryContext: { framework: null, findings: [], stats: { filesIndexed: 0, entryPoints: 0, services: 0 } },
       focusContext: { id: null, mission: null, status: 'repository', currentStep: null, answer: null, confidence: null, findings: [], relatedNodes: [] },
       aiFocusFile: null,
+      isAsset: false,
       currentReason: null,
       fileProgress: 0,
       currentLine: 0,
@@ -208,6 +248,10 @@ export const useInvestigationSession = create((set, get) => ({
           metadata: { ...state.metadata, sessionId: event.sessionId },
           focusContext: { ...state.focusContext, id: event.sessionId }
         }));
+        break;
+
+      case 'state.transition':
+        set({ investigationState: event.state });
         break;
 
       case 'planner.started': {
@@ -254,8 +298,9 @@ export const useInvestigationSession = create((set, get) => ({
       
       case 'file.selected':
         set((state) => ({ 
-        aiFocusFile: event.file, 
-        currentReason: event.reason, 
+          aiFocusFile: event.file,
+          isAsset: event.isAsset || false,
+          currentReason: event.reason, 
           fileProgress: 0, 
           currentLine: 0, 
           totalLines: 0,
