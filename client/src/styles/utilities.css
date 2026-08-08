@@ -62,11 +62,38 @@
 .util-shadow-depth-2 { box-shadow: var(--elevation-2); }
 .util-shadow-depth-3 { box-shadow: var(--elevation-3); }
 
+/* ─────────────────────────────────────────
+   SHARED ATTENTION & HOVER HIGHLIGHTS
+───────────────────────────────────────── */
+
+/* AI Attention Highlight (Accent Color @ 8%) */
+.util-ai-attention {
+  background-color: rgba(106, 142, 174, 0.08); /* Aurora Blue @ 8% */
+  transition: background-color var(--duration-micro) var(--curve-standard);
+}
+.util-ai-attention.strong {
+  background-color: rgba(106, 142, 174, 0.20); /* Stronger highlight on cross-panel link */
+}
+
+/* User Hover Highlight (Neutral Gray) */
+.util-user-hover {
+  transition: background-color var(--duration-micro) var(--curve-standard);
+}
+.util-user-hover:hover {
+  background-color: rgba(255, 255, 255, 0.05); /* Neutral Gray */
+}
+
 .util-focus-ring {
   outline: none;
+  /* Transition handles the disappear (100ms instant exit) */
+  transition: box-shadow var(--duration-instant) var(--curve-exit);
 }
 .util-focus-ring:focus-visible {
-  box-shadow: 0 0 0 2px var(--color-surface-void), 0 0 0 4px var(--color-accent-aurora-blue);
+  /* 1px ring, accent color @ 40% opacity, 2px offset. 
+     box-shadow format: inset/offset, blur, spread, color */
+  box-shadow: 0 0 0 2px var(--color-surface-void), 0 0 0 3px rgba(106, 142, 174, 0.4);
+  /* Transition handles the appear (150ms micro enter) */
+  transition: box-shadow var(--duration-micro) var(--curve-enter);
 }
 
 /* ─────────────────────────────────────────
