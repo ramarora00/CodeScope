@@ -66,7 +66,7 @@ class UnderstandingPlanBuilder {
 
     return new InvestigationPlan({
       mission: 'Repository Understanding',
-      hypothesis: `Analyzed ${allFiles.length} files. Framework detected: ${framework}.`,
+      hypothesis: `Mapped structural tree for ${allFiles.length} files. Framework detected: ${framework}.`,
       confidence: 1.0,
       executionSteps: executionSteps
     });
