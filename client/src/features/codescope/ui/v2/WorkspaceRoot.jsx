@@ -4,6 +4,7 @@ import MacOSTitleBar from './MacOSTitleBar';
 import Dock from './Dock';
 import PerspectiveRouter from './PerspectiveRouter';
 import { API_BASE } from '../../../../config/api';
+import TransitionWrapper from './shared/TransitionWrapper';
 
 // ── Behavior Layer ──────────────────────────────────────────────
 import { useInvestigationSession, SESSION_STATES } from '../../store/useInvestigationSession';
@@ -12,6 +13,7 @@ import { usePlaybackController } from '../../store/usePlaybackController';
 import { useWorkspacePresentationModel } from '../../store/useWorkspacePresentationModel';
 import { useWorkspaceLifecycle } from '../../hooks/useWorkspaceLifecycle';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
+import RepositoryReadingExperience from './RepositoryReadingExperience';
 
 export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvestigation }) {
   const { selectedRepo: repo } = useWorkspaceStore();
@@ -20,10 +22,10 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
   const [dockActive, setDockActive] = useState('investigation');
 
   // ── BEHAVIOR LAYER: read from Zustand store via Adapter ──────────
-  const { presentation, raw } = useWorkspacePresentationModel();
+  const { presentation, raw, orchestration } = useWorkspacePresentationModel();
 
   // ── BOOT state ───────────────────────────────────────────────────
-  const { bootPhase, bootStatus } = useWorkspaceLifecycle({
+  const { bootPhase, bootStatus, currentFile, currentLine, currentContent } = useWorkspaceLifecycle({
     repo,
     activeInvestigation,
     onNewInvestigation,
@@ -113,8 +115,9 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
   // explicit user approval.
   return (
     <div
-      className="w-screen h-screen flex flex-col"
+      className="w-full flex flex-col overflow-hidden"
       style={{
+        height: '100dvh',
         background: '#09090B',
         padding: '16px 20px',
         gap: '12px',
@@ -138,44 +141,16 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
       </div>
 
       {/* ── Workspace body ── */}
-      {bootPhase === 'booting' ? (
-        <div className="flex flex-1 items-center justify-center min-h-0 animate-fade-in">
-          <div className="flex flex-col items-center gap-6">
-            {!bootStatus.includes('failed') && (
-              <div className="w-5 h-5 rounded-full border-[1.5px] border-[rgba(255,255,255,0.05)] border-t-[var(--cs-accent)] animate-spin" />
-            )}
-            <span
-              style={{
-                color: bootStatus.includes('failed') ? 'var(--cs-red, #e45c5c)' : 'var(--cs-text)',
-                fontSize: '13px',
-                letterSpacing: '0.02em',
-                fontWeight: 500,
-              }}
-              className="animate-pulse-dot"
-            >
-              {bootStatus}
-            </span>
-            {bootStatus.includes('failed') && onBack && (
-              <button
-                onClick={onBack}
-                style={{
-                  marginTop: '8px',
-                  padding: '6px 16px',
-                  fontSize: '12px',
-                  color: 'var(--cs-text)',
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                }}
-              >
-                Go back
-              </button>
-            )}
-          </div>
-        </div>
-      ) : (
-      <div className="flex flex-1 min-h-0 gap-3">
+      <TransitionWrapper transitionKey={bootPhase === 'booting' ? 'booting' : 'workspace'}>
+        {bootPhase === 'booting' ? (
+          <RepositoryReadingExperience
+            bootStatus={bootStatus}
+            currentFile={currentFile}
+            currentLine={currentLine}
+            currentContent={currentContent}
+          />
+        ) : (
+          <div className="flex flex-1 min-h-0 gap-3 w-full h-full">
         {/* Dock */}
         <div
           className="animate-settle flex-shrink-0"
@@ -197,37 +172,33 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
           activeInvestigation={activeInvestigation}
           isUnderstandingMode={isUnderstandingMode}
           presentation={presentation}
+          orchestration={orchestration}
           handleSelectTab={handleSelectTab}
           handleCloseTab={handleCloseTab}
           memoryFiles={memoryFiles}
           startedAt={startedAt}
           onNewInvestigation={onNewInvestigation}
+          fileCount={fileTree.length}
         />
-      </div>
-      )}
+        </div>
+        )}
+      </TransitionWrapper>
 
         {/* ── Footer — live runtime metadata ── */}
       <div
-        className="flex items-center gap-5 flex-shrink-0 px-2 animate-settle"
-        style={{ color: 'rgba(255,255,255,0.28)', fontSize: '10.5px', fontWeight: 400, animationDelay: '220ms' }}
+        className="flex items-center gap-2 flex-shrink-0 px-2 animate-settle"
+        style={{ color: 'rgba(255,255,255,0.28)', fontSize: '10.5px', fontWeight: 400, animationDelay: '300ms' }}
       >
-        <span style={{ color: 'rgba(255,255,255,0.45)' }}>
-          {memoryFiles.length > 0 ? `${memoryFiles.length} file${memoryFiles.length > 1 ? 's' : ''} touched` : 'Waiting for investigation...'}
+        {raw.isAiActive ? (
+          <div className="w-1.5 h-1.5 bg-[var(--cs-accent)] rounded-full animate-pulse-dot" />
+        ) : (
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }} />
+        )}
+        <span>
+          {raw.isAiActive ? 'Reading' : raw.runtimeStatus === 'resolved' ? 'Analysis Complete' : 'Idle'}
+          {raw.isAiActive && presentation.activeTabId && ` · ${presentation.activeTabId.split(/[\\/]/).pop()}`}
+          {(raw.isAiActive || raw.runtimeStatus === 'resolved') && ` · evidence ${presentation.intelligenceStream?.length || 0}`}
         </span>
-        <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
-        <div className="flex items-center gap-1.5">
-          <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#3FB950', opacity: 0.8 }} />
-          <span>Live</span>
-        </div>
-        <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
-        <span>{raw.focusContext?.mission ? `Mission: ${raw.focusContext.mission.slice(0, 40)}${raw.focusContext.mission.length > 40 ? '…' : ''}` : 'Gemini'}</span>
-        <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
-        <div className="flex items-center gap-1">
-          <span style={{ color: 'rgba(191,200,216,0.4)', fontSize: '9px' }}>✦</span>
-          <span>Sourcegraph MCP</span>
-        </div>
-        <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
-        <span>Latency {presentation.runtimeStatus === 'reading' ? '38ms' : '—'}</span>
       </div>
     </div>
   );

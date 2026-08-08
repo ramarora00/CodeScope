@@ -3,7 +3,8 @@ import { ChevronRight, Share2 } from 'lucide-react';
 
 export default function MacOSTitleBar({ repo, branch = 'main', onSearch }) {
   const org = repo?.name?.split('/')?.[0] ?? 'acme';
-  const repoName = repo?.name?.split('/')?.[1] ?? 'payments-service';
+  const rawRepoName = repo?.name?.split('/')?.[1] ?? 'payments-service';
+  const repoName = rawRepoName.replace(/-\d{10,}$/, '');
 
   return (
     <div

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Database, Folder, Shield, Zap } from 'lucide-react';
 
-export default function RepositoryReadyState({ repo, repositoryContext, onNewInvestigation }) {
+export default function RepositoryReadyState({ repo, repositoryContext, onNewInvestigation, fileCount }) {
   
   // Use real stats if available, fallback to some counts
   const stats = repositoryContext.stats || {
@@ -35,14 +35,14 @@ export default function RepositoryReadyState({ repo, repositoryContext, onNewInv
             Repository
           </span>
           <span style={{ color: 'var(--cs-text)', fontSize: '15px', fontFamily: 'var(--cs-mono)' }}>
-            {repo?.name || 'Unknown'}
+            {repo?.name?.split('/')?.pop()?.replace(/-\d{10,}$/, '') || 'Workspace'}
           </span>
         </div>
 
         <div className="flex flex-col gap-3 p-5 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
           <div className="flex justify-between items-center">
-            <span style={{ color: 'var(--cs-hint)', fontSize: '13px' }}>Files Indexed</span>
-            <span style={{ color: 'var(--cs-text)', fontSize: '13px', fontWeight: 500, fontFamily: 'var(--cs-mono)' }}>{stats.filesIndexed > 0 ? stats.filesIndexed : repo?.fileCount || '100+'}</span>
+            <span style={{ color: 'var(--cs-hint)', fontSize: '13px' }}>Repository Size</span>
+            <span style={{ color: 'var(--cs-text)', fontSize: '13px', fontWeight: 500, fontFamily: 'var(--cs-mono)' }}>{fileCount || '0'} files</span>
           </div>
           <div className="flex justify-between items-center">
             <span style={{ color: 'var(--cs-hint)', fontSize: '13px' }}>Entry Points Detected</span>
