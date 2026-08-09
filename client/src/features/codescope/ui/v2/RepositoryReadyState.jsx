@@ -1,68 +1,95 @@
 import React from 'react';
-import { Database, Folder, Shield, Zap } from 'lucide-react';
 
-export default function RepositoryReadyState({ repo, repositoryContext, onNewInvestigation, fileCount }) {
+export default function RepositoryReadyState({ repo, repositoryContext, onNewInvestigation, fileCount, filesLoading }) {
   
-  // Use real stats if available, fallback to some counts
-  const stats = repositoryContext.stats || {
-    filesIndexed: 0,
-    entryPoints: 0,
-    services: 0
-  };
-
   const handleSuggestionClick = (suggestion) => {
     if (onNewInvestigation) {
       onNewInvestigation(`Investigate the ${suggestion.toLowerCase()} of this repository`);
     }
   };
 
+  const displayName = repo?.name?.split('/')?.pop()?.replace(/-\d{10,}$/, '') || 'Workspace';
+  const frameworkText = repositoryContext?.framework || 'React/Vite';
+
   return (
     <div className="flex flex-col flex-1 min-w-0 h-full items-center justify-center p-8 animate-fade-in" style={{ background: 'var(--cs-editor)' }}>
-      <div className="flex flex-col max-w-lg w-full gap-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(34, 197, 94, 0.1)', color: 'var(--cs-green)' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-          </div>
-          <h2 style={{ color: 'var(--cs-text)', fontSize: '20px', fontWeight: 600, letterSpacing: '-0.02em' }}>
-            Repository Understanding Complete
+      <div className="flex flex-col max-w-sm w-full gap-8 text-center items-center">
+        
+        {/* Editorial Success Mark */}
+        <div 
+          className="w-10 h-10 rounded-full flex items-center justify-center animate-settle"
+          style={{ 
+            background: 'rgba(34, 197, 94, 0.08)', 
+            color: 'var(--cs-green)',
+            border: '1px solid rgba(34, 197, 94, 0.15)',
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+
+        {/* Editorial Text Structure */}
+        <div className="flex flex-col gap-2 items-center">
+          <span 
+            style={{ 
+              color: 'var(--cs-green)', 
+              fontSize: '13px', 
+              fontWeight: 500,
+              fontFamily: 'var(--font-ui)',
+              letterSpacing: '0.02em'
+            }}
+          >
+            Repository mapped
+          </span>
+          <h2 
+            style={{ 
+              color: 'var(--cs-text)', 
+              fontSize: '24px', 
+              fontWeight: 600, 
+              letterSpacing: '-0.03em',
+              fontFamily: 'var(--font-ui)' 
+            }}
+          >
+            {displayName}
           </h2>
+          <span 
+            style={{ 
+              color: 'var(--cs-muted)', 
+              fontSize: '12px', 
+              fontFamily: 'var(--font-mono)',
+              opacity: 0.8
+            }}
+          >
+            {filesLoading ? '—' : `${fileCount} files`} · {frameworkText}
+          </span>
+          <span 
+            style={{ 
+              color: 'var(--cs-faint)', 
+              fontSize: '12px', 
+              fontFamily: 'var(--font-ui)',
+              fontStyle: 'italic',
+              marginTop: '4px'
+            }}
+          >
+            Structural model ready
+          </span>
         </div>
 
-        <div className="flex flex-col gap-1 mb-2">
-          <span style={{ color: 'var(--cs-faint)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-            Repository
+        {/* Quiet Vertical suggested directions list */}
+        <div className="w-full flex flex-col gap-4 mt-4 text-left border-t border-white/5 pt-6">
+          <span 
+            style={{ 
+              color: 'var(--cs-text)',
+              opacity: 0.6,
+              fontSize: '12px', 
+              fontWeight: 600,
+              fontFamily: 'var(--font-ui)'
+            }}
+          >
+            Suggested directions
           </span>
-          <span style={{ color: 'var(--cs-text)', fontSize: '15px', fontFamily: 'var(--cs-mono)' }}>
-            {repo?.name?.split('/')?.pop()?.replace(/-\d{10,}$/, '') || 'Workspace'}
-          </span>
-        </div>
-
-        <div className="flex flex-col gap-3 p-5 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-          <div className="flex justify-between items-center">
-            <span style={{ color: 'var(--cs-hint)', fontSize: '13px' }}>Repository Size</span>
-            <span style={{ color: 'var(--cs-text)', fontSize: '13px', fontWeight: 500, fontFamily: 'var(--cs-mono)' }}>{fileCount || '0'} files</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span style={{ color: 'var(--cs-hint)', fontSize: '13px' }}>Entry Points Detected</span>
-            <span style={{ color: 'var(--cs-text)', fontSize: '13px', fontWeight: 500, fontFamily: 'var(--cs-mono)' }}>{repositoryContext.findings.length > 0 ? repositoryContext.findings.length : 'Multiple'}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span style={{ color: 'var(--cs-hint)', fontSize: '13px' }}>Framework</span>
-            <span style={{ color: 'var(--cs-text)', fontSize: '13px', fontWeight: 500 }}>{repositoryContext.framework || 'Detected'}</span>
-          </div>
-          <div className="flex justify-between items-center mt-2 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <span style={{ color: 'var(--cs-hint)', fontSize: '13px' }}>Knowledge Graph</span>
-            <span style={{ color: 'var(--cs-green)', fontSize: '13px', fontWeight: 500 }}>Ready</span>
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-col gap-3">
-          <span style={{ color: 'var(--cs-faint)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-            Suggested Investigations
-          </span>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-2.5">
             {[
               'Authentication Flow',
               'State Management',
@@ -72,34 +99,28 @@ export default function RepositoryReadyState({ repo, repositoryContext, onNewInv
             ].map(suggestion => (
               <button 
                 key={suggestion}
-                className="px-3 py-1.5 rounded-full text-[12px] whitespace-nowrap"
+                onClick={() => handleSuggestionClick(suggestion)}
+                className="group flex items-center gap-2 text-[13px] bg-transparent border-none text-left p-0 cursor-pointer transition-all duration-[220ms] outline-none"
                 style={{ 
-                  background: 'var(--cs-bg)', 
-                  border: '1px solid var(--cs-border)',
-                  color: 'var(--cs-hint)',
-                  transition: 'all 0.2s ease',
-                  cursor: 'pointer'
+                  color: 'var(--cs-muted)',
+                  fontFamily: 'var(--font-ui)',
                 }}
                 onMouseOver={e => {
-                  e.currentTarget.style.background = 'var(--cs-hover)';
                   e.currentTarget.style.color = 'var(--cs-text)';
-                  e.currentTarget.style.borderColor = 'var(--cs-text)';
+                  e.currentTarget.style.transform = 'translateX(4px)';
                 }}
                 onMouseOut={e => {
-                  e.currentTarget.style.background = 'var(--cs-bg)';
-                  e.currentTarget.style.color = 'var(--cs-hint)';
-                  e.currentTarget.style.borderColor = 'var(--cs-border)';
+                  e.currentTarget.style.color = 'var(--cs-muted)';
+                  e.currentTarget.style.transform = 'translateX(0px)';
                 }}
-                onClick={() => handleSuggestionClick(suggestion)}
               >
-                {suggestion}
+                <span className="text-[var(--cs-accent)] opacity-60 group-hover:opacity-100 transition-opacity">→</span>
+                <span className="border-b border-transparent group-hover:border-white/20 transition-all pb-0.5">{suggestion}</span>
               </button>
             ))}
           </div>
-          <p className="mt-4" style={{ color: 'var(--cs-hint)', fontSize: '13px', fontStyle: 'italic' }}>
-            Or use the command bar above to ask your own question.
-          </p>
         </div>
+
       </div>
     </div>
   );

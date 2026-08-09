@@ -54,36 +54,55 @@ function AIMemoryRow({
   const aiSummary = meta.summary || item.aiSummary || null
   const lastInvestigatedTime = meta.lastInvestigatedTime || null
 
+  // Check if this file is under assets/public folders for quieting
+  const isAssetPath = item.path.startsWith('public/') || 
+                      item.path.startsWith('assets/') || 
+                      item.path.startsWith('images/') || 
+                      item.path.startsWith('static/') || 
+                      item.path.includes('/public/') || 
+                      item.path.includes('/assets/');
+
   // Calculate Opacity based on AI Familiarity System (quieter baseline values)
-  let baseOpacity = 0.25
-  let fontWeight = 300
+  let baseOpacity = 0.40
+  let fontWeight = 400
   let isCore = false
 
   if (isDirectory) {
-    baseOpacity = 0.55
+    baseOpacity = isAssetPath ? 0.40 : 0.65;
     fontWeight = 500
   } else if (familiarityState === 'core') {
     baseOpacity = 0.90
-    fontWeight = 500
+    fontWeight = 600
     isCore = true
   } else if (familiarityState === 'investigated') {
-    baseOpacity = 0.70
+    baseOpacity = 0.75
     fontWeight = 500
   } else if (familiarityState === 'scanned') {
-    baseOpacity = 0.45
+    baseOpacity = 0.55
     fontWeight = 400
+  } else {
+    // untouched
+    baseOpacity = isAssetPath ? 0.30 : 0.42;
+    fontWeight = 300
   }
 
   // Semantic File Type Color
   const extension = item.name.split('.').pop().toLowerCase()
   let semanticColor = 'var(--cs-text)'
+  let icon = ''
   if (!isDirectory && !isSelected) {
-    if (['md', 'txt', 'csv'].includes(extension)) {
-      semanticColor = 'rgba(220, 225, 235, 0.75)' // Document tone
+    if (item.name === 'package.json') {
+      semanticColor = 'hsl(350, 70%, 75%)' // subtle red
+      icon = '✦ '
+    } else if (item.name.toLowerCase() === 'readme.md') {
+      semanticColor = 'hsl(210, 80%, 85%)' // subtle blue
+      icon = '☰ '
+    } else if (['md', 'txt', 'csv'].includes(extension)) {
+      semanticColor = 'hsl(40, 50%, 90%)' // Warm white for docs
     } else if (['json', 'yml', 'yaml', 'env', 'config'].includes(extension)) {
-      semanticColor = 'rgba(195, 215, 205, 0.85)' // Config tone
+      semanticColor = 'hsl(150, 40%, 85%)' // Muted mint for config
     } else if (['js', 'jsx', 'ts', 'tsx', 'py', 'go', 'rs', 'java', 'c', 'cpp'].includes(extension)) {
-      semanticColor = 'rgba(215, 230, 255, 0.95)' // Source tone
+      semanticColor = 'hsl(210, 80%, 90%)' // Cool blue-white for source
     } else {
       semanticColor = 'rgba(255, 255, 255, 0.85)' // Default fallback
     }
@@ -134,30 +153,31 @@ function AIMemoryRow({
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          minHeight: hasSummary ? '44px' : '30px',
+          minHeight: hasSummary ? '44px' : '28px',
           paddingLeft: '12px',
           paddingRight: '12px',
-          paddingTop: hasSummary ? '6px' : '4px',
-          paddingBottom: hasSummary ? '6px' : '4px',
+          paddingTop: hasSummary ? '6px' : '2px',
+          paddingBottom: hasSummary ? '6px' : '2px',
           cursor: 'pointer',
           borderRadius: '4px',
           margin: '1px 2px',
           background: isSelected
-            ? 'rgba(191,200,216,0.08)'
+            ? 'rgba(191,200,216,0.07)'
             : hovered
-              ? 'rgba(191,200,216,0.04)'
+              ? 'rgba(255,255,255,0.04)'
               : 'transparent',
           borderLeft: isSelected
-            ? '2px solid var(--cs-accent)'
+            ? '2px solid rgba(191,200,216,0.55)'
             : isCore
-              ? '1px solid rgba(191,200,216,0.5)'
-              : '1px solid transparent',
-          opacity: hovered ? Math.min(1.0, baseOpacity + 0.15) : baseOpacity,
+              ? '1px solid rgba(191,200,216,0.18)'
+              : hovered
+                ? '2px solid rgba(255,255,255,0.07)'
+                : '1px solid transparent',
           userSelect: 'none',
-          transition: 'min-height 200ms cubic-bezier(0.16, 1, 0.3, 1), opacity 150ms ease, background 150ms ease',
+          transition: 'min-height 200ms cubic-bezier(0.16, 1, 0.3, 1), background 150ms ease, border-color 150ms ease',
         }}
       >
-        <div style={{ display: 'flex', items: 'center', minWidth: 0, height: '20px', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, height: '20px', position: 'relative' }}>
           {/* Continuous Tree Lines (ASCII) */}
           <div
             style={{
@@ -166,7 +186,7 @@ function AIMemoryRow({
               height: '100%',
               fontFamily: 'var(--cs-mono)',
               fontSize: '13px',
-              color: 'rgba(255,255,255,0.3)',
+              color: 'rgba(255,255,255,0.15)',
               whiteSpace: 'pre',
               pointerEvents: 'none',
               marginRight: '6px'
@@ -198,7 +218,7 @@ function AIMemoryRow({
             )}
 
             {/* Filename with Recency Underline */}
-            <div style={{ display: 'inline-flex', flexDirection: 'column', position: 'relative', minWidth: 0, flex: 1, marginLeft: isDirectory ? '0' : '12px' }}>
+            <div style={{ display: 'inline-flex', flexDirection: 'column', position: 'relative', minWidth: 0, flex: 1, marginLeft: isDirectory ? '0' : '12px', opacity: hovered ? Math.min(1.0, baseOpacity + 0.15) : baseOpacity }}>
               <span
                 style={{
                   fontFamily: 'var(--cs-mono)',
@@ -210,24 +230,37 @@ function AIMemoryRow({
                   whiteSpace: 'nowrap',
                 }}
               >
-                {item.name}
+                {icon}{item.name}
               </span>
-              {/* Recency 1px Underline */}
-              {!isDirectory && recencyOpacity > 0 && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: '1px',
-                    left: 0,
-                    width: '100%',
-                    height: '1px',
-                    background: 'var(--cs-accent)',
-                    opacity: recencyOpacity,
-                    pointerEvents: 'none',
-                  }}
-                />
-              )}
             </div>
+
+            {/* AI state indicator — right-aligned, restrained. Repository tree first, AI state second. */}
+            {!isDirectory && (
+              <span style={{
+                flexShrink: 0,
+                marginLeft: '8px',
+                fontFamily: 'var(--cs-mono)',
+                fontSize: '10px',
+                lineHeight: '20px',
+                userSelect: 'none',
+                ...(isCurrentlyReading
+                  ? { color: 'var(--cs-accent)', opacity: 1 }        // ● active
+                  : familiarityState === 'core' || familiarityState === 'investigated'
+                    ? { color: 'var(--cs-muted)', opacity: 0.6 }      // ✓ visited
+                    : familiarityState === 'scanned'
+                      ? { color: 'var(--cs-hint)', opacity: 0.5 }     // ○ contextual
+                      : { display: 'none' }                            // untouched — no indicator
+                )
+              }}>
+                {isCurrentlyReading
+                  ? '●'
+                  : familiarityState === 'core' || familiarityState === 'investigated'
+                    ? '✓'
+                    : familiarityState === 'scanned'
+                      ? '○'
+                      : null}
+              </span>
+            )}
           </div>
         </div>
 
@@ -286,14 +319,11 @@ const FileExplorer = ({
   onFileSelect,
   aiMemoryMap = {},
   selectedPath = null,
-  isContext,
   activeInvestigatingFile = null
 }) => {
   const [tree, setTree] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [sortMode, setSortMode] = useState('structure') // 'structure' | 'relevance'
-  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     if (repo) fetchFileTree()
@@ -329,21 +359,17 @@ const FileExplorer = ({
           animation: 'spin 800ms linear infinite',
         }}
       />
-      {!isContext && (
-        <span style={{ color: 'var(--cs-muted)', fontSize: '11px', fontFamily: 'var(--cs-mono)', opacity: 0.5 }}>
-          AI reading repository structure...
-        </span>
-      )}
+      <span style={{ color: 'var(--cs-muted)', fontSize: '11px', fontFamily: 'var(--cs-mono)', opacity: 0.5 }}>
+        AI reading repository structure...
+      </span>
     </div>
   )
 
   if (error) return (
     <div style={{ padding: '24px', textAlign: 'center' }}>
-      {!isContext && (
-        <span style={{ color: 'var(--cs-red)', fontSize: '11px', fontFamily: 'var(--cs-mono)', opacity: 0.7 }}>
-          {error}
-        </span>
-      )}
+      <span style={{ color: 'var(--cs-red)', fontSize: '11px', fontFamily: 'var(--cs-mono)', opacity: 0.7 }}>
+        {error}
+      </span>
       <button
         onClick={fetchFileTree}
         style={{ color: 'var(--cs-accent)', fontSize: '11px', background: 'none', border: 'none', cursor: 'pointer', marginTop: '8px' }}
@@ -353,31 +379,12 @@ const FileExplorer = ({
     </div>
   )
 
-  // Context Level Representation (Sliver mode)
-  if (isContext) {
-    return (
-      <div className="flex flex-col items-center h-full pt-8 pb-4 border-r border-transparent hover:bg-white/[0.02] transition-colors w-[48px]">
-        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', color: 'var(--cs-faint)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '24px', opacity: 0.8 }}>
-          Memory
-        </div>
-        <div className="flex-1 flex flex-col items-center gap-2 w-full pt-2">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} style={{
-              width: '12px', height: '4px', borderRadius: '1px',
-              background: i < 3 ? 'var(--cs-accent)' : 'var(--cs-border)',
-              opacity: i < 3 ? 0.7 : 0.2
-            }} />
-          ))}
-        </div>
-      </div>
-    )
-  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '24px 24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 0 }}>
 
       {/* Tree Content */}
-      <div className="flex-1 overflow-y-auto no-scrollbar" style={{ padding: '4px 0' }}>
+      <div className="flex-1 overflow-y-auto no-scrollbar" style={{ padding: 0 }}>
         {tree.length > 0 ? tree.map((item, idx) => (
           <AIMemoryRow
             key={`${item.path}-${idx}`}

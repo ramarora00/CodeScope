@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { List } from 'react-window';
 import { createHighlighter, bundledLanguages, bundledThemes } from 'shiki';
 import { Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // ─────────────────────────────────────────────────────────────────
 // SHIKI HIGHLIGHTER INSTANCE
@@ -21,8 +22,18 @@ function getShikiHighlighter() {
 // ─────────────────────────────────────────────────────────────────
 // AI ATTENTION WINDOW
 // ─────────────────────────────────────────────────────────────────
-function getLineStyle(lineNum, aiLine, isAiActive) {
+function getLineStyle(lineNum, aiLine, isAiActive, startLine, endLine) {
   if (!isAiActive) return { opacity: 1.0, isUnderstood: false, isFootprint: false };
+
+  // If we have a contextual focus block
+  if (startLine && endLine) {
+    if (lineNum >= startLine && lineNum <= endLine) {
+      return { opacity: 1.0, isUnderstood: true, isFootprint: true }; // Context focus (1.0)
+    }
+    const dist = lineNum < startLine ? startLine - lineNum : lineNum - endLine;
+    if (dist <= 5) return { opacity: 0.65, isUnderstood: false, isFootprint: false }; // Adjacent context (0.65)
+    return { opacity: 0.35, isUnderstood: false, isFootprint: false }; // Far code (0.35)
+  }
 
   const dist = lineNum - aiLine;
 
@@ -43,38 +54,8 @@ function getLineStyle(lineNum, aiLine, isAiActive) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// SEQUENTIAL READING DOTS
+// SEQUENTIAL READING DOTS (Deprecated/Removed)
 // ─────────────────────────────────────────────────────────────────
-function ReadingDots({ active }) {
-  const [filled, setFilled] = React.useState(0);
-
-  React.useEffect(() => {
-    if (!active) { setFilled(0); return; }
-    let i = 0;
-    const interval = setInterval(() => {
-      i = (i + 1) % 6;
-      setFilled(i === 5 ? 0 : i + 1);
-    }, 320);
-    return () => clearInterval(interval);
-  }, [active]);
-
-  return (
-    <div className="flex items-center gap-[5px] px-4">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div
-          key={i}
-          style={{
-            width: '4px',
-            height: '4px',
-            borderRadius: '50%',
-            background: active && i < filled ? 'var(--cs-accent)' : 'rgba(191,200,216,0.18)',
-            transition: 'background 150ms ease',
-          }}
-        />
-      ))}
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────
 // UNIVERSAL CODE VIEWER
@@ -94,8 +75,12 @@ export default function UniversalCodeViewer({
   answer,
   orchestration,
   activeInvestigation,
+  onReturnToAI,
+  userSelectedFile
 }) {
   const listRef = useRef(null);
+  const previousTokensRef = useRef([]);
+  const [isCrossfading, setIsCrossfading] = useState(false);
 
   const activeFile = activeTabId || attention.file;
 
@@ -104,7 +89,8 @@ export default function UniversalCodeViewer({
 
   const aiLine = animatedAiLine || attention.line || null;
   const isUnderstandingMode = activeInvestigation?.mode === 'understanding';
-  const isAiActive = !isUnderstandingMode && runtimeStatus === 'reading' && !!aiLine && attention.file === activeFile;
+  const isAiControlling = !userSelectedFile || userSelectedFile === attention.file;
+  const isAiActive = !isUnderstandingMode && runtimeStatus === 'reading' && !!aiLine && attention.file === activeFile && isAiControlling;
   const { activeCognitiveEvent, commitActiveCognitiveEvent } = orchestration || {};
 
   const isResolved = runtimeStatus === 'resolved' && !activeCognitiveEvent;
@@ -144,7 +130,10 @@ export default function UniversalCodeViewer({
 
       // Believable Cognition: Jump directly to the relevant block, no theatrical scanning.
       setAnimatedAiLine(targetLine);
-      const scrollIndex = Math.max(0, Math.min(targetLine - 1, maxLines - 1));
+      const startL = attention.startLine;
+      const endL = attention.endLine;
+      const scrollLine = (startL && endL) ? Math.floor((startL + endL) / 2) : targetLine;
+      const scrollIndex = Math.max(0, Math.min(scrollLine - 1, maxLines - 1));
       try {
         if (listRef.current) {
           if (typeof listRef.current.scrollToItem === 'function') listRef.current.scrollToItem(scrollIndex, 'center');
@@ -164,7 +153,10 @@ export default function UniversalCodeViewer({
       const targetLine = Math.min(activeCognitiveEvent.line || attention.line || 1, maxLines);
       setTimeout(() => {
         setAnimatedAiLine(targetLine);
-        const scrollIndex = Math.min(targetLine - 1, maxLines - 1);
+        const startL = attention.startLine;
+        const endL = attention.endLine;
+        const scrollLine = (startL && endL) ? Math.floor((startL + endL) / 2) : targetLine;
+        const scrollIndex = Math.max(0, Math.min(scrollLine - 1, maxLines - 1));
         try {
           if (listRef.current) {
             if (typeof listRef.current.scrollToItem === 'function') listRef.current.scrollToItem(scrollIndex, 'center');
@@ -255,7 +247,8 @@ export default function UniversalCodeViewer({
     : provableNarration;
 
   const activeMemoryFile = memoryFiles.find(m => m.name === activeFile || m.file === activeFile);
-  const content = activeMemoryFile?.content || (activeFile ? '// Loading file content...' : '');
+  const content = activeMemoryFile?.content || '';
+  const isLoading = activeFile && !activeMemoryFile;
   const getLanguage = (path) => {
     if (!path) return 'javascript';
     const ext = path.split('.').pop().toLowerCase();
@@ -274,6 +267,16 @@ export default function UniversalCodeViewer({
 
   const [listHeight, setListHeight] = useState(600);
   const containerRef = useRef(null);
+
+  // P3: Crossfade between files — keep previous tokens visible while new ones tokenize
+  useEffect(() => {
+    if (tokenizedLines.length > 0) {
+      previousTokensRef.current = tokenizedLines;
+      setIsCrossfading(false);
+    } else if (previousTokensRef.current.length > 0) {
+      setIsCrossfading(true);
+    }
+  }, [tokenizedLines]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -348,15 +351,20 @@ export default function UniversalCodeViewer({
   }, [activeFile]);
 
   // react-window Row renderer
+  const displayTokens = tokenizedLines.length > 0 ? tokenizedLines : previousTokensRef.current;
+  const displayOpacity = isCrossfading ? 0.35 : 1.0;
+
   const Row = ({ index, style }) => {
-    const tokens = tokenizedLines[index];
+    const tokens = displayTokens[index];
     if (!tokens) return null;
 
     const lineNum = index + 1;
-    const { opacity, isUnderstood, isFootprint } = getLineStyle(lineNum, aiLine || -1, isAiActive);
+    const startLine = attention.startLine;
+    const endLine = attention.endLine;
+    const { opacity, isUnderstood, isFootprint } = getLineStyle(lineNum, aiLine || -1, isAiActive, startLine, endLine);
 
     // The specific line currently being read (top of the window)
-    const isAiFocus = isAiActive && lineNum === aiLine;
+    const isAiFocus = isAiActive && (startLine && endLine ? (lineNum >= startLine && lineNum <= endLine) : (lineNum === aiLine));
     const isHovered = hoverLine === lineNum;
 
     return (
@@ -366,29 +374,24 @@ export default function UniversalCodeViewer({
           opacity: isHovered ? 1.0 : opacity,
           display: 'flex',
           alignItems: 'center',
-          borderLeft: isAiFocus
-            ? '2px solid var(--cs-accent)'
-            : isHovered
-              ? '2px solid var(--cs-accent)'
-              : '2px solid transparent',
           background: isHovered
-            ? 'linear-gradient(90deg, rgba(62,168,255,0.12) 0%, rgba(62,168,255,0.02) 60%, transparent 100%)'
+            ? 'linear-gradient(90deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.0) 25%, rgba(255,255,255,0.0) 75%, rgba(255,255,255,0.035) 100%)'
             : isAiFocus
-              ? 'linear-gradient(90deg, rgba(191,200,216,0.14) 0%, rgba(191,200,216,0.02) 60%, transparent 100%)'
+              ? 'linear-gradient(90deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.0) 15%, rgba(255,255,255,0.0) 85%, rgba(255,255,255,0.025) 100%)'
               : isFootprint
-                ? 'linear-gradient(90deg, rgba(191,200,216,0.04) 0%, rgba(191,200,216,0.01) 60%, transparent 100%)'
+                ? 'linear-gradient(90deg, rgba(255,255,255,0.01) 0%, transparent 10%, transparent 90%, rgba(255,255,255,0.01) 100%)'
                 : 'transparent',
-          transition: `opacity 280ms cubic-bezier(0.22, 0.61, 0.36, 1), background 300ms ease, border-color 300ms ease`,
+          transition: `opacity 280ms cubic-bezier(0.22, 0.61, 0.36, 1), background 300ms ease`,
         }}
       >
         <span
           className="flex-shrink-0 select-none text-right pr-[18px] pl-4"
           style={{
             width: '60px',
-            fontFamily: 'var(--cs-mono)',
+            fontFamily: 'var(--font-mono)',
             fontSize: '12px',
             lineHeight: '24px',
-            color: isAiFocus ? 'var(--cs-accent)' : isHovered ? 'var(--cs-accent)' : isUnderstood ? 'rgba(62,168,255,0.3)' : 'rgba(255,255,255,0.15)',
+            color: isAiFocus ? 'rgba(255,255,255,0.85)' : isHovered ? 'rgba(255,255,255,0.85)' : isUnderstood ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)',
             userSelect: 'none',
             transition: 'color 220ms ease',
           }}
@@ -401,7 +404,7 @@ export default function UniversalCodeViewer({
             flex: 1,
             margin: 0,
             padding: '0 24px 0 28px',
-            fontFamily: 'var(--cs-mono)',
+            fontFamily: 'var(--font-mono)',
             fontSize: '13px',
             lineHeight: '24px',
             whiteSpace: 'pre',
@@ -424,96 +427,171 @@ export default function UniversalCodeViewer({
     );
   };
 
+  const isUserViewing = !!userSelectedFile && (typeof userSelectedFile === 'string' ? userSelectedFile !== attention.file : userSelectedFile.path !== attention.file);
+
   return (
     <div
       className="flex flex-col flex-1 min-w-0 h-full relative"
-      style={{ background: 'var(--cs-editor)' }}
+      style={{ background: 'var(--cs-editor)', gap: 0 }}
     >
+      {/* ── Editor Header / Tab Bar ── */}
+      <div className="flex flex-col flex-shrink-0" style={{ background: 'rgba(0,0,0,0.1)' }}>
+        <div
+          className="flex items-center flex-shrink-0"
+          style={{
+            height: '36px',
+            padding: '0 24px',
+            overflow: 'hidden'
+          }}
+        >
+          <div className="flex items-center gap-4 overflow-x-auto no-scrollbar h-full w-full">
+            {tabs.map(tab => {
+              const isTabActive = tab.id === activeFile;
+              const isAiFocusTab = tab.id === attention.file;
+              return (
+                <div
+                  key={tab.id}
+                  onClick={() => onSelectTab && onSelectTab(tab.id)}
+                  className="flex items-center gap-2 h-full px-4 border-b-2 cursor-pointer transition-all flex-shrink-0 group"
+                  style={{
+                    borderColor: isTabActive ? 'var(--cs-accent)' : 'transparent',
+                    color: isTabActive ? 'var(--cs-text)' : 'rgba(255,255,255,0.3)',
+                    fontSize: '13px',
+                    fontFamily: 'var(--font-ui)',
+                    fontWeight: isTabActive ? 500 : 400,
+                    background: isTabActive ? 'rgba(255,255,255,0.02)' : 'transparent',
+                    maxWidth: '160px',
+                    minWidth: '60px',
+                  }}
+                >
+                  {isAiFocusTab && (
+                    <span style={{ color: 'var(--cs-accent)', fontSize: '11px', display: 'inline-block', marginRight: '2px', flexShrink: 0 }}>✦</span>
+                  )}
+                  <span style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                    {tab.name.split(/[\\/]/).pop()}
+                  </span>
+                  {onCloseTab && (
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCloseTab(tab.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-40 hover:!opacity-100 p-0.5 flex-shrink-0 transition-opacity"
+                      style={{ fontSize: '10px', marginLeft: '6px' }}
+                    >
+                      ✕
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
 
       {/* ── Full file — Virtualized ── */}
-      <div className="flex-1 overflow-hidden min-h-0 relative animate-crossfade h-full w-full" ref={containerRef}>
+      <div className="flex-1 overflow-hidden min-h-0 relative h-full w-full" ref={containerRef}>
+        <AnimatePresence mode="wait">
         {!activeFile ? (
-          <div className="h-full flex items-center justify-center">
-            <p style={{ color: 'var(--cs-hint)', fontSize: '12px', fontStyle: 'italic' }}>
-              Waiting for AI to open a file...
-            </p>
-          </div>
+          <motion.div key="empty" initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}} transition={{duration: 0.4}} className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+             {activeInvestigation ? (
+                <>
+                  <span className="text-[12px] text-[var(--cs-text)] font-semibold font-mono opacity-80">Tracing repository context...</span>
+                  <span className="text-[11px] text-[var(--cs-muted)] font-sans opacity-50">Preparing evidence route</span>
+                </>
+             ) : (
+                <span className="text-[11px] text-[var(--cs-muted)] font-sans opacity-30">Select a file to view code</span>
+             )}
+          </motion.div>
         ) : isAsset || /\.(png|jpe?g|gif|webp|svg|ico|bmp|mp4|webm|pdf|zip|tar|gz|woff2?|eot|ttf|otf|lock)$/i.test(activeFile) ? (
-          <div className="h-full flex flex-col items-center justify-center">
+          <motion.div key="asset" initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}} transition={{duration: 0.4}} className="absolute inset-0 flex flex-col items-center justify-center">
             <div style={{ padding: '24px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--cs-border)' }}>
-              <p style={{ color: 'var(--cs-text)', fontSize: '14px', fontFamily: 'var(--cs-mono)', marginBottom: '8px' }}>IMAGE ASSET</p>
-              <p style={{ color: 'var(--cs-hint)', fontSize: '13px', marginBottom: '8px' }}>Not inspected as source code.</p>
-              <p style={{ color: 'var(--cs-faint)', fontSize: '11px', fontFamily: 'var(--cs-mono)' }}>Referenced by investigation.</p>
+              <p style={{ color: 'var(--cs-text)', fontSize: '14px', fontFamily: 'var(--font-ui)', fontWeight: 600, marginBottom: '8px' }}>Image asset</p>
+              <p style={{ color: 'var(--cs-hint)', fontSize: '13px', fontFamily: 'var(--font-ui)', marginBottom: '8px' }}>Not inspected as source code.</p>
+              <p style={{ color: 'var(--cs-faint)', fontSize: '11px', fontFamily: 'var(--font-ui)' }}>Referenced by investigation.</p>
             </div>
-          </div>
-        ) : tokenizedLines.length === 0 ? (
-          <div className="h-full flex items-center justify-center">
-            <p style={{ color: 'var(--cs-hint)', fontSize: '12px', fontStyle: 'italic' }}>
-              Loading tokens...
-            </p>
-          </div>
+          </motion.div>
+        ) : isLoading ? (
+          <motion.div key="loading" initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}} transition={{duration: 0.4}} className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+            <span className="text-[12px] text-[var(--cs-text)] font-semibold font-mono">{activeFile.split(/[\\/]/).pop()}</span>
+            <span className="text-[11px] text-[var(--cs-muted)] font-sans opacity-50">locating evidence...</span>
+          </motion.div>
+        ) : displayTokens.length === 0 ? (
+          <motion.div key="tokenizing" initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}} transition={{duration: 0.4}} className="absolute inset-0 flex items-center justify-center">
+            {/* Tokenizing — show nothing, crossfade will handle the transition */}
+          </motion.div>
         ) : (
-          <div style={{ height: '100%', width: '100%', position: 'absolute', inset: 0 }}>
+          <motion.div key="list" initial={{opacity: 0}} animate={{opacity: displayOpacity}} exit={{opacity: 0}} transition={{duration: 0.4}} style={{ height: '100%', width: '100%', position: 'absolute', inset: 0 }}>
             <List
               listRef={listRef}
               height={listHeight}
-              rowCount={tokenizedLines.length}
+              rowCount={displayTokens.length}
               rowHeight={24}
               rowComponent={Row}
               rowProps={{}}
               width="100%"
             />
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </div>
 
       {/* ── Status bar ── */}
-      <div
-        className="flex-shrink-0 flex items-center"
-        style={{
-          height: '42px',
-          padding: '0 24px 8px 24px',
-          background: 'transparent',
-          zIndex: 10
-        }}
-      >
+      {(activeFile && isUserViewing) || (activeFile && isAiActive) ? (
         <div
-          className="flex items-center min-w-0 flex-1"
+          className="flex-shrink-0 flex items-center"
           style={{
-            fontFamily: 'var(--cs-mono)',
-            fontSize: '11px',
-            color: 'rgba(255,255,255,0.35)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            gap: 0,
+            height: '32px',
+            padding: '0 24px',
+            background: 'rgba(0,0,0,0.05)',
+            zIndex: 10
           }}
         >
-          {activeFile ? (
-            <>
-              {isResolved ? (
-                <span style={{ color: 'rgba(255,255,255,0.45)' }}>Analysis complete</span>
-              ) : isAiActive ? (
-                <>
-                  {activeNarration || 'Following request'}
-                  <span style={{ color: 'var(--cs-accent)', marginLeft: '12px', fontWeight: 600 }}>
-                    {activeFile.split(/[\\/]/).pop()}
-                    <span style={{ opacity: 0.6, marginLeft: '6px', fontWeight: 400 }}>
-                      {Math.min(aiLine || 1, tokenizedLines.length)}/{tokenizedLines.length}
-                    </span>
-                  </span>
-                </>
-              ) : (
-                <span style={{ color: 'rgba(255,255,255,0.35)' }}>{activeNarration || 'Thinking...'}</span>
-              )}
-            </>
-          ) : (
-            <span style={{ color: 'rgba(255,255,255,0.15)', fontStyle: 'italic' }}>Waiting for AI...</span>
-          )}
+          <div
+            className="flex items-center min-w-0 flex-1 justify-between"
+            style={{
+              fontFamily: 'var(--font-ui)',
+              fontSize: '11px',
+              color: 'var(--cs-muted)',
+            }}
+          >
+            {activeFile && isUserViewing ? (
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full" />
+                  <span style={{ fontWeight: 500 }}>Examining <span style={{ color: 'var(--cs-text)', fontFamily: 'var(--font-mono)' }}>{activeFile.split(/[\\/]/).pop()}</span></span>
+                  <span style={{ color: 'var(--cs-faint)' }}>|</span>
+                  <span style={{ color: 'var(--cs-muted)' }}>User Selection</span>
+                </div>
+                {onReturnToAI && (
+                  <button
+                    onClick={onReturnToAI}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded transition-colors text-[11px] font-medium"
+                    style={{
+                      color: 'var(--cs-accent)',
+                      background: 'rgba(62,168,255,0.08)',
+                      border: '1px solid rgba(62,168,255,0.15)',
+                      cursor: 'pointer'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(62,168,255,0.14)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(62,168,255,0.08)'}
+                  >
+                    ✦ Follow AI
+                  </button>
+                )}
+              </div>
+            ) : activeFile && isAiActive ? (
+              <div className="flex items-center gap-3 w-full min-w-0">
+                <span className="w-1.5 h-1.5 bg-[var(--cs-accent)] rounded-full animate-pulse-dot shrink-0" />
+                <span className="shrink-0" style={{ fontWeight: 600, color: 'var(--cs-accent)', fontFamily: 'var(--font-ui)' }}>✦ Reading logic</span>
+                <span className="truncate flex-1" style={{ color: 'var(--cs-muted)', fontFamily: 'var(--font-ui)' }}>
+                  {attention.reason || "Analyzing..."}
+                </span>
+              </div>
+            ) : null}
+          </div>
         </div>
-
-        {activeFile && <ReadingDots active={isAiActive} />}
-      </div>
+      ) : null}
 
       {/* ── Insight bar ── */}
       {insight && (
