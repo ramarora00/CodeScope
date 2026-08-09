@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { ChevronRight, Search } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 
-export default function CommandBar({ branch = 'main', onNewInvestigation }) {
+export default function CommandBar({ branch = 'main', onNewInvestigation, activeInvestigation }) {
   const repo = useWorkspaceStore(s => s.selectedRepo);
-  const org = repo?.name?.split('/')?.[0] ?? 'acme';
+  const org = (repo?.name?.split('/')?.[0] ?? 'acme').replace(/-\d{10,}$/, '');
   const repoName = repo?.name?.split('/')?.pop()?.replace(/-\d{10,}$/, '') ?? 'Workspace';
 
   const [isSearching, setIsSearching] = useState(false);
@@ -19,15 +19,19 @@ export default function CommandBar({ branch = 'main', onNewInvestigation }) {
     }
   };
 
+  const activeQuery = activeInvestigation?.query || activeInvestigation?.title;
+
   return (
     <div
-      className="flex-shrink-0 flex items-center px-4 gap-4 select-none"
+      className="flex-shrink-0 flex items-center justify-between select-none w-full"
       style={{
         height: '48px',
         background: 'var(--cs-bg)',
+        paddingLeft: '24px',
+        paddingRight: '16px',
       }}
     >
-      {/* Logo */}
+      {/* Left side: Logo & Breadcrumb merged */}
       <div
         className="flex items-center gap-2 flex-shrink-0"
         style={{ minWidth: '0' }}
@@ -43,110 +47,82 @@ export default function CommandBar({ branch = 'main', onNewInvestigation }) {
         >
           CodeScope
         </span>
-      </div>
-
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <span style={{ color: 'var(--cs-faint)', fontSize: '12px', fontWeight: 500 }}>
-          {org}
-        </span>
-        <ChevronRight size={12} style={{ color: 'var(--cs-hint)' }} />
+        <span style={{ color: 'var(--cs-hint)', margin: '0 4px' }}>/</span>
         <span style={{ color: 'var(--cs-muted)', fontSize: '12px', fontWeight: 500 }}>
           {repoName}
         </span>
-        <ChevronRight size={12} style={{ color: 'var(--cs-hint)' }} />
+        <span style={{ color: 'var(--cs-hint)', margin: '0 4px' }}>/</span>
         <span style={{ color: 'var(--cs-text)', fontSize: '12px', fontWeight: 500 }}>
           {branch}
         </span>
       </div>
 
-      {/* Spacer */}
-      <div className="flex-1" />
-
       {/* Center search — switches between button and form */}
-      {isSearching ? (
-        <form
-          onSubmit={handleSubmit}
-          className="flex items-center gap-4 flex-shrink-0"
-          style={{
-            height: '42px',
-            width: '500px',
-            paddingLeft: '24px',
-            paddingRight: '12px',
-            borderRadius: '12px',
-            background: 'rgba(255,255,255,0.02)',
-            border: '1px solid var(--cs-accent)',
-            fontFamily: 'var(--cs-sans)',
-          }}
-        >
-          <Search size={14} style={{ color: 'var(--cs-accent)' }} />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ask anything... (Press Enter to start)"
-            autoFocus
-            onBlur={() => setTimeout(() => setIsSearching(false), 300)}
-            className="flex-1 bg-transparent text-[12px] text-white outline-none border-none placeholder-white/30"
-          />
-        </form>
-      ) : (
-        <button
-          onClick={() => setIsSearching(true)}
-          className="flex items-center gap-4 flex-shrink-0 transition-all duration-[220ms]"
-          style={{
-            height: '42px',
-            width: '500px',
-            paddingLeft: '24px',
-            paddingRight: '12px',
-            borderRadius: '12px',
-            background: 'transparent',
-            border: '1px solid var(--cs-border)',
-            color: 'rgba(255,255,255,0.3)',
-            fontSize: '12px',
-            cursor: 'text',
-            fontFamily: 'var(--cs-sans)',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
-            e.currentTarget.style.color = 'rgba(255,255,255,0.45)';
-            e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
-            e.currentTarget.style.color = 'rgba(255,255,255,0.3)';
-            e.currentTarget.style.background = 'transparent';
-          }}
-        >
-          <Search size={14} style={{ color: 'var(--cs-hint)' }} />
-          <span className="flex-1 text-left" style={{ letterSpacing: '0.005em' }}>
-            Ask anything about this repository...
-          </span>
-          <kbd
+      <div className="flex-1 flex justify-center">
+        {isSearching ? (
+          <form
+            onSubmit={handleSubmit}
+            className="flex items-center gap-4 flex-shrink-0"
             style={{
+              height: '42px',
+              width: '500px',
+              paddingLeft: '24px',
+              paddingRight: '12px',
+              borderRadius: '12px',
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.08)',
               fontFamily: 'var(--cs-sans)',
-              fontSize: '11px',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              background: 'transparent',
-              color: 'rgba(255,255,255,0.25)',
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '2px',
             }}
           >
-            <span>⌘</span>
-            <span>K</span>
-          </kbd>
-        </button>
-      )}
-
-      {/* Spacer */}
-      <div className="flex-1" />
+            <Search size={14} style={{ color: 'var(--cs-accent)' }} />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Ask anything... (Press Enter to start)"
+              autoFocus
+              onBlur={() => setTimeout(() => setIsSearching(false), 300)}
+              className="flex-1 bg-transparent text-[12px] text-white outline-none border-none placeholder-white/30"
+            />
+          </form>
+        ) : (
+          <button
+            onClick={() => setIsSearching(true)}
+            className="flex items-center gap-4 flex-shrink-0 transition-all duration-[220ms]"
+            style={{
+              height: '42px',
+              width: '500px',
+              paddingLeft: '24px',
+              paddingRight: '12px',
+              borderRadius: '12px',
+              background: 'transparent',
+              border: '1px solid transparent',
+              color: activeQuery ? 'var(--cs-text)' : 'rgba(255,255,255,0.3)',
+              fontSize: '13px',
+              cursor: 'text',
+              fontFamily: 'var(--cs-sans)',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = activeQuery ? 'var(--cs-text)' : 'rgba(255,255,255,0.45)';
+              e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = activeQuery ? 'var(--cs-text)' : 'rgba(255,255,255,0.3)';
+              e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            <Search size={14} style={{ color: activeQuery ? 'var(--cs-faint)' : 'var(--cs-hint)' }} />
+            <span className="flex-1 text-left truncate" style={{ letterSpacing: '0.005em' }}>
+              {activeQuery 
+                ? (activeQuery === 'Repository Understanding' ? 'Exploring repository...' : `⌕ ${activeQuery}`) 
+                : 'Investigate this repository...'}
+            </span>
+          </button>
+        )}
+      </div>
 
       {/* Right Actions */}
-      <div className="flex items-center gap-4 flex-shrink-0">
+      <div className="flex items-center gap-4 flex-shrink-0 justify-end" style={{ width: '150px' }}>
         {/* Avatar */}
         <div
           className="flex items-center justify-center flex-shrink-0"

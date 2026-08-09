@@ -95,7 +95,10 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
   useEffect(() => {
     setMemoryFiles([]);
     setStartedAt(null);
+    setClosedTabs(new Set());
   }, [repo?.id]);
+
+  const [closedTabs, setClosedTabs] = useState(new Set());
 
   const handleSelectTab = useCallback(id => {
     // User explicitly clicked a tab → write to userSelectedFile, not AI session
@@ -106,8 +109,21 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
 
   const handleCloseTab = useCallback(id => {
     // Tab close is presentation-only; we don't purge events from the store
-    setMemoryFiles(prev => prev.filter(m => m.file !== id && m.name !== id));
+    setClosedTabs(prev => new Set(prev).add(id));
   }, []);
+
+  // Compute total file count recursively
+  const totalFileCount = React.useMemo(() => {
+    const count = (nodes) => {
+      let c = 0;
+      for (const n of nodes) {
+        if (n.type === 'file') c++;
+        else if (n.type === 'directory' && n.children) c += count(n.children);
+      }
+      return c;
+    };
+    return count(fileTree);
+  }, [fileTree]);
 
   // ── JSX: FROZEN — Rule 15 Presentation Lock ──────────────────────
   // Do NOT modify layout, spacing, borderRadius, animationDelay,
@@ -118,7 +134,7 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
       className="w-full flex flex-col overflow-hidden"
       style={{
         height: '100dvh',
-        background: '#09090B',
+        background: 'var(--cs-bg)',
         padding: '16px 20px',
         gap: '12px',
       }}
@@ -128,8 +144,9 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
         className="animate-settle flex-shrink-0"
         style={{
           borderRadius: '12px',
-          background: 'rgba(255,255,255,0.02)',
-          border: '1px solid rgba(255,255,255,0.05)',
+          background: 'rgba(255,255,255,0.025)',
+          backdropFilter: 'blur(18px)',
+          border: '1px solid rgba(255,255,255,0.06)',
           overflow: 'hidden',
           animationDelay: '0ms',
         }}
@@ -137,6 +154,7 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
         <CommandBar
           branch="main"
           onNewInvestigation={onNewInvestigation}
+          activeInvestigation={activeInvestigation}
         />
       </div>
 
@@ -150,15 +168,11 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
             currentContent={currentContent}
           />
         ) : (
-          <div className="flex flex-1 min-h-0 gap-3 w-full h-full">
+          <div className="flex flex-1 min-h-0 gap-0 w-full h-full rounded-lg overflow-hidden border border-[var(--cs-border-subtle)]">
         {/* Dock */}
         <div
-          className="animate-settle flex-shrink-0"
+          className="animate-settle flex-shrink-0 border-r border-[var(--cs-border-subtle)] bg-[var(--cs-dock)]"
           style={{
-            borderRadius: '12px',
-            background: 'var(--cs-panel)',
-            border: '1px solid var(--cs-border)',
-            boxShadow: 'var(--cs-shadow-panel)',
             overflow: 'hidden',
             animationDelay: '60ms',
           }}
@@ -171,14 +185,15 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
           bootPhase={bootPhase}
           activeInvestigation={activeInvestigation}
           isUnderstandingMode={isUnderstandingMode}
-          presentation={presentation}
+          presentation={{ ...presentation, tabs: presentation.tabs.filter(t => !closedTabs.has(t.id)) }}
           orchestration={orchestration}
           handleSelectTab={handleSelectTab}
           handleCloseTab={handleCloseTab}
           memoryFiles={memoryFiles}
           startedAt={startedAt}
           onNewInvestigation={onNewInvestigation}
-          fileCount={fileTree.length}
+          fileCount={totalFileCount}
+          filesLoading={fileTree.length === 0}
         />
         </div>
         )}
@@ -195,9 +210,8 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
           <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }} />
         )}
         <span>
-          {raw.isAiActive ? 'Reading' : raw.runtimeStatus === 'resolved' ? 'Analysis Complete' : 'Idle'}
+          {raw.isAiActive ? 'Investigating' : ''}
           {raw.isAiActive && presentation.activeTabId && ` · ${presentation.activeTabId.split(/[\\/]/).pop()}`}
-          {(raw.isAiActive || raw.runtimeStatus === 'resolved') && ` · evidence ${presentation.intelligenceStream?.length || 0}`}
         </span>
       </div>
     </div>

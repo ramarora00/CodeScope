@@ -33,15 +33,14 @@ function DockIcon({ item, onSelect }) {
       title={item.title}
       style={{ width: '56px', height: '32px' }}
     >
-      {/* Active indicator — thin left silver bar */}
+      {/* Active indicator — extremely subtle */}
       {item.active && (
         <div
           className="absolute left-0 rounded-r-full"
           style={{
             width: '2px',
-            height: '20px',
-            background: 'var(--cs-accent)',
-            boxShadow: '0 0 8px var(--cs-accent)',
+            height: '16px',
+            background: 'rgba(255,255,255,0.05)',
             top: '50%',
             transform: 'translateY(-50%)',
           }}
@@ -54,26 +53,23 @@ function DockIcon({ item, onSelect }) {
         style={{
           width: '32px',
           height: '32px',
-          color: item.active ? '#F4F4F4' : 'rgba(255,255,255,0.35)',
-          opacity: item.active ? 1.0 : 0.65,
+          color: item.active ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)',
           transition: 'transform 200ms var(--ease-out), color 220ms ease, opacity 220ms ease',
         }}
         onMouseEnter={e => {
           if (!item.active) {
-            e.currentTarget.style.color = '#F4F4F4';
-            e.currentTarget.style.opacity = '0.9';
+            e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
             e.currentTarget.style.transform = 'scale(1.05)';
           }
         }}
         onMouseLeave={e => {
           if (!item.active) {
-            e.currentTarget.style.color = 'rgba(255,255,255,0.35)';
-            e.currentTarget.style.opacity = '0.65';
+            e.currentTarget.style.color = 'rgba(255,255,255,0.15)';
             e.currentTarget.style.transform = 'scale(1)';
           }
         }}
       >
-        <Icon size={22} strokeWidth={1.5} />
+        <Icon size={20} strokeWidth={1.5} />
       </div>
     </div>
   );
@@ -90,14 +86,18 @@ export default function Dock({ activeItem, onSelect }) {
       className="flex flex-col items-center justify-between flex-shrink-0 h-full"
       style={{
         width: '56px',
-        background: 'var(--cs-bg)',
+        background: 'transparent',
       }}
     >
       {/* Top icons */}
-      <div className="flex flex-col items-center pt-6 gap-10">
+      <div className="flex flex-col items-center pt-6 gap-6">
         {items.map(item => (
           <DockIcon key={item.id} item={item} onSelect={onSelect} />
         ))}
+      </div>
+
+      <div className="flex-1 w-full flex justify-center py-4">
+        <div style={{ width: '1px', height: '100%', background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.03), transparent)' }} />
       </div>
 
       {/* Bottom icons */}
