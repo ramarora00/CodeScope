@@ -1,28 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, ChevronRight, GitBranch, Workflow, TestTube, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-const ACTIONS = [
-  { id: 'dep-map', icon: GitBranch, label: 'View dependency map' },
-  { id: 'explain', icon: Workflow, label: 'Explain this flow' },
-  { id: 'tests', icon: TestTube, label: 'Generate test cases' },
-];
-
-function SectionHeader({ label }) {
-  return (
-    <div style={{ marginBottom: '12px' }}>
-      <span style={{
-        color: 'rgba(255,255,255,0.07)',
-        fontSize: '8.5px',
-        fontWeight: 600,
-        letterSpacing: '0.14em',
-        textTransform: 'uppercase',
-      }}>
-        {label}
-      </span>
-    </div>
-  );
-}
 
 export default function KnowledgePanel({
   repo,
@@ -33,22 +10,10 @@ export default function KnowledgePanel({
   onNewInvestigation,
   selectedFile,
   selectedTimelineEventId,
-  onReturnToPresent,
-  isContext
+  onReturnToPresent
 }) {
-  // Removed askQuery state since input surface is now centralized in Top Bar
-  const [activeTab, setActiveTab] = useState('repository'); // 'repository' or 'investigation'
-
   const activeFilePath = typeof selectedFile === 'string' ? selectedFile : selectedFile?.path;
-  const displayFindings = activeFilePath
-    ? findings.filter(f => f.filePath === activeFilePath)
-    : findings;
-
-  const handleAction = (id) => {
-    console.log(`KnowledgePanel action clicked: ${id}`);
-  };
-
-  // Removed handleAsk
+  const activeFinding = activeFilePath ? findings.find(f => f.filePath === activeFilePath) : findings[findings.length - 1];
 
   const [panelState, setPanelState] = useState('dormant');
   const prevFindingsRef = React.useRef(findings.length);
@@ -65,215 +30,190 @@ export default function KnowledgePanel({
       };
     } else if (findings.length > 0) {
       if (panelState === 'dormant') setPanelState('passive');
-    } else if (findings.length === 0 && !isContext) {
+    } else if (findings.length === 0) {
       setPanelState('watching');
     }
     prevFindingsRef.current = findings.length;
-  }, [findings.length, isContext]);
+  }, [findings.length, panelState]);
 
   return (
     <div
-      className="flex flex-col h-full flex-shrink-0 transition-all duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)] relative"
+      className="w-[340px] flex-shrink-0 bg-[var(--cs-panel)] border-r border-[var(--cs-border-subtle)] overflow-hidden flex flex-col relative"
       style={{
-        width: isContext ? '220px' : '310px',
-        opacity: isContext ? 0.4 : 1,
-        background: 'var(--cs-panel)',
+        transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease',
       }}
     >
-      {/* ── Header with Tabs ── */}
+      {/* ── KNOWLEDGE Header ── */}
       <div
-        className="flex flex-col flex-shrink-0"
+        className="flex-shrink-0"
+        style={{
+          paddingTop: '24px',
+          paddingLeft: '24px',
+          paddingRight: '24px',
+          paddingBottom: '24px', // 20-24px to content
+        }}
       >
-        <div className="flex items-center justify-between px-5" style={{ height: '40px' }}>
-          <span style={{
-            color: 'var(--cs-faint)',
-            fontSize: '9px',
-            fontWeight: 700,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            Knowledge
-            {!isContext && (
-              <span
-                className="transition-colors duration-500"
-                style={{
-                  color: panelState === 'receiving' ? 'var(--cs-accent)'
-                    : panelState === 'settling' ? 'rgba(62, 168, 255, 0.4)'
-                      : panelState === 'watching' ? 'rgba(255,255,255,0.1)'
-                        : 'transparent',
-                  fontStyle: 'normal',
-                  fontSize: '8px'
-                }}
-              >
-                ●
-              </span>
-            )}
+        <span style={{
+          color: 'var(--cs-text)',
+          opacity: 0.6,
+          fontSize: '13px',
+          fontWeight: 600,
+          fontFamily: 'var(--font-ui)',
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: '8px',
+        }}>
+          Knowledge
+          <span
+            className="transition-colors duration-500"
+            style={{
+              color: panelState === 'receiving' ? 'var(--cs-accent)'
+                : panelState === 'settling' ? 'rgba(62, 168, 255, 0.4)'
+                  : panelState === 'watching' ? 'rgba(255,255,255,0.1)'
+                    : 'transparent',
+              fontStyle: 'normal',
+              fontSize: '8px'
+            }}
+          >
+            ●
           </span>
-        </div>
+        </span>
       </div>
 
-      {/* ── Context State (Minimalist) ── */}
-      {isContext ? (
-        <div className="flex-1 flex flex-col p-4 gap-6 animate-fade-in opacity-80 overflow-y-auto no-scrollbar">
-          {/* Minimal Repository Summary */}
-          <div className="flex flex-col gap-2 border-b pb-4" style={{ borderColor: 'var(--cs-border)' }}>
-            <span style={{ color: 'var(--cs-hint)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              Repo Context
-            </span>
-            <span className="text-[11px] font-mono font-bold text-[var(--cs-text)] truncate">{repo?.name?.replace(/-\d{10,}$/, '') || 'Workspace'}</span>
-            <div className="flex items-center gap-2 mt-1 text-[10px] text-[var(--cs-muted)] font-mono">
-              {repo?.framework && (
-                <>
-                  <span className="truncate">{repo.framework}</span>
-                  <span>·</span>
-                </>
-              )}
-              <span>{fileCount} files</span>
-            </div>
-          </div>
-
-          {/* Minimal Findings */}
-          <div className="flex flex-col gap-3 border-b pb-4" style={{ borderColor: 'var(--cs-border)' }}>
-            <span style={{ color: 'var(--cs-hint)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              Findings
-            </span>
-            <div className="flex items-center gap-2 text-[11px] text-[var(--cs-muted)] font-mono">
-              <span className="w-2 h-2 rounded-full bg-[var(--cs-accent)] opacity-50"></span>
-              {displayFindings.length} active findings
-            </div>
-          </div>
-
-          {/* Minimal Related Symbols */}
-          <div className="flex flex-col gap-3">
-            <span style={{ color: 'var(--cs-hint)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              Related Symbols
-            </span>
-            <div className="flex items-center gap-2 text-[11px] text-[var(--cs-muted)] font-mono">
-              <span className="w-2 h-2 rounded-full border border-[var(--cs-hint)]"></span>
-              {relatedSymbols.length} referenced
-            </div>
+      {/* ── Pinned Top Section: NOW EXAMINING / REPO ── */}
+      <div className="flex-shrink-0 flex flex-col gap-6" style={{ padding: '0 24px 24px' }}>
+        {/* REPOSITORY OVERVIEW - Extremely Quiet */}
+        <div>
+          <div style={{ color: 'var(--cs-muted)', fontSize: '11px', fontWeight: 600, fontFamily: 'var(--font-ui)', marginBottom: '8px' }}>Repository</div>
+          <div className="text-[14px] font-bold text-[var(--cs-text)] truncate">{repo?.name?.split('/')?.pop()?.replace(/-\d{10,}$/, '') || 'Workspace'}</div>
+          {/* Canonical metadata - single line */}
+          <div className="flex items-center gap-2 mt-2" style={{ color: 'var(--cs-muted)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
+            <span>{fileCount} files</span>
+            {repo?.framework && (
+              <>
+                <span>·</span>
+                <span>{repo.framework}</span>
+              </>
+            )}
           </div>
         </div>
-      ) : (
-        /* ── Hero State: Single Stream ── */
-        <div className="flex-1 overflow-y-auto no-scrollbar min-h-0">
-          <div style={{ padding: '32px 32px' }} className="flex flex-col gap-8 animate-fade-in">
 
-            {/* ── REPOSITORY OVERVIEW ── */}
-            <div>
-              <div style={{ color: 'var(--cs-faint)', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '12px' }}>Repository</div>
-              <div className="text-[13px] font-bold text-[var(--cs-text)] font-mono truncate">{repo?.name?.split('/')?.pop()?.replace(/-\d{10,}$/, '') || 'Workspace'}</div>
-              {repo?.repositorySummary && (
-                <div style={{ lineHeight: '1.6', marginTop: '8px' }} className="text-[12px] text-[var(--cs-muted)] italic">
-                  {repo.repositorySummary}
-                </div>
-              )}
-              <div className="flex items-center gap-4 mt-4">
-                <span style={{ color: 'var(--cs-hint)', fontSize: '12px', fontFamily: 'var(--cs-mono)' }}>{fileCount} files</span>
-                {repo?.framework && <span style={{ color: 'var(--cs-hint)', fontSize: '12px', fontFamily: 'var(--cs-sans)' }}>{repo.framework}</span>}
+        {/* NOW EXAMINING (If active finding exists) */}
+        {activeFinding && (
+          <div>
+            <div style={{ color: 'var(--cs-muted)', fontSize: '11px', fontWeight: 600, fontFamily: 'var(--font-ui)', marginBottom: '8px' }}>Now examining</div>
+            {activeFinding.filePath && (
+              <div className="flex flex-col gap-1 pb-2">
+                <span className="text-[13px] font-bold text-[var(--cs-text)] truncate">
+                  {activeFinding.filePath.split(/[\\/]/).pop()}
+                </span>
+                <span className="text-[10px] text-[var(--cs-muted)] font-mono">
+                  lines {activeFinding.startLine}–{activeFinding.endLine}
+                </span>
               </div>
+            )}
+            <div style={{ color: 'var(--cs-text)', fontSize: '12px', fontFamily: 'var(--font-ui)', lineHeight: '1.6', marginTop: '4px' }} className="line-clamp-3">
+              {activeFinding.reason}
             </div>
+          </div>
+        )}
+      </div>
 
-            {/* Divider (spacing not border) */}
-            <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)' }} />
+      {/* ── Scrollable Stream: EVIDENCE HISTORY ── */}
+      <div className="flex-1 overflow-y-auto no-scrollbar relative min-h-0" style={{ borderTop: '1px solid rgba(255,255,255,0.03)' }}>
+        <div style={{ padding: '24px' }} className="flex flex-col gap-8">
+          <div style={{ color: 'var(--cs-muted)', fontSize: '11px', fontWeight: 600, fontFamily: 'var(--font-ui)' }}>Evidence history</div>
+          
+          <div className="space-y-6">
+            <AnimatePresence initial={false}>
+              {!findings || findings.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-col gap-2"
+                >
+                  <div style={{ color: 'var(--cs-text)', opacity: 0.6, fontSize: '12px', fontWeight: 500, fontFamily: 'var(--font-ui)', lineHeight: '1.5' }}>
+                    No investigation yet
+                  </div>
+                  <div style={{ color: 'var(--cs-faint)', fontSize: '12px', lineHeight: '1.5' }}>
+                    The repository has been mapped.<br />
+                    Ask a question to trace its reasoning.
+                  </div>
+                  <div className="mt-4 flex flex-col gap-2" style={{ color: 'var(--cs-hint)', fontSize: '12px', fontStyle: 'italic' }}>
+                    <div>→ Explore dependencies</div>
+                    <div>→ Explain a flow</div>
+                    <div>→ Generate tests</div>
+                  </div>
+                </motion.div>
+              ) : findings.map((item, i) => {
+                const isCardFocused = activeFinding?.sourceEventId === item.sourceEventId;
+                if (isCardFocused) return null; // Don't show the currently examining item in history to avoid duplication
 
-            {/* ── UNDERSTANDING ── */}
-            <div className="space-y-4">
-              <AnimatePresence initial={false}>
-                {!intelligenceStream || intelligenceStream.length === 0 ? (
+                return (
                   <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex flex-col items-center justify-center p-6 rounded-lg mt-2"
-                    style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.02)' }}
-                  >
-                    <div style={{ color: 'var(--cs-faint)', fontSize: '12px', textAlign: 'center' }}>No intelligence collected yet.</div>
-                  </motion.div>
-                ) : intelligenceStream.map((item, i) => (
-                  <motion.div
-                    key={item.id || i}
-                    layout
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{
-                      x: { ease: [0.2, 0.0, 0.0, 1.0], duration: 0.2, delay: i * 0.08 + 0.5 },
-                      opacity: { duration: 0.2, delay: i * 0.08 + 0.5 },
-                    }}
-                    className="flex flex-col gap-3 rounded-lg cursor-pointer transition-all duration-300"
+                    key={item.sourceEventId || i}
+                    className="flex flex-col gap-2 cursor-pointer transition-all duration-300 group"
                     style={{
-                      padding: '12px 16px',
-                      background: 'transparent',
-                      borderTop: '1px solid rgba(255,255,255,0.015)',
-                      opacity: item.active ? 1.0 : 0.45,
-                      borderRadius: 0,
+                      opacity: 0.65,
+                      paddingLeft: '16px',
+                      paddingRight: '16px',
+                      paddingTop: '8px',
+                      paddingBottom: '8px',
+                      marginLeft: '-16px',
+                      width: 'calc(100% + 32px)',
+                      borderLeft: '2px solid transparent',
+                      borderRadius: '4px',
+                      transition: 'opacity 200ms ease, background 180ms ease, border-color 180ms ease',
                     }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)';
-                      if (item.source) window.dispatchEvent(new CustomEvent('editor-highlight', { detail: { file: item.source, line: 1 } }));
+                      e.currentTarget.style.opacity = '1.0';
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                      e.currentTarget.style.borderLeftColor = 'rgba(191,200,216,0.35)';
+                      if (item.filePath) {
+                        window.dispatchEvent(new CustomEvent('editor-highlight', { 
+                          detail: { file: item.filePath, line: item.startLine } 
+                        }));
+                      }
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.01)';
-                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.02)';
+                      e.currentTarget.style.opacity = '0.65';
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.borderLeftColor = 'transparent';
                       window.dispatchEvent(new CustomEvent('editor-highlight', { detail: null }));
                     }}
+                    onClick={() => {
+                      if (item.filePath) {
+                        const name = item.filePath.split(/[\\/]/).pop();
+                        const wsStore = window.__workspace_store__ || require('../../store/useWorkspaceStore').useWorkspaceStore;
+                        if (wsStore) {
+                          wsStore.getState().setUserSelectedFile({ name, path: item.filePath, type: 'file' });
+                        }
+                        window.dispatchEvent(new CustomEvent('editor-highlight', { 
+                          detail: { file: item.filePath, line: item.startLine } 
+                        }));
+                      }
+                    }}
                   >
-                    {item.source && (
-                      <div className="flex flex-col gap-1 pb-2 mb-1" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-                        <span className="text-[13px] font-bold text-[var(--cs-accent)] font-mono truncate">
-                          {typeof item.source === 'string' ? item.source.split(/[\\/]/).pop() : item.source.file.split(/[\\/]/).pop()}
+                    {item.filePath && (
+                      <div className="flex flex-col gap-0">
+                        <span className="text-[13px] font-medium text-[var(--cs-text)] transition-colors truncate">
+                          {item.filePath.split(/[\\/]/).pop()}
                         </span>
-                        {typeof item.source !== 'string' && item.source.line && (
-                          <span className="text-[10px] text-[var(--cs-muted)] font-mono">
-                            line {item.source.line}
-                          </span>
-                        )}
+                        <span className="text-[10px] text-[var(--cs-muted)] font-mono group-hover:text-[var(--cs-muted)] transition-colors">
+                          lines {item.startLine}–{item.endLine}
+                        </span>
                       </div>
                     )}
-                    <div className="flex flex-col gap-1.5">
-                      <span style={{ color: 'var(--cs-faint)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                        {item.type || 'Evidence'}
-                      </span>
-                      <span style={{ color: item.active ? 'var(--cs-text)' : 'rgba(255,255,255,0.7)', fontSize: '12px', fontFamily: 'var(--cs-sans)', lineHeight: '1.6' }}>
-                        {item.text}
-                      </span>
+                    <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px', fontFamily: 'var(--font-ui)', lineHeight: '1.6' }} className="group-hover:text-[rgba(255,255,255,0.9)] transition-colors line-clamp-3">
+                      {item.reason}
                     </div>
                   </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          <div style={{ marginTop: '8px' }}>
-            <div className="space-y-2">
-              {ACTIONS.map(action => (
-                <div
-                  key={action.id}
-                  onClick={() => handleAction(action.id)}
-                  className="flex items-center gap-3 cursor-pointer transition-colors duration-[220ms] group"
-                  style={{ height: '40px', padding: '0 12px', borderRadius: '8px', background: 'transparent', opacity: 0.6 }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                    e.currentTarget.style.opacity = 1.0;
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.opacity = 0.6;
-                  }}
-                >
-                  <action.icon size={12} style={{ color: 'var(--cs-hint)' }} className="group-hover:text-[var(--cs-faint)] transition-colors" />
-                  <span style={{ color: 'var(--cs-muted)', fontSize: '13px', transition: 'color 150ms ease' }} className="group-hover:text-[var(--cs-text)]">
-                    {action.label}
-                  </span>
-                </div>
-              ))}
-            </div>
+                );
+              })}
+            </AnimatePresence>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
