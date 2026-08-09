@@ -78,6 +78,8 @@ export const useInvestigationSession = create((set, get) => ({
   fileProgress: 0,
   currentLine: 0,
   totalLines: 0,
+  startLine: null,
+  endLine: null,
 
 
   // --- ACTIONS ---
@@ -103,6 +105,8 @@ export const useInvestigationSession = create((set, get) => ({
       fileProgress: 0,
       currentLine: 0,
       totalLines: 0,
+      startLine: null,
+      endLine: null,
       focusContext: {
         id: sessionId,
         mission: null,
@@ -238,7 +242,9 @@ export const useInvestigationSession = create((set, get) => ({
       currentReason: null,
       fileProgress: 0,
       currentLine: 0,
-      totalLines: 0
+      totalLines: 0,
+      startLine: null,
+      endLine: null
     });
   },
   applyEventToState: (event) => {
@@ -278,7 +284,8 @@ export const useInvestigationSession = create((set, get) => ({
             currentStep: state.metadata.isUnderstandingMode ? 'Understanding repository' : 'Plan generated',
             answer: event.plan.hypothesis,
             confidence: event.plan.confidence,
-            relatedNodes: targets
+            relatedNodes: targets,
+            providerUsed: event.metadata?.providerUsed
           }
         }));
         break;
@@ -304,8 +311,17 @@ export const useInvestigationSession = create((set, get) => ({
           fileProgress: 0, 
           currentLine: 0, 
           totalLines: 0,
+          startLine: null,
+          endLine: null,
           focusContext: { ...state.focusContext, currentStep: `Selected ${event.file?.split('/').pop() || 'file'}` }
         }));
+        break;
+        
+      case 'file.read.started':
+        set({
+          startLine: event.startLine,
+          endLine: event.endLine
+        });
         break;
         
       case 'file.read.progress':
@@ -332,18 +348,29 @@ export const useInvestigationSession = create((set, get) => ({
         
       case 'evidence.added':
         set((state) => {
+          const newEvidence = {
+            investigationId: state.metadata.sessionId,
+            filePath: typeof event.source === 'string' ? event.source : event.source?.file || state.aiFocusFile,
+            startLine: state.startLine || 1,
+            endLine: state.endLine || 10,
+            reason: event.fact,
+            sourceEventId: event.eventId,
+            type: state.metadata.isUnderstandingMode ? 'orientation' : 'investigation',
+            createdAt: Date.now(),
+            status: 'resolved'
+          };
           if (state.metadata.isUnderstandingMode) {
             return {
               repositoryContext: {
                 ...state.repositoryContext,
-                findings: [...state.repositoryContext.findings, { fact: event.fact, source: event.source, eventId: event.eventId }]
+                findings: [...state.repositoryContext.findings, newEvidence]
               }
             };
           } else {
             return {
               focusContext: {
                 ...state.focusContext,
-                findings: [...state.focusContext.findings, { fact: event.fact, source: event.source, eventId: event.eventId }]
+                findings: [...state.focusContext.findings, newEvidence]
               }
             };
           }

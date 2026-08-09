@@ -52,3 +52,7 @@ export const useWorkspaceStore = create((set) => ({
     userCamera: null
   })
 }));
+
+if (typeof window !== 'undefined') {
+  window.__workspace_store__ = useWorkspaceStore;
+}

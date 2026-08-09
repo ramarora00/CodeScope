@@ -21,6 +21,8 @@ export function useWorkspacePresentationModel() {
   const isAsset = useInvestigationSession(s => s.isAsset);
   const activeCognitiveEvent = useInvestigationSession(s => s.activeCognitiveEvent);
   const commitActiveCognitiveEvent = useInvestigationSession(s => s.commitActiveCognitiveEvent);
+  const startLine = useInvestigationSession(s => s.startLine);
+  const endLine = useInvestigationSession(s => s.endLine);
 
   const userSelectedFile = useWorkspaceStore(s => s.userSelectedFile);
 
@@ -40,10 +42,12 @@ export function useWorkspacePresentationModel() {
     return {
       file: filePath,
       line: isAiControlling ? (currentLine || 1) : null,
+      startLine: isAiControlling ? startLine : null,
+      endLine: isAiControlling ? endLine : null,
       type: (isAiControlling && sessionState === SESSION_STATES.PLAYING) ? 'read' : 'appear',
       reason: isAiControlling ? currentReason : 'User Selection',
     };
-  }, [displayedFile, userSelectedFile, aiFocusFile, currentLine, currentReason, sessionState]);
+  }, [displayedFile, userSelectedFile, aiFocusFile, currentLine, startLine, endLine, currentReason, sessionState]);
 
   const runtimeStatus = useMemo(() => {
     if (focusContext.status === 'review') return 'resolved';
@@ -134,15 +138,7 @@ export function useWorkspacePresentationModel() {
 
   // ── 3. KnowledgePanel Contract ──
   const findings = useMemo(() => {
-    return (focusContext.findings || []).map(f => {
-      const filePath = typeof f.source === 'string' ? f.source : f.source?.file;
-      return {
-        name: filePath ? filePath.split('/').pop() : 'Finding',
-        filePath: filePath,
-        active: true,
-        text: f.fact
-      };
-    });
+    return focusContext.findings || [];
   }, [focusContext.findings]);
 
   const relatedSymbols = useMemo(() => {
@@ -237,6 +233,7 @@ export function useWorkspacePresentationModel() {
       relatedSymbols,
       intelligenceStream,
       answer,
+      providerUsed: focusContext.providerUsed,
       isResolving,
       aiMemoryMap,
       selectedTimelineEventId,
