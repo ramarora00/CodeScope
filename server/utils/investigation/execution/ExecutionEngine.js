@@ -94,7 +94,7 @@ class ExecutionEngine {
         }
 
         this._publish(this.events.stateTransition('EVIDENCE_EARNED', { target: step.target }));
-        this._publish(this.events.evidenceAdded(`Mapped structural patterns in ${step.target.split('/').pop()}`, step.target, 0.9));
+        this._publish(this.events.evidenceAdded(step.reason || `Mapped structural patterns in ${step.target.split('/').pop()}`, step.target, 0.9));
         this._publish(this.events.fileReadCompleted(step.target, lineCount));
       }
 
