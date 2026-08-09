@@ -405,3 +405,33 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-08-08T17:48:00+05:30*
 
+
+## Sprint — Universal Code Viewer, LLM Fallback Provider, and Workspace UI Refinements
+
+**Commits**
+- `3ac09e1` feat(codescope): refine workspace stores and presentation model
+- `905950d` feat(codescope): update explorer perspective and router
+- `74c7cf9` feat(codescope): refine investigation and knowledge panels
+- `0925f7c` feat(codescope): update workspace shell components
+- `cedf3c9` feat(codescope): enhance shared viewer and ready state
+- `ee02920` feat(server): add LLM fallback provider and routing logic
+- `c88fa21` feat(server): update execution engine and environment config
+- `cd1510a` style(client): update global css
+- `35902d5` chore(logs): add all investigation session telemetry recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **State Management**: Refined the useWorkspacePresentationModel, useWorkspaceStore, and useInvestigationSession hooks.
+- **UI Perspectives**: Updated ExplorerPerspective and PerspectiveRouter logic.
+- **Investigation Panels**: Deep refinements across InvestigationPanel, InvestigationReportSheet, and KnowledgePanel.
+- **Workspace Shell**: Updated CommandBar, Dock, and WorkspaceRoot for better state integration.
+- **Shared UI**: Huge enhancements to the UniversalCodeViewer, RepositoryReadyState, and FileExplorer.
+- **Server Fallback Provider**: Implemented FallbackProvider and ProviderRouter in the server planner to gracefully handle LLM API failures.
+- **Server Core**: Hardened ExecutionEngine and updated .env.example.
+- **Styles**: Updated index.css for new panel layouts.
+- **Telemetry**: Addressed the exception to batch all 64 recent investigation session logs into one commit.
+
+*Recorded on 2026-08-09T21:35:00+05:30*
+
