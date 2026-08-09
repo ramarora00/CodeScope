@@ -1,6 +1,6 @@
 const { ContextBuilder } = require('./ContextBuilder');
 const { PlanValidator } = require('./PlanValidator');
-const { GeminiProvider } = require('./providers/GeminiProvider');
+const { ProviderRouter } = require('./providers/ProviderRouter');
 
 /**
  * Investigation Planner
@@ -9,7 +9,7 @@ const { GeminiProvider } = require('./providers/GeminiProvider');
  * Workflow: Mission -> ContextBuilder -> LLM Provider -> PlanValidator -> InvestigationPlan
  */
 class Planner {
-  constructor(provider = new GeminiProvider()) {
+  constructor(provider = new ProviderRouter()) {
     this.provider = provider;
     this.contextBuilder = new ContextBuilder();
     this.validator = new PlanValidator();
