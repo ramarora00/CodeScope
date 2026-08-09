@@ -3,7 +3,7 @@ import { API_BASE } from '../../../../config/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Panels
-import InvestigationPanel from './InvestigationPanel';
+
 import KnowledgePanel from './KnowledgePanel';
 import AIOverlayEditor from './AIOverlayEditor';
 import RepositoryReadyState from './RepositoryReadyState';
@@ -11,6 +11,7 @@ import InvestigationReportSheet from './InvestigationReportSheet';
 import ArchitecturePerspective from './ArchitecturePerspective'; // Returns the graph canvas
 import FileExplorer from '../../../../components/FileExplorer';
 import UniversalCodeViewer from './shared/UniversalCodeViewer';
+import { useInvestigationSession, SESSION_STATES } from '../../store/useInvestigationSession';
 
 export default function PerspectiveRouter({
   perspective,
@@ -24,9 +25,11 @@ export default function PerspectiveRouter({
   memoryFiles,
   startedAt,
   onNewInvestigation,
-  fileCount
+  fileCount,
+  filesLoading
 }) {
   const [reportDismissed, setReportDismissed] = useState(false);
+  const sessionState = useInvestigationSession(s => s.sessionState);
 
   // Bug Fix: Reset reportDismissed when a new investigation starts
   useEffect(() => {
@@ -35,14 +38,21 @@ export default function PerspectiveRouter({
     }
   }, [activeInvestigation?.id]);
   // Ensure the report only appears after the orchestration queue is fully emptied (which includes the 1500ms silence phase)
-  const isReadingComplete = (presentation.runtimeStatus === 'resolved' || Boolean(presentation.error)) && !orchestration.activeCognitiveEvent;
-  const showReport = isReadingComplete && !reportDismissed;
+  const isReadingComplete = (presentation.runtimeStatus === 'resolved' || Boolean(presentation.error)) && !orchestration?.activeCognitiveEvent;
+  const showReport = activeInvestigation &&
+    sessionState !== SESSION_STATES.IDLE &&
+    isReadingComplete &&
+    !isUnderstandingMode &&
+    !reportDismissed;
 
   // File explorer derives active file exactly like it did in ExplorerPerspective
   const aiTouchedPaths = new Set(memoryFiles.map(m => m.file || m.name).filter(Boolean));
   const activeFilePath = presentation.userSelectedFile
     ? (typeof presentation.userSelectedFile === 'string' ? presentation.userSelectedFile : presentation.userSelectedFile.path)
     : null;
+
+  // The ONE canonical evidence state driving Editor, Knowledge, and Explorer
+  const canonicalFile = activeFilePath || (perspective === 'investigation' ? (presentation.activeCognitiveEvent?.file || presentation.attention?.file) : undefined);
 
   const [fetchedContent, setFetchedContent] = useState({ path: null, content: null });
   const activeMemoryFile = memoryFiles.find(
@@ -73,86 +83,53 @@ export default function PerspectiveRouter({
   }, [memoryFiles, fetchedContent, activeFilePath, activeMemoryFile]);
 
   return (
-    <div className="flex-1 min-h-0 relative flex gap-[2px] bg-[var(--cs-bg)] overflow-hidden">
+    <div className="flex-1 min-h-0 relative flex gap-0 bg-[var(--cs-bg)] overflow-hidden">
 
-      {/* ── Left Panels (Investigation & Files — Perceived Continuity via Sliver) ── */}
+      {/* ── Single Left Panel: Repository Explorer ── */}
       {perspective !== 'branch' && (
-        <div className="flex h-full gap-[2px]">
-          {/* Investigation (Timeline) Panel */}
+        <div
+          className="flex-shrink-0 flex flex-col transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          style={{
+            width: '18%',
+            minWidth: '220px',
+            maxWidth: '300px',
+            borderRadius: '10px',
+            background: 'var(--cs-glass-panel)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            boxShadow: 'var(--cs-inset-top-soft)',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Header */}
           <div
-            className="flex-shrink-0 flex flex-col transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
-            style={{
-              width: perspective === 'investigation' ? '18%' : '48px',
-              minWidth: perspective === 'investigation' ? '260px' : '48px',
-              maxWidth: perspective === 'investigation' ? '320px' : '48px',
-              opacity: perspective === 'investigation' ? 1 : 0.4,
-              borderRadius: '12px',
-              background: 'var(--cs-panel)',
-              border: '1px solid var(--cs-border)',
-              boxShadow: 'var(--cs-shadow-panel)',
-              overflow: 'hidden',
-              cursor: perspective !== 'investigation' ? 'pointer' : 'default',
-            }}
+            className="flex flex-col flex-shrink-0"
+            style={{ padding: '24px 24px 16px', gap: '8px' }}
           >
-            {/* Inner fixed width to prevent reflow squishing only if not context, else 48px */}
-            <div style={{ width: '100%', height: '100%' }}>
-              <InvestigationPanel
-                timelineEvents={presentation.timelineEvents}
-                planSteps={presentation.planSteps}
-                startedAt={startedAt}
-                memoryFiles={memoryFiles}
-                repo={presentation.selectedRepo}
-                activeInvestigation={activeInvestigation}
-                onNewInvestigation={onNewInvestigation}
-                isContext={perspective !== 'investigation'}
-              />
+            <span style={{
+              fontSize: '13px',
+              fontWeight: 600,
+              color: 'var(--cs-text)',
+              opacity: 0.8,
+              fontFamily: 'var(--font-ui)',
+            }}>
+              Repository
+            </span>
+            <div className="flex items-center text-[11px] text-[var(--cs-muted)]" style={{ fontFamily: 'var(--font-mono)' }}>
+              <span>{fileCount} files</span>
             </div>
           </div>
 
-          {/* Files (Memory Map) Panel */}
-          <div
-            className="flex-shrink-0 flex flex-col transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
-            style={{
-              width: perspective === 'files' ? '18%' : '48px',
-              minWidth: perspective === 'files' ? '260px' : '48px',
-              maxWidth: perspective === 'files' ? '320px' : '48px',
-              opacity: perspective === 'files' ? 1 : 0.4,
-              borderRadius: '12px',
-              background: 'var(--cs-panel)',
-              border: '1px solid var(--cs-border)',
-              boxShadow: 'var(--cs-shadow-panel)',
-              overflow: 'hidden',
-              cursor: perspective !== 'files' ? 'pointer' : 'default',
-            }}
-          >
-            {/* Inner fixed width to prevent reflow squishing only if not context, else 48px */}
-            <div style={{ width: '100%', height: '100%' }} className="flex flex-col">
-              {perspective === 'files' && (
-                <div className="px-8 flex items-center justify-between flex-shrink-0" style={{ height: '40px', borderBottom: '1px solid var(--cs-border)' }}>
-                  <span style={{ color: 'var(--cs-faint)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-                    Memory Map
-                  </span>
-                  {memoryFiles.length > 0 && (
-                    <div className="flex items-center gap-2" style={{ color: 'var(--cs-accent)', fontSize: '9px', fontFamily: 'var(--cs-mono)', opacity: 0.6 }}>
-                      <span>{Object.values(presentation.aiMemoryMap || {}).filter(m => m.state === 'scanned').length} mapped</span>
-                      <span>·</span>
-                      <span>{Object.values(presentation.aiMemoryMap || {}).filter(m => m.state === 'investigated').length} read</span>
-                      <span>·</span>
-                      <span>{Object.values(presentation.aiMemoryMap || {}).filter(m => m.state === 'core').length} evidence</span>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="flex-1 overflow-y-auto no-scrollbar">
-                <FileExplorer
-                  repo={presentation.selectedRepo}
-                  onFileSelect={presentation.onSelectFile}
-                  aiMemoryMap={presentation.aiMemoryMap}
-                  selectedPath={activeFilePath}
-                  isContext={perspective !== 'files'}
-                />
-              </div>
-            </div>
+          {/* Tree */}
+          <div className="flex-1 overflow-y-auto no-scrollbar" style={{ padding: '0 12px' }}>
+            <FileExplorer
+              repo={presentation.selectedRepo}
+              onFileSelect={presentation.onSelectFile}
+              aiMemoryMap={presentation.aiMemoryMap}
+              selectedPath={activeFilePath}
+              activeInvestigatingFile={canonicalFile}
+            />
           </div>
         </div>
       )}
@@ -161,9 +138,10 @@ export default function PerspectiveRouter({
       <div
         className="flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out"
         style={{
-          borderRadius: '12px',
-          background: 'var(--cs-panel)',
-          boxShadow: 'var(--cs-shadow-panel)',
+          borderRadius: '10px',
+          background: 'var(--cs-editor)',
+          border: '1px solid rgba(255,255,255,0.04)',
+          boxShadow: 'none',
           overflow: 'hidden',
         }}
       >
@@ -175,60 +153,18 @@ export default function PerspectiveRouter({
               repo={presentation.selectedRepo}
               repositoryContext={presentation.repositoryContext}
               onNewInvestigation={onNewInvestigation}
+              fileCount={fileCount}
+              filesLoading={filesLoading}
             />
           ) : (
             <div className="flex-1 flex flex-col min-w-0 h-full">
-              {perspective === 'files' && activeFilePath && (
-                <div
-                  className="flex items-center gap-1 px-5 flex-shrink-0"
-                  style={{ height: '36px', borderBottom: '1px solid var(--cs-border)' }}
-                >
-                  <AnimatePresence mode="wait">
-                    {activeFilePath.split('/').filter(Boolean).map((segment, i, arr) => (
-                      <React.Fragment key={`${activeFilePath}-${i}`}>
-                        {i > 0 && (
-                          <span style={{ color: 'var(--cs-hint)', fontSize: '10px', margin: '0 2px' }}>/</span>
-                        )}
-                        <motion.span
-                          initial={{ opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.15, delay: i * 0.04, ease: [0.0, 0.0, 0.2, 1] }}
-                          style={{
-                            color: i === arr.length - 1 ? 'var(--cs-text)' : 'var(--cs-muted)',
-                            fontSize: '11px',
-                            fontFamily: 'var(--cs-mono)',
-                            fontWeight: i === arr.length - 1 ? 600 : 400,
-                          }}
-                        >
-                          {segment}
-                        </motion.span>
-                      </React.Fragment>
-                    ))}
-                  </AnimatePresence>
-
-                  {/* AI-touched badge */}
-                  {aiTouchedPaths.has(activeFilePath) && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.2, delay: 0.3 }}
-                      className="ml-auto flex items-center gap-1.5"
-                      style={{
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        background: 'rgba(62,168,255,0.08)',
-                        border: '1px solid rgba(62,168,255,0.15)',
-                      }}
-                    >
-                      <span style={{ color: 'var(--cs-accent)', fontSize: '9px' }}>✦</span>
-                      <span style={{ color: 'var(--cs-accent)', fontSize: '9px', fontWeight: 500 }}>AI Read</span>
-                    </motion.div>
-                  )}
-                </div>
-              )}
+              {/* Removed redundant breadcrumb row */}
               <UniversalCodeViewer
-                activeTabId={activeFilePath || (perspective === 'investigation' ? (presentation.activeCognitiveEvent?.file || presentation.attention?.file) : undefined)}
+                tabs={presentation.tabs}
+                activeTabId={canonicalFile}
                 isAsset={presentation.isAsset}
+                onSelectTab={handleSelectTab}
+                onCloseTab={handleCloseTab}
                 attention={presentation.attention}
                 insight={presentation.insight}
                 runtimeStatus={presentation.runtimeStatus}
@@ -237,6 +173,8 @@ export default function PerspectiveRouter({
                 orchestration={orchestration}
                 answer={presentation.answer}
                 activeInvestigation={activeInvestigation}
+                onReturnToAI={presentation.onReturnToAI}
+                userSelectedFile={presentation.userSelectedFile}
               />
             </div>
           )
@@ -250,9 +188,12 @@ export default function PerspectiveRouter({
           width: '20%',
           minWidth: '280px',
           maxWidth: '380px',
-          borderRadius: '12px',
-          background: 'var(--cs-panel)',
-          boxShadow: 'var(--cs-shadow-panel)',
+          borderRadius: '10px',
+          background: 'var(--cs-glass-panel)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          boxShadow: 'var(--cs-inset-top-soft)',
           overflow: 'hidden',
         }}
       >
@@ -263,7 +204,7 @@ export default function PerspectiveRouter({
           relatedSymbols={presentation.relatedSymbols}
           intelligenceStream={presentation.intelligenceStream}
           onNewInvestigation={onNewInvestigation}
-          selectedFile={presentation.userSelectedFile}
+          selectedFile={canonicalFile}
           selectedTimelineEventId={presentation.selectedTimelineEventId}
           onReturnToPresent={presentation.onReturnToPresent}
           isContext={false}
@@ -272,13 +213,50 @@ export default function PerspectiveRouter({
 
       {/* ── Report Sheet ── */}
       {showReport && perspective !== 'branch' && (
-        <InvestigationReportSheet
-          answer={presentation.answer}
-          error={presentation.error}
-          intelligenceStream={presentation.intelligenceStream}
-          onClose={() => setReportDismissed(true)}
-          onRetryInvestigation={activeInvestigation ? () => onNewInvestigation(activeInvestigation.query || activeInvestigation.title, activeInvestigation.mode) : undefined}
-        />
+        <>
+          <div 
+            className="absolute inset-0 z-40 transition-opacity duration-700 pointer-events-auto"
+            onClick={() => setReportDismissed(true)}
+            style={{
+              background: 'rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(2px)',
+            }}
+          />
+          <InvestigationReportSheet
+            answer={presentation.answer}
+            error={presentation.error}
+            findings={presentation.findings}
+            providerUsed={presentation.providerUsed}
+            query={activeInvestigation?.title || activeInvestigation?.query}
+            onClose={() => setReportDismissed(true)}
+            onRetryInvestigation={activeInvestigation ? () => onNewInvestigation(activeInvestigation.query || activeInvestigation.title, activeInvestigation.mode) : undefined}
+          />
+        </>
+      )}
+
+      {/* ── Collapsed Report Dock ── */}
+      {activeInvestigation && sessionState !== SESSION_STATES.IDLE && isReadingComplete && reportDismissed && perspective !== 'branch' && (
+        <div
+          onClick={() => setReportDismissed(false)}
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 cursor-pointer transition-all hover:scale-[1.02]"
+          style={{
+            padding: '8px 16px',
+            background: 'var(--cs-glass-float)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255,255,255,0.09)',
+            borderRadius: '20px',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.5), var(--cs-inset-top)',
+          }}
+        >
+          <span style={{ color: 'var(--cs-accent)', fontSize: '11px' }}>✦</span>
+          <span style={{ fontSize: '12px', color: 'var(--cs-text)', fontWeight: 500 }}>
+            {activeInvestigation.query || activeInvestigation.title || 'Investigation Report'}
+          </span>
+          <span style={{ fontSize: '10px', color: 'var(--cs-muted)' }}>
+            · {presentation.findings?.length || 0} insights
+          </span>
+        </div>
       )}
     </div>
   );
