@@ -26,7 +26,7 @@ export default function CommandBar({ branch = 'main', onNewInvestigation, active
       className="flex-shrink-0 flex items-center justify-between select-none w-full"
       style={{
         height: '48px',
-        background: 'var(--cs-bg)',
+        background: 'transparent',
         paddingLeft: '24px',
         paddingRight: '16px',
       }}
@@ -88,15 +88,15 @@ export default function CommandBar({ branch = 'main', onNewInvestigation, active
         ) : (
           <button
             onClick={() => setIsSearching(true)}
-            className="flex items-center gap-4 flex-shrink-0 transition-all duration-[220ms]"
+            className={`flex items-center gap-4 flex-shrink-0 transition-all duration-[220ms] ${activeInvestigation?.status === 'running' ? 'animate-pulse-subtle' : ''}`}
             style={{
               height: '42px',
               width: '500px',
               paddingLeft: '24px',
               paddingRight: '12px',
               borderRadius: '12px',
-              background: 'transparent',
-              border: '1px solid transparent',
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.08)',
               color: activeQuery ? 'var(--cs-text)' : 'rgba(255,255,255,0.3)',
               fontSize: '13px',
               cursor: 'text',
@@ -104,11 +104,15 @@ export default function CommandBar({ branch = 'main', onNewInvestigation, active
             }}
             onMouseEnter={e => {
               e.currentTarget.style.color = activeQuery ? 'var(--cs-text)' : 'rgba(255,255,255,0.45)';
-              e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+              if (activeInvestigation?.status !== 'running') {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+              }
             }}
             onMouseLeave={e => {
               e.currentTarget.style.color = activeQuery ? 'var(--cs-text)' : 'rgba(255,255,255,0.3)';
-              e.currentTarget.style.background = 'transparent';
+              if (activeInvestigation?.status !== 'running') {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+              }
             }}
           >
             <Search size={14} style={{ color: activeQuery ? 'var(--cs-faint)' : 'var(--cs-hint)' }} />

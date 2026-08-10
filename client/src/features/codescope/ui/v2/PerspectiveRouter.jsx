@@ -83,46 +83,47 @@ export default function PerspectiveRouter({
   }, [memoryFiles, fetchedContent, activeFilePath, activeMemoryFile]);
 
   return (
-    <div className="flex-1 min-h-0 relative flex gap-0 bg-[var(--cs-bg)] overflow-hidden">
+    <div className="flex-1 min-h-0 relative flex gap-[10px] bg-transparent overflow-hidden">
 
       {/* ── Single Left Panel: Repository Explorer ── */}
       {perspective !== 'branch' && (
         <div
           className="flex-shrink-0 flex flex-col transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
           style={{
-            width: '18%',
-            minWidth: '220px',
+            width: '20%',
+            minWidth: '240px',
             maxWidth: '300px',
-            borderRadius: '10px',
-            background: 'var(--cs-glass-panel)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            boxShadow: 'var(--cs-inset-top-soft)',
+            borderRadius: '14px',
+            background: 'rgba(8,8,10,0.6)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255,255,255,0.04)',
+            boxShadow: '0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
             overflow: 'hidden',
           }}
         >
           {/* Header */}
           <div
             className="flex flex-col flex-shrink-0"
-            style={{ padding: '24px 24px 16px', gap: '8px' }}
+            style={{ padding: '20px 20px 12px', gap: '3px', borderBottom: '1px solid rgba(255,255,255,0.03)' }}
           >
             <span style={{
-              fontSize: '13px',
+              fontSize: '12px',
               fontWeight: 600,
               color: 'var(--cs-text)',
-              opacity: 0.8,
+              opacity: 0.65,
               fontFamily: 'var(--font-ui)',
+              letterSpacing: '0.01em',
             }}>
               Repository
             </span>
-            <div className="flex items-center text-[11px] text-[var(--cs-muted)]" style={{ fontFamily: 'var(--font-mono)' }}>
+            <div className="flex items-center text-[11px] text-[var(--cs-muted)]" style={{ fontFamily: 'var(--font-mono)', opacity: 0.5 }}>
               <span>{fileCount} files</span>
             </div>
           </div>
 
           {/* Tree */}
-          <div className="flex-1 overflow-y-auto no-scrollbar" style={{ padding: '0 12px' }}>
+          <div className="flex-1 overflow-y-auto no-scrollbar" style={{ padding: '16px 8px 8px' }}>
             <FileExplorer
               repo={presentation.selectedRepo}
               onFileSelect={presentation.onSelectFile}
@@ -138,10 +139,12 @@ export default function PerspectiveRouter({
       <div
         className="flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out"
         style={{
-          borderRadius: '10px',
-          background: 'var(--cs-editor)',
-          border: '1px solid rgba(255,255,255,0.04)',
-          boxShadow: 'none',
+          borderRadius: '14px',
+          background: 'rgba(5,5,5,0.98)',
+          backdropFilter: 'none',
+          WebkitBackdropFilter: 'none',
+          border: '1px solid rgba(255,255,255,0.055)',
+          boxShadow: '0 6px 48px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04)',
           overflow: 'hidden',
         }}
       >
@@ -188,12 +191,12 @@ export default function PerspectiveRouter({
           width: '20%',
           minWidth: '280px',
           maxWidth: '380px',
-          borderRadius: '10px',
-          background: 'var(--cs-glass-panel)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255,255,255,0.06)',
-          boxShadow: 'var(--cs-inset-top-soft)',
+          borderRadius: '14px',
+          background: 'rgba(8,8,10,0.6)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          border: '1px solid rgba(255,255,255,0.04)',
+          boxShadow: '0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
           overflow: 'hidden',
         }}
       >
@@ -208,6 +211,7 @@ export default function PerspectiveRouter({
           selectedTimelineEventId={presentation.selectedTimelineEventId}
           onReturnToPresent={presentation.onReturnToPresent}
           isContext={false}
+          answer={presentation.answer}
         />
       </div>
 

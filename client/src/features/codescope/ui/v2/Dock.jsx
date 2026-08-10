@@ -31,45 +31,40 @@ function DockIcon({ item, onSelect }) {
       onClick={() => onSelect?.(item.id)}
       className="relative flex items-center justify-center cursor-pointer group"
       title={item.title}
-      style={{ width: '56px', height: '32px' }}
+      style={{ width: '44px', height: '36px' }}
     >
-      {/* Active indicator — extremely subtle */}
+      {/* Active capsule — glass pill behind icon */}
       {item.active && (
         <div
-          className="absolute left-0 rounded-r-full"
+          className="absolute inset-0 rounded-lg"
           style={{
-            width: '2px',
-            height: '16px',
-            background: 'rgba(255,255,255,0.05)',
-            top: '50%',
-            transform: 'translateY(-50%)',
+            background: 'rgba(255,255,255,0.07)',
+            border: '1px solid rgba(255,255,255,0.07)',
           }}
         />
       )}
 
       {/* Icon */}
       <div
-        className="dock-icon flex items-center justify-center"
+        className="dock-icon flex items-center justify-center relative"
         style={{
           width: '32px',
           height: '32px',
-          color: item.active ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)',
-          transition: 'transform 200ms var(--ease-out), color 220ms ease, opacity 220ms ease',
+          color: item.active ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.22)',
+          transition: 'transform 200ms var(--ease-out), color 220ms ease',
         }}
         onMouseEnter={e => {
           if (!item.active) {
-            e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
-            e.currentTarget.style.transform = 'scale(1.05)';
+            e.currentTarget.style.color = 'rgba(255,255,255,0.55)';
           }
         }}
         onMouseLeave={e => {
           if (!item.active) {
-            e.currentTarget.style.color = 'rgba(255,255,255,0.15)';
-            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.color = 'rgba(255,255,255,0.22)';
           }
         }}
       >
-        <Icon size={20} strokeWidth={1.5} />
+        <Icon size={18} strokeWidth={1.5} />
       </div>
     </div>
   );
@@ -85,12 +80,12 @@ export default function Dock({ activeItem, onSelect }) {
     <div
       className="flex flex-col items-center justify-between flex-shrink-0 h-full"
       style={{
-        width: '56px',
+        width: '48px',
         background: 'transparent',
       }}
     >
       {/* Top icons */}
-      <div className="flex flex-col items-center pt-6 gap-6">
+      <div className="flex flex-col items-center pt-5 gap-1">
         {items.map(item => (
           <DockIcon key={item.id} item={item} onSelect={onSelect} />
         ))}
@@ -101,7 +96,7 @@ export default function Dock({ activeItem, onSelect }) {
       </div>
 
       {/* Bottom icons */}
-      <div className="flex flex-col items-center gap-8 pb-4">
+      <div className="flex flex-col items-center gap-2 pb-4">
         {BOTTOM_ITEMS.map(item => (
           <DockIcon key={item.id} item={{ ...item, active: false }} onSelect={onSelect} />
         ))}
