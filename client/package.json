@@ -12,6 +12,7 @@
   "dependencies": {
     "clsx": "^2.1.1",
     "dagre": "^0.8.5",
+    "firebase": "^12.17.1",
     "force-graph": "^1.51.4",
     "framer-motion": "^12.42.2",
     "puppeteer": "^25.3.0",
