@@ -331,20 +331,28 @@ export default function UniversalCodeViewer({
   }, [content, language, activeFile]);
 
   const [hoverLine, setHoverLine] = useState(null);
+  const [hoverBlock, setHoverBlock] = useState(null);
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 0 });
 
   useEffect(() => {
     const handleEditorHighlight = (e) => {
       const detail = e.detail;
-      if (detail && (detail.file === activeFile || detail.file === activeFile.split('/').pop())) {
-        setHoverLine(detail.line);
-        if (listRef.current && detail.line) {
-          const safeIdx = Math.max(0, detail.line - 1);
-          if (typeof listRef.current.scrollToItem === 'function') listRef.current.scrollToItem(safeIdx, 'center');
-          else if (typeof listRef.current.scrollToRow === 'function') listRef.current.scrollToRow({ index: safeIdx, align: 'center' });
+      if (detail && activeFile) {
+        const detailName = detail.file.split(/[\\/]/).pop();
+        const activeName = activeFile.split(/[\\/]/).pop();
+        if (detail.file === activeFile || detailName === activeName || activeFile.endsWith(detail.file) || activeFile.replace(/\\/g, '/').endsWith(detail.file.replace(/\\/g, '/'))) {
+          setHoverLine(detail.line);
+          setHoverBlock(detail.startLine && detail.endLine ? { start: detail.startLine, end: detail.endLine } : null);
+          if (listRef.current && detail.line) {
+            const safeIdx = Math.max(0, detail.line - 1);
+            if (typeof listRef.current.scrollToItem === 'function') listRef.current.scrollToItem(safeIdx, 'center');
+            else if (typeof listRef.current.scrollToRow === 'function') listRef.current.scrollToRow({ index: safeIdx, align: 'center' });
+          }
+          return;
         }
-      } else {
-        setHoverLine(null);
       }
+      setHoverLine(null);
+      setHoverBlock(null);
     };
     window.addEventListener('editor-highlight', handleEditorHighlight);
     return () => window.removeEventListener('editor-highlight', handleEditorHighlight);
@@ -363,39 +371,74 @@ export default function UniversalCodeViewer({
     const endLine = attention.endLine;
     const { opacity, isUnderstood, isFootprint } = getLineStyle(lineNum, aiLine || -1, isAiActive, startLine, endLine);
 
-    // The specific line currently being read (top of the window)
-    const isAiFocus = isAiActive && (startLine && endLine ? (lineNum >= startLine && lineNum <= endLine) : (lineNum === aiLine));
-    const isHovered = hoverLine === lineNum;
+    let focusStart = startLine;
+    let focusEnd = endLine;
+    if (isAiActive && startLine && endLine) {
+      if (endLine - startLine > 6) {
+        const anchor = aiLine || startLine;
+        focusStart = Math.max(startLine, anchor - 2);
+        focusEnd = Math.min(endLine, anchor + 3);
+      }
+    }
+    const isAiFocus = isAiActive && (focusStart && focusEnd ? (lineNum >= focusStart && lineNum <= focusEnd) : (lineNum === aiLine));
+    const isHoveredLine = hoverLine === lineNum;
+    let activeHoverStart = hoverBlock?.start;
+    let activeHoverEnd = hoverBlock?.end;
+    
+    if (hoverBlock && (hoverBlock.end - hoverBlock.start > 6)) {
+      const visibleMid = Math.floor((visibleRange.start + visibleRange.end) / 2) + 1;
+      const anchor = Math.max(hoverBlock.start, Math.min(hoverBlock.end, visibleMid));
+      activeHoverStart = Math.max(hoverBlock.start, anchor - 2);
+      activeHoverEnd = Math.min(hoverBlock.end, anchor + 3);
+    }
+    
+    const isHoverFocus = hoverBlock && lineNum >= activeHoverStart && lineNum <= activeHoverEnd;
+    const isFocus = isAiFocus || isHoverFocus;
+    const isFirstFocusLine = (isAiFocus && (focusStart ? lineNum === focusStart : lineNum === aiLine)) || (isHoverFocus && lineNum === activeHoverStart);
+    const isLastFocusLine = (isAiFocus && (focusEnd ? lineNum === focusEnd : lineNum === aiLine)) || (isHoverFocus && lineNum === activeHoverEnd);
 
     return (
       <div
         style={{
           ...style,
-          opacity: isHovered ? 1.0 : opacity,
+          opacity: isFocus || isHoveredLine ? 1.0 : opacity,
           display: 'flex',
           alignItems: 'center',
-          background: isHovered
-            ? 'linear-gradient(90deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.0) 25%, rgba(255,255,255,0.0) 75%, rgba(255,255,255,0.035) 100%)'
-            : isAiFocus
-              ? 'linear-gradient(90deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.0) 15%, rgba(255,255,255,0.0) 85%, rgba(255,255,255,0.025) 100%)'
+          background: isFocus
+            ? 'linear-gradient(90deg, rgba(191,219,255,0.06) 0%, rgba(191,219,255,0.02) 40%, rgba(255,255,255,0.01) 100%)'
+            : isHoveredLine
+              ? 'linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.0) 20%, rgba(255,255,255,0.0) 80%, rgba(255,255,255,0.04) 100%)'
               : isFootprint
-                ? 'linear-gradient(90deg, rgba(255,255,255,0.01) 0%, transparent 10%, transparent 90%, rgba(255,255,255,0.01) 100%)'
+                ? 'linear-gradient(90deg, rgba(255,255,255,0.015) 0%, transparent 12%, transparent 88%, rgba(255,255,255,0.015) 100%)'
                 : 'transparent',
+          borderTopLeftRadius: isFocus && isFirstFocusLine ? '6px' : '0px',
+          borderTopRightRadius: isFocus && isFirstFocusLine ? '6px' : '0px',
+          borderBottomLeftRadius: isFocus && isLastFocusLine ? '6px' : '0px',
+          borderBottomRightRadius: isFocus && isLastFocusLine ? '6px' : '0px',
+          boxShadow: isFocus 
+            ? `inset 2px 0 0 0 rgba(191,219,255,0.4), inset 12px 0 24px -10px rgba(191,219,255,0.1), inset -1px 0 0 0 rgba(255,255,255,0.04)
+               ${isFirstFocusLine ? ', inset 0 1px 0 0 rgba(255,255,255,0.08)' : ''}
+               ${isLastFocusLine ? ', inset 0 -1px 0 0 rgba(255,255,255,0.08)' : ''}`
+            : 'none',
           transition: `opacity 280ms cubic-bezier(0.22, 0.61, 0.36, 1), background 300ms ease`,
         }}
       >
         <span
-          className="flex-shrink-0 select-none text-right pr-[18px] pl-4"
+          className="flex-shrink-0 select-none text-right pr-[18px] pl-4 flex items-center justify-end"
           style={{
             width: '60px',
             fontFamily: 'var(--font-mono)',
             fontSize: '12px',
             lineHeight: '24px',
-            color: isAiFocus ? 'rgba(255,255,255,0.85)' : isHovered ? 'rgba(255,255,255,0.85)' : isUnderstood ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)',
+            color: isFocus ? 'rgba(255,255,255,0.85)' : isHoveredLine ? 'rgba(255,255,255,0.85)' : isUnderstood ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)',
             userSelect: 'none',
             transition: 'color 220ms ease',
+            position: 'relative'
           }}
         >
+          {isHoveredLine && (
+            <span style={{ position: 'absolute', left: '8px', color: 'rgba(255,255,255,0.6)', fontSize: '10px' }}>&lt;-</span>
+          )}
           {lineNum}
         </span>
 
@@ -427,6 +470,14 @@ export default function UniversalCodeViewer({
     );
   };
 
+  const getFileIcon = (filename) => {
+    if (filename.endsWith('.js') || filename.endsWith('.jsx')) return <span style={{color: '#E3B341', fontSize: '10px', fontWeight: 800, background: 'rgba(227,179,65,0.1)', padding: '2px 4px', borderRadius: '3px'}}>JS</span>;
+    if (filename.endsWith('.ts') || filename.endsWith('.tsx')) return <span style={{color: '#3178C6', fontSize: '10px', fontWeight: 800, background: 'rgba(49,120,198,0.1)', padding: '2px 4px', borderRadius: '3px'}}>TS</span>;
+    if (filename.endsWith('.json')) return <span style={{color: '#F85149', fontSize: '11px', fontWeight: 800, background: 'rgba(248,81,73,0.1)', padding: '2px 4px', borderRadius: '3px'}}>{'{ }'}</span>;
+    if (filename.endsWith('.md')) return <span style={{color: '#9CA3AF', fontSize: '11px', fontWeight: 800, background: 'rgba(156,163,175,0.1)', padding: '2px 4px', borderRadius: '3px'}}>MD</span>;
+    return <span style={{color: '#9CA3AF', fontSize: '10px', fontWeight: 800, background: 'rgba(156,163,175,0.1)', padding: '2px 4px', borderRadius: '3px'}}>{filename.split('.').pop().toUpperCase().substring(0, 2)}</span>;
+  };
+
   const isUserViewing = !!userSelectedFile && (typeof userSelectedFile === 'string' ? userSelectedFile !== attention.file : userSelectedFile.path !== attention.file);
 
   return (
@@ -435,16 +486,16 @@ export default function UniversalCodeViewer({
       style={{ background: 'var(--cs-editor)', gap: 0 }}
     >
       {/* ── Editor Header / Tab Bar ── */}
-      <div className="flex flex-col flex-shrink-0" style={{ background: 'rgba(0,0,0,0.1)' }}>
+      <div className="flex flex-col flex-shrink-0" style={{ background: 'transparent' }}>
         <div
           className="flex items-center flex-shrink-0"
           style={{
-            height: '36px',
-            padding: '0 24px',
+            height: '52px',
+            padding: '10px 16px 0',
             overflow: 'hidden'
           }}
         >
-          <div className="flex items-center gap-4 overflow-x-auto no-scrollbar h-full w-full">
+          <div className="flex items-center gap-3 overflow-x-auto no-scrollbar h-full w-full pb-2">
             {tabs.map(tab => {
               const isTabActive = tab.id === activeFile;
               const isAiFocusTab = tab.id === attention.file;
@@ -452,21 +503,39 @@ export default function UniversalCodeViewer({
                 <div
                   key={tab.id}
                   onClick={() => onSelectTab && onSelectTab(tab.id)}
-                  className="flex items-center gap-2 h-full px-4 border-b-2 cursor-pointer transition-all flex-shrink-0 group"
+                  className="flex items-center justify-center gap-2.5 px-4 cursor-pointer transition-all flex-shrink-0 group relative"
                   style={{
-                    borderColor: isTabActive ? 'var(--cs-accent)' : 'transparent',
-                    color: isTabActive ? 'var(--cs-text)' : 'rgba(255,255,255,0.3)',
-                    fontSize: '13px',
+                    height: '32px',
+                    color: isTabActive ? 'var(--cs-text)' : 'rgba(255,255,255,0.35)',
+                    fontSize: '12px',
                     fontFamily: 'var(--font-ui)',
                     fontWeight: isTabActive ? 500 : 400,
-                    background: isTabActive ? 'rgba(255,255,255,0.02)' : 'transparent',
+                    background: isTabActive ? 'rgba(255,255,255,0.08)' : 'transparent',
+                    borderRadius: '8px',
+                    border: '1px solid',
+                    borderColor: isTabActive ? 'rgba(255,255,255,0.06)' : 'transparent',
+                    boxShadow: isTabActive ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
                     maxWidth: '160px',
                     minWidth: '60px',
+                    transition: 'all 150ms ease',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isTabActive) {
+                      e.currentTarget.style.color = 'rgba(255,255,255,0.55)';
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isTabActive) {
+                      e.currentTarget.style.color = 'rgba(255,255,255,0.28)';
+                      e.currentTarget.style.background = 'transparent';
+                    }
                   }}
                 >
                   {isAiFocusTab && (
-                    <span style={{ color: 'var(--cs-accent)', fontSize: '11px', display: 'inline-block', marginRight: '2px', flexShrink: 0 }}>✦</span>
+                    <span style={{ color: 'var(--cs-accent)', fontSize: '9px', display: 'inline-block', flexShrink: 0, opacity: 0.8 }}>✦</span>
                   )}
+                  {getFileIcon(tab.name)}
                   <span style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                     {tab.name.split(/[\\/]/).pop()}
                   </span>
@@ -477,7 +546,7 @@ export default function UniversalCodeViewer({
                         onCloseTab(tab.id);
                       }}
                       className="opacity-0 group-hover:opacity-40 hover:!opacity-100 p-0.5 flex-shrink-0 transition-opacity"
-                      style={{ fontSize: '10px', marginLeft: '6px' }}
+                      style={{ fontSize: '9px', marginLeft: '2px' }}
                     >
                       ✕
                     </span>
@@ -488,6 +557,74 @@ export default function UniversalCodeViewer({
           </div>
         </div>
       </div>
+
+      {/* ── Reading Logic Bubble — floating glass, shown only during AI reading ── */}
+      <AnimatePresence>
+        {isAiActive && attention.reason && (
+          <motion.div
+            key="reading-bubble"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="flex-shrink-0"
+            style={{
+              margin: '8px 12px',
+              padding: '9px 14px',
+              background: 'rgba(255,255,255,0.03)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: '10px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '3px',
+            }}
+          >
+            {/* Row 1: label + file + lines */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
+                <span style={{ color: 'var(--cs-accent)', fontSize: '10px', flexShrink: 0, opacity: 0.9 }}>✦</span>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: 'var(--cs-text)',
+                  fontFamily: 'var(--font-ui)',
+                  letterSpacing: '0.02em',
+                  flexShrink: 0,
+                  opacity: 0.7,
+                }}>
+                  READING LOGIC
+                </span>
+              </div>
+              {/* File + lines — right-aligned */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                <span style={{
+                  fontSize: '10px',
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--cs-muted)',
+                  opacity: 0.6,
+                }}>
+                  {activeFile ? `${activeFile.split('/').pop()}` : ''}
+                  {attention.startLine && attention.endLine ? ` · Lines ${attention.startLine}–${attention.endLine}` : ''}
+                </span>
+              </div>
+            </div>
+            {/* Row 2: reasoning text — single line, truncated */}
+            <div style={{
+              fontSize: '12px',
+              fontFamily: 'var(--font-ui)',
+              color: 'rgba(255,255,255,0.55)',
+              lineHeight: '1.5',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {attention.reason}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Full file — Virtualized ── */}
       <div className="flex-1 overflow-hidden min-h-0 relative h-full w-full" ref={containerRef}>
@@ -530,65 +667,55 @@ export default function UniversalCodeViewer({
               rowComponent={Row}
               rowProps={{}}
               width="100%"
+              onItemsRendered={({ visibleStartIndex, visibleStopIndex }) => {
+                if (visibleRange.start !== visibleStartIndex || visibleRange.end !== visibleStopIndex) {
+                  setVisibleRange({ start: visibleStartIndex, end: visibleStopIndex });
+                }
+              }}
             />
           </motion.div>
         )}
         </AnimatePresence>
       </div>
 
-      {/* ── Status bar ── */}
-      {(activeFile && isUserViewing) || (activeFile && isAiActive) ? (
+      {/* ── Status bar — user-viewing mode only ── */}
+      {activeFile && isUserViewing ? (
         <div
           className="flex-shrink-0 flex items-center"
           style={{
             height: '32px',
-            padding: '0 24px',
-            background: 'rgba(0,0,0,0.05)',
-            zIndex: 10
+            padding: '0 20px',
+            background: 'rgba(0,0,0,0.08)',
+            borderTop: '1px solid rgba(255,255,255,0.03)',
+            zIndex: 10,
           }}
         >
           <div
             className="flex items-center min-w-0 flex-1 justify-between"
-            style={{
-              fontFamily: 'var(--font-ui)',
-              fontSize: '11px',
-              color: 'var(--cs-muted)',
-            }}
+            style={{ fontFamily: 'var(--font-ui)', fontSize: '11px', color: 'var(--cs-muted)' }}
           >
-            {activeFile && isUserViewing ? (
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-3">
-                  <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full" />
-                  <span style={{ fontWeight: 500 }}>Examining <span style={{ color: 'var(--cs-text)', fontFamily: 'var(--font-mono)' }}>{activeFile.split(/[\\/]/).pop()}</span></span>
-                  <span style={{ color: 'var(--cs-faint)' }}>|</span>
-                  <span style={{ color: 'var(--cs-muted)' }}>User Selection</span>
-                </div>
-                {onReturnToAI && (
-                  <button
-                    onClick={onReturnToAI}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded transition-colors text-[11px] font-medium"
-                    style={{
-                      color: 'var(--cs-accent)',
-                      background: 'rgba(62,168,255,0.08)',
-                      border: '1px solid rgba(62,168,255,0.15)',
-                      cursor: 'pointer'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(62,168,255,0.14)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(62,168,255,0.08)'}
-                  >
-                    ✦ Follow AI
-                  </button>
-                )}
-              </div>
-            ) : activeFile && isAiActive ? (
-              <div className="flex items-center gap-3 w-full min-w-0">
-                <span className="w-1.5 h-1.5 bg-[var(--cs-accent)] rounded-full animate-pulse-dot shrink-0" />
-                <span className="shrink-0" style={{ fontWeight: 600, color: 'var(--cs-accent)', fontFamily: 'var(--font-ui)' }}>✦ Reading logic</span>
-                <span className="truncate flex-1" style={{ color: 'var(--cs-muted)', fontFamily: 'var(--font-ui)' }}>
-                  {attention.reason || "Analyzing..."}
-                </span>
-              </div>
-            ) : null}
+            <div className="flex items-center gap-3">
+              <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full" />
+              <span style={{ fontWeight: 500 }}>Examining <span style={{ color: 'var(--cs-text)', fontFamily: 'var(--font-mono)' }}>{activeFile.split(/[\\/]/).pop()}</span></span>
+              <span style={{ color: 'var(--cs-faint)' }}>|</span>
+              <span style={{ color: 'var(--cs-muted)' }}>User Selection</span>
+            </div>
+            {onReturnToAI && (
+              <button
+                onClick={onReturnToAI}
+                className="flex items-center gap-1.5 px-3 py-1 rounded transition-colors text-[11px] font-medium"
+                style={{
+                  color: 'var(--cs-accent)',
+                  background: 'rgba(62,168,255,0.08)',
+                  border: '1px solid rgba(62,168,255,0.15)',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(62,168,255,0.14)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(62,168,255,0.08)'}
+              >
+                ✦ Follow AI
+              </button>
+            )}
           </div>
         </div>
       ) : null}
