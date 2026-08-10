@@ -86,27 +86,19 @@ function AIMemoryRow({
     fontWeight = 300
   }
 
-  // Semantic File Type Color
   const extension = item.name.split('.').pop().toLowerCase()
-  let semanticColor = 'var(--cs-text)'
-  let icon = ''
-  if (!isDirectory && !isSelected) {
-    if (item.name === 'package.json') {
-      semanticColor = 'hsl(350, 70%, 75%)' // subtle red
-      icon = '✦ '
-    } else if (item.name.toLowerCase() === 'readme.md') {
-      semanticColor = 'hsl(210, 80%, 85%)' // subtle blue
-      icon = '☰ '
-    } else if (['md', 'txt', 'csv'].includes(extension)) {
-      semanticColor = 'hsl(40, 50%, 90%)' // Warm white for docs
-    } else if (['json', 'yml', 'yaml', 'env', 'config'].includes(extension)) {
-      semanticColor = 'hsl(150, 40%, 85%)' // Muted mint for config
-    } else if (['js', 'jsx', 'ts', 'tsx', 'py', 'go', 'rs', 'java', 'c', 'cpp'].includes(extension)) {
-      semanticColor = 'hsl(210, 80%, 90%)' // Cool blue-white for source
-    } else {
-      semanticColor = 'rgba(255, 255, 255, 0.85)' // Default fallback
-    }
-  }
+  let semanticColor = isSelected ? 'var(--cs-text)' : 'rgba(255,255,255,0.85)'
+  
+  const getFileBadge = (filename) => {
+    if (isDirectory) return <span style={{ marginRight: '6px', opacity: 0.6 }}>{isOpen ? '📂' : '📁'}</span>;
+    if (filename.endsWith('.js') || filename.endsWith('.jsx')) return <span style={{color: '#E3B341', fontSize: '10px', fontWeight: 800, background: 'rgba(227,179,65,0.1)', padding: '2px 4px', borderRadius: '3px', marginRight: '6px'}}>JS</span>;
+    if (filename.endsWith('.ts') || filename.endsWith('.tsx')) return <span style={{color: '#3178C6', fontSize: '10px', fontWeight: 800, background: 'rgba(49,120,198,0.1)', padding: '2px 4px', borderRadius: '3px', marginRight: '6px'}}>TS</span>;
+    if (filename.endsWith('.json')) return <span style={{color: '#F85149', fontSize: '11px', fontWeight: 800, background: 'rgba(248,81,73,0.1)', padding: '2px 4px', borderRadius: '3px', marginRight: '6px'}}>{'{ }'}</span>;
+    if (filename.endsWith('.md')) return <span style={{color: '#9CA3AF', fontSize: '11px', fontWeight: 800, background: 'rgba(156,163,175,0.1)', padding: '2px 4px', borderRadius: '3px', marginRight: '6px'}}>MD</span>;
+    return <span style={{color: '#9CA3AF', fontSize: '10px', fontWeight: 800, background: 'rgba(156,163,175,0.1)', padding: '2px 4px', borderRadius: '3px', marginRight: '6px'}}>{filename.split('.').pop().toUpperCase().substring(0, 2)}</span>;
+  };
+  
+  const icon = getFileBadge(item.name);
 
   // Calculate Recency Underline Opacity (0-10 min decay)
   let recencyOpacity = 0
@@ -186,7 +178,7 @@ function AIMemoryRow({
               height: '100%',
               fontFamily: 'var(--cs-mono)',
               fontSize: '13px',
-              color: 'rgba(255,255,255,0.15)',
+              color: 'rgba(255,255,255,0.08)',
               whiteSpace: 'pre',
               pointerEvents: 'none',
               marginRight: '6px'

@@ -135,20 +135,21 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
       style={{
         height: '100dvh',
         background: 'var(--cs-bg)',
-        padding: '16px 20px',
-        gap: '12px',
+        padding: '10px 14px 16px',
+        gap: '10px',
       }}
     >
       {/* ── Command Bar ── */}
       <div
         className="animate-settle flex-shrink-0"
         style={{
-          borderRadius: '12px',
-          background: 'rgba(255,255,255,0.025)',
-          backdropFilter: 'blur(18px)',
-          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: '14px',
+          background: 'transparent',
           overflow: 'hidden',
           animationDelay: '0ms',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center'
         }}
       >
         <CommandBar
@@ -168,10 +169,10 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
             currentContent={currentContent}
           />
         ) : (
-          <div className="flex flex-1 min-h-0 gap-0 w-full h-full rounded-lg overflow-hidden border border-[var(--cs-border-subtle)]">
-        {/* Dock */}
+          <div className="flex flex-1 min-h-0 gap-[10px] w-full h-full overflow-hidden">
+        {/* Dock — transparent, sits on canvas */}
         <div
-          className="animate-settle flex-shrink-0 border-r border-[var(--cs-border-subtle)] bg-[var(--cs-dock)]"
+          className="animate-settle flex-shrink-0 bg-transparent"
           style={{
             overflow: 'hidden',
             animationDelay: '60ms',

@@ -4,10 +4,13 @@ import { useInvestigationSession } from './features/codescope/store/useInvestiga
 import { useWorkspaceStore } from './features/codescope/store/useWorkspaceStore';
 import LaunchExperience from './features/codescope/ui/LaunchExperience';
 import WorkspaceRoot from './features/codescope/ui/v2/WorkspaceRoot';
+import LoginExperience from './features/auth/ui/LoginExperience';
+import { subscribeToAuthChanges } from './auth/authService';
 import './App.css';
 
 function App() {
-  const [appState, setAppState] = useState('launch');
+  const [appState, setAppState] = useState('loading');
+  const [user, setUser] = useState(null);
   const [repos, setRepos] = useState([]);
   
   const { selectedRepo, setSelectedRepo, activeInvestigationId, setActiveInvestigationId, setUserSelectedFile } = useWorkspaceStore();
@@ -26,8 +29,22 @@ function App() {
   };
 
   useEffect(() => {
-    fetchRepos();
+    const unsubscribe = subscribeToAuthChanges((currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        setAppState('launch');
+      } else {
+        setAppState('login');
+      }
+    });
+    return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchRepos();
+    }
+  }, [user]);
 
   const handleConnect = async (urlOrPath) => {
     if (urlOrPath === '__demo__') {
@@ -67,6 +84,7 @@ function App() {
       if (!response.ok) throw new Error(data.error || 'Failed to connect repository');
 
       setRepos(prev => [data, ...prev]);
+      setUserSelectedFile(null); // Clear previous file selection
       setSelectedRepo(data);
       useInvestigationSession.getState().resetSession(data.id);
       setAppState('workspace');
@@ -77,12 +95,14 @@ function App() {
   };
 
   const handleSelectRepo = (repo) => {
+    setUserSelectedFile(null); // Bug Fix: clear any ghost file selection from previous repo
     setSelectedRepo(repo);
     useInvestigationSession.getState().resetSession(repo.id);
     setAppState('workspace');
   };
 
   const handleConnectNew = () => {
+    setUserSelectedFile(null); // Clear file selection when going back to home
     setAppState('launch');
   };
 
@@ -144,6 +164,14 @@ function App() {
 
   return (
     <div className="w-full h-full min-h-screen overflow-hidden" style={{ background: 'var(--cs-bg)' }}>
+      {appState === 'loading' && (
+        <div className="w-full h-full min-h-screen flex items-center justify-center text-[12px] font-mono text-[var(--cs-muted)]">
+          Initializing CodeScope...
+        </div>
+      )}
+      {appState === 'login' && (
+        <LoginExperience />
+      )}
       {appState === 'launch' && (
         <LaunchExperience onConnect={handleConnect} repos={repos} />
       )}

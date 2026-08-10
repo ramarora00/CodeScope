@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Cpu } from 'lucide-react';
+import { Cpu, LogOut } from 'lucide-react';
+import { logout } from '../../../auth/authService';
 
 export default function LaunchExperience({ onConnect, repos = [] }) {
   const [repoUrl, setRepoUrl] = useState('');
@@ -91,6 +92,15 @@ export default function LaunchExperience({ onConnect, repos = [] }) {
               ))}
             </div>
           )}
+
+          <button
+            onClick={() => logout()}
+            className="flex items-center gap-1.5 text-[10px] tracking-wider uppercase opacity-45 hover:opacity-100 transition-all mt-4 font-mono cursor-pointer"
+            style={{ color: 'var(--cs-muted)' }}
+          >
+            <LogOut size={10} />
+            <span>Sign Out</span>
+          </button>
         </div>
       </motion.div>
     </div>
