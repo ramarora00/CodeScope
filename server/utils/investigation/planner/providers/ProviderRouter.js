@@ -1,5 +1,6 @@
 const { GeminiProvider } = require('./GeminiProvider');
 const { FallbackProvider } = require('./FallbackProvider');
+const { BackupProvider } = require('./BackupProvider');
 const { LLMProvider } = require('./LLMProvider');
 
 /**
@@ -13,6 +14,7 @@ class ProviderRouter extends LLMProvider {
     super();
     this.primary = null;
     this.fallback = null;
+    this.backup = null;
     
     try {
       this.primary = new GeminiProvider();
@@ -23,7 +25,13 @@ class ProviderRouter extends LLMProvider {
     try {
       this.fallback = new FallbackProvider();
     } catch (e) {
-      console.warn('[ProviderRouter] Fallback provider not configured:', e.message);
+      console.warn('[ProviderRouter] Fallback provider (Groq) not configured:', e.message);
+    }
+    
+    try {
+      this.backup = new BackupProvider();
+    } catch (e) {
+      console.warn('[ProviderRouter] Backup provider not configured:', e.message);
     }
 
     this.state = {
@@ -70,11 +78,23 @@ class ProviderRouter extends LLMProvider {
   }
 
   async _executeFallback(mission, context, constraints) {
-    if (!this.fallback) {
-      throw new Error('ProviderRouter: Primary failed and no Fallback provider is configured.');
+    if (this.fallback) {
+      console.log('[ProviderRouter] Executing Fallback Provider (Groq)...');
+      try {
+        return await this.fallback.generatePlan(mission, context, constraints);
+      } catch (fallbackError) {
+        console.warn(`[ProviderRouter] Fallback Provider failed: ${fallbackError.message}. Attempting Backup Provider...`);
+      }
+    } else {
+      console.log('[ProviderRouter] No Fallback provider configured, attempting Backup Provider directly...');
     }
-    console.log('[ProviderRouter] Executing Fallback Provider...');
-    return await this.fallback.generatePlan(mission, context, constraints);
+
+    if (this.backup) {
+      console.log('[ProviderRouter] Executing Backup Provider...');
+      return await this.backup.generatePlan(mission, context, constraints);
+    }
+
+    throw new Error('ProviderRouter: All configured providers failed or are unavailable.');
   }
 
   /**

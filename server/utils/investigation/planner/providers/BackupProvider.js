@@ -1,28 +1,26 @@
 const { LLMProvider } = require('./LLMProvider');
 
 /**
- * FallbackProvider
+ * BackupProvider
  * 
- * Implements the LLMProvider interface for the secondary/fallback reasoning model.
- * Defaults to a generic OpenAI-compatible REST endpoint (like Groq or OpenRouter)
- * so no new SDK dependencies are required.
+ * Implements the LLMProvider interface for the tertiary fallback reasoning model.
+ * Intended for an OpenRouter or OpenAI-compatible endpoint.
  */
-class FallbackProvider extends LLMProvider {
+class BackupProvider extends LLMProvider {
   constructor(
-    apiKey = process.env.FALLBACK_API_KEY, 
-    apiUrl = process.env.FALLBACK_API_URL || 'https://api.groq.com/openai/v1/chat/completions'
+    apiKey = process.env.BACKUP_API_KEY, 
+    apiUrl = process.env.BACKUP_API_URL || 'https://api.openai.com/v1/chat/completions'
   ) {
     super();
     if (!apiKey) {
-      throw new Error('Fallback API key is required');
+      throw new Error('Backup API key is required');
     }
     this.apiKey = apiKey;
     this.apiUrl = apiUrl;
-    this.model = 'llama-3.1-8b-instant'; // Used 8b model for higher TPM (30k) on free tier
+    this.model = process.env.BACKUP_MODEL || 'gpt-4o-mini';
   }
 
   async generatePlan(mission, context, constraints) {
-    // Context size is now safely bounded by ContextBudgeter, no need for manual truncation.
     const safeContext = context || '';
     const prompt = this._buildPrompt(mission, safeContext, constraints);
     const startTime = Date.now();
@@ -38,13 +36,13 @@ class FallbackProvider extends LLMProvider {
           model: this.model,
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.1,
-          response_format: { type: "json_object" } // Enforce JSON if provider supports it
+          response_format: { type: "json_object" }
         })
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Fallback API Error: ${response.status} ${response.statusText} - ${errorText}`);
+        throw new Error(`Backup API Error: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -57,17 +55,17 @@ class FallbackProvider extends LLMProvider {
       return {
         planJson: rawJson,
         metadata: {
-          provider: 'fallback',
+          provider: 'backup',
           model: this.model,
           generatedAt: new Date().toISOString(),
           planningTimeMs,
           contextFiles: contextFilesCount,
           promptVersion: 1,
-          providerUsed: 'fallback' // Explicit flag for frontend observer
+          providerUsed: 'backup' 
         }
       };
     } catch (err) {
-      console.error('[FallbackProvider] Plan generation failed:', err.message);
+      console.error('[BackupProvider] Plan generation failed:', err.message);
       throw err;
     }
   }
@@ -111,10 +109,10 @@ Output ONLY valid JSON matching the exact schema above.
     const start = text.indexOf('{');
     const end = text.lastIndexOf('}');
     if (start === -1 || end === -1) {
-      throw new Error('Fallback LLM did not return a valid JSON object');
+      throw new Error('Backup LLM did not return a valid JSON object');
     }
     return text.substring(start, end + 1);
   }
 }
 
-module.exports = { FallbackProvider };
+module.exports = { BackupProvider };
