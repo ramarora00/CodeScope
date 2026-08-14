@@ -459,3 +459,29 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-08-10T17:38:00+05:30*
 
+
+## Sprint — Planner Context Budgeting and Provider Hardening
+
+**Commits**
+- `6592050` feat(codescope): refine investigation perspective, report sheet, and reading experience
+- `939117a` feat(codescope): update workspace command bar, knowledge panel, and global styles
+- `77b6d0c` feat(codescope): refine file explorer, presentation model, session state, and code viewer
+- `96492ce` feat(server): update context builder, context budgeter, and plan validator
+- `b7a9174` feat(server): refine LLM providers, routing logic, and add backup provider
+- `ee6c330` feat(server): harden execution engine
+- `4bd489d` chore(logs): add all investigation session telemetry recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **UI Perspectives**: Refined \InvestigationPerspective\ and \RepositoryReadingExperience\.
+- **Workspace Panels**: Updated \CommandBar\, \KnowledgePanel\, and \InvestigationReportSheet\.
+- **Workspace State**: Hardened \useInvestigationSession\, \useWorkspacePresentationModel\, and \UniversalCodeViewer\.
+- **Server Planner Core**: Introduced \ContextBudgeter\ to manage context limits alongside \ContextBuilder\ and \PlanValidator\.
+- **LLM Providers**: Added \BackupProvider\ and refined \FallbackProvider\, \GeminiProvider\, and \ProviderRouter\.
+- **Execution Engine**: Further hardened \ExecutionEngine\ resilience.
+- **Telemetry**: Addressed the exception to batch all 59 recent investigation session logs into one commit.
+
+*Recorded on 2026-08-14T18:14:00+05:30*
+
