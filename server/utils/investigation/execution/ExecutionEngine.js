@@ -78,8 +78,15 @@ class ExecutionEngine {
         this._publish(this.events.fileSelected(step.target, step.reason, plan.confidence, isAsset));
         
         const lineCount = 30 + (step.target.length * 7) % 300; 
-        const startLine = step.startLine || 1;
-        const endLine = step.endLine || lineCount;
+        
+        // Mock a realistic target range for the focus box since the planner schema doesn't yet provide line numbers.
+        // Use a hash of the target name so it's deterministic per file.
+        const targetHash = step.target.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        let defaultStartLine = 1 + (targetHash % Math.max(1, lineCount - 25));
+        if (defaultStartLine < 1) defaultStartLine = 1;
+        
+        const startLine = step.startLine || defaultStartLine;
+        const endLine = step.endLine || Math.min(lineCount, startLine + 3 + (targetHash % 3));
         
         this._publish(this.events.fileReadStarted(step.target, step.reason, startLine, endLine));
 
@@ -106,8 +113,13 @@ class ExecutionEngine {
         this._publish(this.events.stateTransition('CROSS_CHECKING', { from: fromPath, to: step.target }));
         this._publish(this.events.jumpStarted(fromPath, step.target, step.reason, 'graph_traversal', null));
         this._publish(this.events.fileSelected(step.target, `Jumped from ${fromPath}`, plan.confidence, isAsset));
-        this._publish(this.events.fileReadStarted(step.target, `Checking dependency`, 1, 10));
-        this._publish(this.events.fileReadProgress(step.target, 1, 10, null));
+        
+        const jumpTargetHash = step.target.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const jumpStartLine = 1 + (jumpTargetHash % 50);
+        const jumpEndLine = jumpStartLine + 8 + (jumpTargetHash % 5);
+        
+        this._publish(this.events.fileReadStarted(step.target, `Checking dependency`, jumpStartLine, jumpEndLine));
+        this._publish(this.events.fileReadProgress(step.target, jumpStartLine, jumpEndLine, null));
         this._publish(this.events.fileReadCompleted(step.target, 50));
         this._publish(this.events.jumpCompleted(step.target));
       }
