@@ -16,7 +16,7 @@
   /* ── Backgrounds — Cinematic Surface & Contrast Lock ── */
   --cs-bg:           #050505;   /* Global Canvas: near-black */
   --cs-workspace:    #070707;   /* Primary Workspace: slightly lifted */
-  --cs-editor:       #030303;   /* Editor: deepest surface, primary focus */
+  --cs-editor:       #000000;   /* Editor: deepest surface, primary focus */
   --cs-panel:        #0B0B0C;   /* Panels (Explorer/Knowledge): charcoal elevation */
   --cs-panel-raised: #101011;   /* Cards/Hover states: slightly elevated charcoal */
   --cs-dock:         #050505;   /* Left dock */

@@ -18,7 +18,7 @@ export default function KnowledgePanel({
 
   const [panelState, setPanelState] = useState('dormant');
   const prevFindingsRef = React.useRef(findings.length);
-  const executiveSummary = answer || `Investigation initialized for ${repo?.name?.split('/')?.pop() || 'this repository'}. Analyzing architectural patterns, component hierarchies, and cross-file dependencies to resolve the query. We will track key insights below.`;
+  const executiveSummary = answer || `Investigation initialized for ${repo?.name?.split('/')?.pop() || 'this repository'}. Analyzing architectural patterns, component hierarchies, and cross-file dependencies to resolve the query.`;
 
   useEffect(() => {
     if (findings.length > prevFindingsRef.current) {
@@ -41,9 +41,7 @@ export default function KnowledgePanel({
   return (
     <div
       className="flex-1 overflow-hidden flex flex-col relative"
-      style={{
-        transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease',
-      }}
+      style={{ transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease' }}
     >
       {/* ── KNOWLEDGE Header ── */}
       <div
@@ -53,20 +51,21 @@ export default function KnowledgePanel({
           paddingLeft: '20px',
           paddingRight: '20px',
           paddingBottom: '16px',
-          borderBottom: '1px solid rgba(255,255,255,0.03)',
+          borderBottom: '1px solid rgba(255,255,255,0.05)',
         }}
       >
         <span style={{
-          color: 'var(--cs-text)',
-          opacity: 0.6,
-          fontSize: '13px',
-          fontWeight: 600,
+          color: 'rgba(255,255,255,0.85)',
+          fontSize: '12px',
+          fontWeight: 700,
+          fontStyle: 'italic',
           fontFamily: 'var(--font-ui)',
+          letterSpacing: '0.10em',
           display: 'flex',
           alignItems: 'baseline',
           gap: '8px',
         }}>
-          Knowledge
+          KNOWLEDGE
           <span
             className="transition-colors duration-500"
             style={{
@@ -83,76 +82,110 @@ export default function KnowledgePanel({
         </span>
       </div>
 
-      {/* ── Pinned Top Section: NOW EXAMINING / REPO ── */}
+      {/* ── Pinned Top Section: REPO / NOW EXAMINING ── */}
       <div className="flex-shrink-0 flex flex-col gap-5" style={{ padding: '16px 20px 20px' }}>
         {/* REPOSITORY OVERVIEW */}
         <div>
-          <div style={{ color: 'var(--cs-muted)', fontSize: '10px', fontWeight: 600, fontFamily: 'var(--font-ui)', marginBottom: '5px', letterSpacing: '0.06em', opacity: 0.6 }}>REPOSITORY</div>
-          <div className="text-[13px] font-bold text-[var(--cs-text)] truncate" style={{ opacity: 0.9 }}>{repo?.name?.split('/')?.pop()?.replace(/-\d{10,}$/, '') || 'Workspace'}</div>
-          <div className="flex items-center gap-2 mt-1" style={{ color: 'var(--cs-muted)', fontSize: '11px', fontFamily: 'var(--font-mono)', opacity: 0.45 }}>
+          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', fontWeight: 700, fontStyle: 'italic', fontFamily: 'var(--font-ui)', marginBottom: '6px', letterSpacing: '0.10em' }}>REPOSITORY</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'rgba(255,255,255,1.0)', fontFamily: 'var(--font-ui)', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {repo?.name?.split('/')?.pop()?.replace(/-\d{10,}$/, '') || 'Workspace'}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', color: 'rgba(255,255,255,0.4)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
             <span>{fileCount} files</span>
-            {repo?.framework && (
-              <>
-                <span>·</span>
-                <span>{repo.framework}</span>
-              </>
-            )}
+            {repo?.framework && (<><span>·</span><span>{repo.framework}</span></>)}
           </div>
         </div>
 
-        {/* NOW EXAMINING (If active finding exists) */}
+        {/* NOW EXAMINING */}
         {activeFinding && (
           <div>
-            <div style={{ color: 'var(--cs-muted)', fontSize: '10px', fontWeight: 600, fontFamily: 'var(--font-ui)', marginBottom: '5px', letterSpacing: '0.06em', opacity: 0.6 }}>NOW EXAMINING</div>
+            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', fontWeight: 700, fontStyle: 'italic', fontFamily: 'var(--font-ui)', marginBottom: '6px', letterSpacing: '0.10em' }}>NOW EXAMINING</div>
             {activeFinding.filePath && (
-              <div className="flex flex-col gap-0.5 pb-1.5">
-                <span className="text-[13px] font-bold text-[var(--cs-text)] truncate">
-                  {activeFinding.filePath.split(/[\\/]/).pop()}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingBottom: '6px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.95)', fontFamily: 'var(--font-ui)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {activeFinding.filePath.split(/[/\\]/).pop()}
                 </span>
-                <span className="text-[10px] text-[var(--cs-muted)] font-mono" style={{ opacity: 0.5 }}>
-                  lines {activeFinding.startLine}–{activeFinding.endLine}
+                <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.35)' }}>
+                  Lines {activeFinding.startLine}–{activeFinding.endLine}
                 </span>
               </div>
             )}
-            <div style={{ color: 'var(--cs-text)', fontSize: '12px', fontFamily: 'var(--font-ui)', lineHeight: '1.6', marginTop: '4px', opacity: 0.65 }} className="line-clamp-3">
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', fontFamily: 'var(--font-ui)', lineHeight: '1.6', marginTop: '4px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
               {activeFinding.reason}
             </div>
           </div>
         )}
       </div>
 
-      {/* ── Scrollable Stream: Executive Summary & Key Findings ── */}
-      <div className="flex-1 overflow-y-auto no-scrollbar relative min-h-0" style={{ borderTop: '1px solid rgba(255,255,255,0.03)' }}>
-        <div style={{ padding: '16px 16px 24px' }} className="flex flex-col gap-3">
+      {/* ── Scrollable: Executive Summary + Key Findings ── */}
+      <div className="flex-1 overflow-y-auto no-scrollbar relative min-h-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ padding: '16px 16px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+          {/* Executive Summary — only when investigation has findings */}
           {findings?.length > 0 && (
-            <div className="mb-4">
-              <div style={{ color: 'var(--cs-text)', fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-ui)', opacity: 0.9, paddingLeft: '4px', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '14px', opacity: 0.7 }}>📄</span> Executive summary
+            <div>
+              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', fontWeight: 700, fontStyle: 'italic', fontFamily: 'var(--font-ui)', letterSpacing: '0.10em', marginBottom: '8px' }}>
+                EXECUTIVE SUMMARY
               </div>
-              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px', fontFamily: 'var(--font-ui)', lineHeight: '1.6', paddingLeft: '4px' }} className="line-clamp-4">
+              <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '12px', fontFamily: 'var(--font-ui)', lineHeight: '1.65', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                 {executiveSummary}
               </div>
             </div>
           )}
 
-          <div style={{ color: 'var(--cs-text)', fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-ui)', opacity: 0.9, paddingLeft: '4px', paddingBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '14px', opacity: 0.7 }}>☍</span> Key findings
+          {/* Key Findings header */}
+          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', fontWeight: 700, fontStyle: 'italic', fontFamily: 'var(--font-ui)', letterSpacing: '0.10em' }}>
+            KEY FINDINGS
           </div>
-          
-          <div className="flex flex-col gap-2">
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <AnimatePresence initial={false}>
               {!findings || findings.length === 0 ? (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex flex-col gap-2 p-3"
-                >
-                  <div style={{ color: 'var(--cs-text)', opacity: 0.55, fontSize: '12px', fontWeight: 500, fontFamily: 'var(--font-ui)', lineHeight: '1.5' }}>
-                    No investigation yet
-                  </div>
-                  <div style={{ color: 'var(--cs-faint)', fontSize: '12px', lineHeight: '1.5' }}>
+                <motion.div key="empty-state" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '4px 0' }}>
+                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', fontFamily: 'var(--font-ui)', lineHeight: '1.6' }}>
                     The repository has been mapped.<br />
                     Ask a question to trace its reasoning.
+                  </div>
+                  {/* Glass action chips — Option A: real triggers */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {[
+                      { label: 'Explore dependencies', query: 'Show me the dependency relationships of this repository' },
+                      { label: 'Explain a flow', query: 'Explain the main execution flow of this codebase' },
+                      { label: 'Generate tests', query: 'What test cases should be written for this repository' },
+                    ].map(action => (
+                      <button
+                        key={action.label}
+                        onClick={() => onNewInvestigation?.(action.query)}
+                        style={{
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: '8px',
+                          padding: '9px 12px',
+                          color: 'rgba(255,255,255,0.55)',
+                          fontSize: '12px',
+                          fontFamily: 'var(--font-ui)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'all 160ms ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)';
+                          e.currentTarget.style.color = 'rgba(255,255,255,0.85)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                          e.currentTarget.style.color = 'rgba(255,255,255,0.55)';
+                        }}
+                      >
+                        <span style={{ color: 'var(--cs-accent)', opacity: 0.7, fontSize: '10px', flexShrink: 0 }}>→</span>
+                        {action.label}
+                      </button>
+                    ))}
                   </div>
                 </motion.div>
               ) : findings.map((item, i) => {
@@ -162,61 +195,57 @@ export default function KnowledgePanel({
                 return (
                   <motion.div
                     key={item.sourceEventId || i}
-                    className="flex flex-col gap-2 cursor-pointer group"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1], delay: Math.min(i * 0.04, 0.2) }}
+                    className="group"
                     style={{
-                      padding: '10px 12px',
-                      background: 'rgba(255,255,255,0.025)',
-                      border: '1px solid rgba(255,255,255,0.04)',
+                      padding: '14px',
+                      background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))',
+                      backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderTop: '1px solid rgba(255,255,255,0.2)', // silver edge
                       borderRadius: '8px',
-                      transition: 'background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease',
-                      opacity: 0.75,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 8px 24px rgba(0,0,0,0.4)',
+                      transition: 'background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease',
                     }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                      e.currentTarget.style.borderColor = 'rgba(191,200,216,0.18)';
-                      e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.2)';
-                      e.currentTarget.style.opacity = '1';
-                      if (item.filePath) {
-                        window.dispatchEvent(new CustomEvent('editor-highlight', { 
-                          detail: { file: item.filePath, startLine: item.startLine, endLine: Math.min(item.endLine, item.startLine + 4), line: item.startLine } 
-                        }));
-                      }
+                      e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03))';
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                      e.currentTarget.style.borderTopColor = 'rgba(255,255,255,0.3)';
+                      e.currentTarget.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.15), 0 12px 32px rgba(0,0,0,0.5)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.025)';
-                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)';
-                      e.currentTarget.style.boxShadow = 'none';
-                      e.currentTarget.style.opacity = '0.75';
-                      window.dispatchEvent(new CustomEvent('editor-highlight', { detail: null }));
-                    }}
-                    onClick={() => {
-                      if (item.filePath) {
-                        const name = item.filePath.split(/[\\/]/).pop();
-                        const wsStore = window.__workspace_store__ || require('../../store/useWorkspaceStore').useWorkspaceStore;
-                        if (wsStore) {
-                          wsStore.getState().setUserSelectedFile({ name, path: item.filePath, type: 'file' });
-                        }
-                        window.dispatchEvent(new CustomEvent('editor-highlight', { 
-                          detail: { file: item.filePath, startLine: item.startLine, endLine: Math.min(item.endLine, item.startLine + 4), line: item.startLine } 
-                        }));
-                      }
+                      e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))';
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                      e.currentTarget.style.borderTopColor = 'rgba(255,255,255,0.2)';
+                      e.currentTarget.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.1), 0 8px 24px rgba(0,0,0,0.4)';
+                      e.currentTarget.style.transform = 'translateY(0px)';
                     }}
                   >
                     {item.filePath && (
-                      <div className="flex flex-col gap-0">
-                        <span className="text-[12px] font-medium text-[var(--cs-text)] transition-colors truncate" style={{ opacity: 0.9 }}>
-                          {item.filePath.split(/[\\/]/).pop()}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.95)', fontFamily: 'var(--font-ui)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.filePath.split(/[/\\]/).pop()}
                         </span>
-                        <span className="text-[10px] text-[var(--cs-muted)] font-mono" style={{ opacity: 0.5 }}>
-                          lines {item.startLine}–{item.endLine}
-                        </span>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--cs-accent)', flexShrink: 0, background: 'rgba(99,170,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                            L{item.startLine}–L{item.endLine}
+                          </span>
+                        </div>
                       </div>
                     )}
-                    <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '11px', fontFamily: 'var(--font-ui)', lineHeight: '1.55', marginTop: '2px' }} className="line-clamp-3">
+                    <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '11px', fontFamily: 'var(--font-ui)', lineHeight: '1.55', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                       {item.reason}
                     </div>
                     {item.filePath && (
-                      <div style={{ color: 'var(--cs-muted)', fontSize: '10px', fontFamily: 'var(--font-ui)', fontStyle: 'italic', marginTop: '4px', opacity: 0.6 }}>
+                      <div style={{ color: 'var(--cs-accent)', fontSize: '10px', fontWeight: 500, fontFamily: 'var(--font-ui)', opacity: 0.5, transition: 'opacity 150ms ease', marginTop: '2px' }}
+                        className="group-hover:opacity-100"
+                      >
                         → Open in editor
                       </div>
                     )}

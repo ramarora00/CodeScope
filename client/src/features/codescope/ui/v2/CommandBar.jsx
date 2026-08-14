@@ -62,65 +62,82 @@ export default function CommandBar({ branch = 'main', onNewInvestigation, active
         {isSearching ? (
           <form
             onSubmit={handleSubmit}
-            className="flex items-center gap-4 flex-shrink-0"
+            className="flex items-center gap-4 flex-shrink-0 shadow-[0_4px_24px_rgba(0,0,0,0.5)] transition-all duration-300"
             style={{
-              height: '42px',
-              width: '500px',
+              height: '46px',
+              width: '640px',
               paddingLeft: '24px',
               paddingRight: '12px',
               borderRadius: '12px',
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(255,255,255,0.04)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
               fontFamily: 'var(--cs-sans)',
             }}
           >
-            <Search size={14} style={{ color: 'var(--cs-accent)' }} />
+            <Search size={16} style={{ color: 'var(--cs-accent)' }} />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ask anything... (Press Enter to start)"
+              placeholder="Investigate the architecture, find performance hotspots, or explain a flow..."
               autoFocus
               onBlur={() => setTimeout(() => setIsSearching(false), 300)}
-              className="flex-1 bg-transparent text-[12px] text-white outline-none border-none placeholder-white/30"
+              className="flex-1 bg-transparent text-[13px] text-white outline-none border-none placeholder-white/40"
             />
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', height: '24px', padding: '0 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', fontSize: '10px', fontWeight: 600
+            }}>
+              ↵ Enter
+            </div>
           </form>
         ) : (
           <button
             onClick={() => setIsSearching(true)}
             className={`flex items-center gap-4 flex-shrink-0 transition-all duration-[220ms] ${activeInvestigation?.status === 'running' ? 'animate-pulse-subtle' : ''}`}
             style={{
-              height: '42px',
-              width: '500px',
+              height: '46px',
+              width: '640px',
               paddingLeft: '24px',
               paddingRight: '12px',
               borderRadius: '12px',
-              background: 'rgba(255,255,255,0.02)',
+              background: 'rgba(255,255,255,0.03)',
+              backdropFilter: 'blur(8px)',
               border: '1px solid rgba(255,255,255,0.08)',
-              color: activeQuery ? 'var(--cs-text)' : 'rgba(255,255,255,0.3)',
+              color: activeQuery ? 'var(--cs-text)' : 'rgba(255,255,255,0.4)',
               fontSize: '13px',
               cursor: 'text',
               fontFamily: 'var(--cs-sans)',
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.color = activeQuery ? 'var(--cs-text)' : 'rgba(255,255,255,0.45)';
+              e.currentTarget.style.color = activeQuery ? 'var(--cs-text)' : 'rgba(255,255,255,0.6)';
               if (activeInvestigation?.status !== 'running') {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
               }
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.color = activeQuery ? 'var(--cs-text)' : 'rgba(255,255,255,0.3)';
+              e.currentTarget.style.color = activeQuery ? 'var(--cs-text)' : 'rgba(255,255,255,0.4)';
               if (activeInvestigation?.status !== 'running') {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
               }
             }}
           >
-            <Search size={14} style={{ color: activeQuery ? 'var(--cs-faint)' : 'var(--cs-hint)' }} />
+            <Search size={16} style={{ color: activeQuery ? 'var(--cs-faint)' : 'rgba(255,255,255,0.4)' }} />
             <span className="flex-1 text-left truncate" style={{ letterSpacing: '0.005em' }}>
               {activeQuery 
                 ? (activeQuery === 'Repository Understanding' ? 'Exploring repository...' : `⌕ ${activeQuery}`) 
                 : 'Investigate this repository...'}
             </span>
+            {!activeQuery && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '24px', padding: '0 6px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)', fontSize: '10px', fontWeight: 600, fontFamily: 'var(--font-ui)'
+              }}>
+                ⌘K
+              </div>
+            )}
           </button>
         )}
       </div>
