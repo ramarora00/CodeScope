@@ -30,9 +30,9 @@ export default function InvestigationPerspective({
         style={{
           marginTop: '2px',
           borderRadius: '12px',
-          background: 'var(--cs-panel)',
-          border: '1px solid var(--cs-border)',
-          boxShadow: 'var(--cs-shadow-panel)',
+          background: 'rgba(15, 15, 18, 0.88)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
           overflow: 'hidden',
           animationDelay: '100ms',
         }}
@@ -53,9 +53,9 @@ export default function InvestigationPerspective({
         className="animate-settle flex-1 flex flex-col min-w-0"
         style={{
           borderRadius: '12px',
-          background: 'var(--cs-panel)',
-          border: '1px solid var(--cs-border)',
-          boxShadow: 'var(--cs-shadow-panel)',
+          background: 'rgba(15, 15, 18, 0.88)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
           overflow: 'hidden',
           animationDelay: '140ms',
         }}
@@ -84,9 +84,9 @@ export default function InvestigationPerspective({
         className="animate-settle flex-shrink-0"
         style={{
           borderRadius: '12px',
-          background: 'var(--cs-panel)',
-          border: '1px solid var(--cs-border)',
-          boxShadow: 'var(--cs-shadow-panel)',
+          background: 'rgba(15, 15, 18, 0.88)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
           overflow: 'hidden',
           animationDelay: '180ms',
         }}

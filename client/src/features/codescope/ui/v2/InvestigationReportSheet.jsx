@@ -1,5 +1,6 @@
 import React from 'react';
 import { FileText, ChevronDown, ListChecks, FileCode2, RefreshCw } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 /**
  * InvestigationReportSheet
@@ -65,18 +66,25 @@ export default function InvestigationReportSheet({ answer, error, findings = [],
     <>
       {/* Backdrop handled by PerspectiveRouter */}
 
-      {/* Report sheet — slides up cinematically */}
-      <div
-        className="absolute bottom-0 left-0 right-0 z-50 flex flex-col animate-slide-up-report"
+      {/* Report sheet — elegantly emerges as a floating glass layer */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+        className="absolute z-50 flex flex-col"
         style={{
-          height: '68%',
-          background: 'var(--cs-glass-report)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderTop: '1px solid var(--cs-border-strong)',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px',
-          boxShadow: '0 -20px 60px rgba(0,0,0,0.6), var(--cs-inset-top)',
+          top: '5%',
+          bottom: '5%',
+          left: '12%',
+          right: '12%',
+          background: 'linear-gradient(180deg, rgba(28,28,34,0.7), rgba(18,18,22,0.85))',
+          backdropFilter: 'blur(32px)',
+          WebkitBackdropFilter: 'blur(32px)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderTop: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: '16px',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.1)',
+          overflow: 'hidden'
         }}
       >
         {/* ── Header ── */}
@@ -327,7 +335,7 @@ export default function InvestigationReportSheet({ answer, error, findings = [],
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
     </>
   );
 }
