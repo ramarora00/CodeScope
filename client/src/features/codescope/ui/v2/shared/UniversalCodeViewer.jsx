@@ -5,6 +5,11 @@ import { Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ─────────────────────────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────────────────────────
+const ROW_HEIGHT = 24;
+
+// ─────────────────────────────────────────────────────────────────
 // SHIKI HIGHLIGHTER INSTANCE
 // ─────────────────────────────────────────────────────────────────
 let highlighterPromise = null;
@@ -58,6 +63,127 @@ function getLineStyle(lineNum, aiLine, isAiActive, startLine, endLine) {
 // ─────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────
+// INVESTIGATION ACTIVITY SEQUENCE
+// Replaces static "Tracing repository context..." with a
+// live sequence that communicates the AI is actively thinking.
+// Reads directly from backend investigationState for true synchronization.
+// ─────────────────────────────────────────────────────────────────
+function InvestigationActivitySequence({ event, investigationState }) {
+  const [step, setStep] = React.useState(0);
+
+  React.useEffect(() => {
+    if (event?.type === 'file.read.progress') {
+      setStep(4);
+    } else if (event?.type === 'jump.started' || event?.type === 'file.selected') {
+      setStep(3);
+    } else {
+      switch (investigationState) {
+        case 'IDLE':
+        case 'PLANNING':
+          setStep(0);
+          break;
+        case 'INDEXING':
+          setStep(1);
+          break;
+        case 'SEARCHING':
+        case 'TRACING':
+          setStep(2);
+          break;
+        case 'READING':
+        case 'EVALUATING':
+          setStep(3);
+          break;
+        case 'COMPLETED':
+          setStep(4);
+          break;
+        default:
+          setStep(0);
+      }
+    }
+  }, [event, investigationState]);
+
+  const phases = [
+    'QUESTION RECEIVED',
+    'MAPPING REPOSITORY',
+    'TRACING EXECUTION',
+    'OPENING SOURCE',
+    'READING CODE'
+  ];
+
+  const checklist = [
+    { label: 'structure', activeStep: 1 },
+    { label: 'dependencies', activeStep: 2 },
+    { label: 'source', activeStep: 3 },
+    { label: 'reasoning', activeStep: 4 }
+  ];
+
+  const currentPhase = phases[Math.min(step, phases.length - 1)];
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={step}
+        initial={{ opacity: 0, y: 4, scale: 0.99 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -4, scale: 0.99 }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}
+      >
+        <span style={{
+          color: 'var(--cs-accent)',
+          fontSize: '12px',
+          opacity: 0.8,
+          letterSpacing: '0.02em',
+        }}>✦</span>
+        
+        <span style={{
+          fontFamily: 'var(--font-ui)',
+          fontSize: '13px',
+          fontWeight: 600,
+          color: 'rgba(255,255,255,0.9)',
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase'
+        }}>{currentPhase}</span>
+
+        <div style={{
+          width: '180px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)',
+          margin: '4px 0'
+        }} />
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
+          {checklist.map((item, i) => {
+            const isCompleted = step > item.activeStep;
+            const isCurrent = step === item.activeStep;
+            
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{
+                  color: isCurrent ? 'var(--cs-accent)' : isCompleted ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.1)',
+                  fontSize: '10px',
+                  transition: 'color 0.4s ease'
+                }}>
+                  {isCurrent ? '●' : '○'}
+                </span>
+                <span style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '11px',
+                  color: isCurrent ? 'rgba(255,255,255,0.8)' : isCompleted ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.2)',
+                  transition: 'color 0.4s ease'
+                }}>
+                  {item.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
 // UNIVERSAL CODE VIEWER
 // Replaces AIOverlayEditor and regex parsing with Shiki and react-window
 // ─────────────────────────────────────────────────────────────────
@@ -90,8 +216,14 @@ export default function UniversalCodeViewer({
   const aiLine = animatedAiLine || attention.line || null;
   const isUnderstandingMode = activeInvestigation?.mode === 'understanding';
   const isAiControlling = !userSelectedFile || userSelectedFile === attention.file;
-  const isAiActive = !isUnderstandingMode && runtimeStatus === 'reading' && !!aiLine && attention.file === activeFile && isAiControlling;
-  const { activeCognitiveEvent, commitActiveCognitiveEvent } = orchestration || {};
+  // isAiActive: AI is presenting content to the user in the editor.
+  // Directly tied to `attention.file === activeFile` to guarantee UI stability. 
+  // Do NOT rely on ephemeral backend `runtimeStatus` or it will blink.
+  const isAiActive = !isUnderstandingMode && !!activeInvestigation && attention.file === activeFile && isAiControlling;
+  // isAiFocusing: narrower gate — only true when a concrete line range is known
+  // This is what gates the focus box overlay and Reading Logic.
+  const isAiFocusing = isAiActive && !!(attention.startLine && attention.endLine);
+  const { activeCognitiveEvent, commitActiveCognitiveEvent, investigationState } = orchestration || {};
 
   const isResolved = runtimeStatus === 'resolved' && !activeCognitiveEvent;
   const confidence = isResolved ? 'High' : attention.type === 'insight' ? 'High' : 'Medium';
@@ -128,44 +260,31 @@ export default function UniversalCodeViewer({
       const maxLines = Math.max(1, activeCognitiveEvent.totalLines || tokenizedLinesRef.current?.length || 1);
       const targetLine = Math.min(activeCognitiveEvent.line, maxLines);
 
-      // Believable Cognition: Jump directly to the relevant block, no theatrical scanning.
       setAnimatedAiLine(targetLine);
       const startL = attention.startLine;
       const endL = attention.endLine;
       const scrollLine = (startL && endL) ? Math.floor((startL + endL) / 2) : targetLine;
       const scrollIndex = Math.max(0, Math.min(scrollLine - 1, maxLines - 1));
-      try {
-        if (listRef.current) {
-          if (typeof listRef.current.scrollToItem === 'function') listRef.current.scrollToItem(scrollIndex, 'center');
-          else if (typeof listRef.current.scrollToRow === 'function') listRef.current.scrollToRow({ index: scrollIndex, align: 'center' });
-        }
-      } catch (_) { /* Suppress transient RangeError during file transitions */ }
+      scrollAndSettle(scrollIndex, startL, endL);
 
-      // Short hold to visually digest the block
-      const holdDuration = 600 + Math.random() * 400; // 600-1000ms pause
+      // Hold to let user see the focused region
+      const holdDuration = 700 + Math.random() * 300;
       const activeTimeout = setTimeout(() => commitActiveCognitiveEvent(), holdDuration);
-
       return () => clearTimeout(activeTimeout);
     }
     else if (type === 'jump.started' || type === 'file.selected') {
-      // ANTICIPATION: Wait 300ms thinking beat before jump
       const maxLines = Math.max(1, tokenizedLinesRef.current?.length || 1);
       const targetLine = Math.min(activeCognitiveEvent.line || attention.line || 1, maxLines);
+      // 400ms thinking beat, then scroll+settle, then commit
       setTimeout(() => {
         setAnimatedAiLine(targetLine);
         const startL = attention.startLine;
         const endL = attention.endLine;
         const scrollLine = (startL && endL) ? Math.floor((startL + endL) / 2) : targetLine;
         const scrollIndex = Math.max(0, Math.min(scrollLine - 1, maxLines - 1));
-        try {
-          if (listRef.current) {
-            if (typeof listRef.current.scrollToItem === 'function') listRef.current.scrollToItem(scrollIndex, 'center');
-            else if (typeof listRef.current.scrollToRow === 'function') listRef.current.scrollToRow({ index: scrollIndex, align: 'center' });
-          }
-        } catch (_) { }
-        // Arrive and orient
-        setTimeout(() => commitActiveCognitiveEvent(), 700);
-      }, 400); // 400ms thinking beat before jumping
+        scrollAndSettle(scrollIndex, startL, endL);
+        setTimeout(() => commitActiveCognitiveEvent(), 750);
+      }, 400);
     }
     else if (type === 'file.read.completed') {
       // CONCLUDE FILE: Pause to synthesize before moving on
@@ -267,6 +386,9 @@ export default function UniversalCodeViewer({
 
   const [listHeight, setListHeight] = useState(600);
   const containerRef = useRef(null);
+  
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const visibleRangeRef = useRef({ start: 0, end: 0 });
 
   // P3: Crossfade between files — keep previous tokens visible while new ones tokenize
   useEffect(() => {
@@ -333,6 +455,42 @@ export default function UniversalCodeViewer({
   const [hoverLine, setHoverLine] = useState(null);
   const [hoverBlock, setHoverBlock] = useState(null);
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 0 });
+  // scrollSettled: true once viewport has had time to settle post-scroll
+  // prevents focus box from appearing at wrong visual position
+  const [scrollSettled, setScrollSettled] = useState(true);
+  const scrollSettleTimerRef = useRef(null);
+
+  const scrollAndSettle = (index, startLineRange, endLineRange) => {
+    // Viewport-aware scroll: only scroll if the target is outside the safe visible zone
+    const targetStart = startLineRange ? startLineRange - 1 : index;
+    const targetEnd = endLineRange ? endLineRange - 1 : index;
+
+    // Is the entire focus region fully visible?
+    const isVisible = targetStart >= visibleRangeRef.current.start && targetEnd <= visibleRangeRef.current.end;
+    if (isVisible) {
+      if (!scrollSettled) setScrollSettled(true);
+      return; // Already visible, no need to jump
+    }
+
+    setScrollSettled(false);
+    if (scrollSettleTimerRef.current) clearTimeout(scrollSettleTimerRef.current);
+    try {
+      if (listRef.current) {
+        if (targetEnd - targetStart > 15) {
+          // If range is large, align to the start of the block with a small buffer
+          const alignIndex = Math.max(0, targetStart - 2);
+          if (typeof listRef.current.scrollToItem === 'function') listRef.current.scrollToItem(alignIndex, 'start');
+          else if (typeof listRef.current.scrollToRow === 'function') listRef.current.scrollToRow({ index: alignIndex, align: 'start' });
+        } else {
+          // Normal center alignment
+          const centerIndex = Math.floor((targetStart + targetEnd) / 2);
+          if (typeof listRef.current.scrollToItem === 'function') listRef.current.scrollToItem(centerIndex, 'center');
+          else if (typeof listRef.current.scrollToRow === 'function') listRef.current.scrollToRow({ index: centerIndex, align: 'center' });
+        }
+      }
+    } catch (_) { }
+    scrollSettleTimerRef.current = setTimeout(() => setScrollSettled(true), 380);
+  };
 
   useEffect(() => {
     const handleEditorHighlight = (e) => {
@@ -343,11 +501,7 @@ export default function UniversalCodeViewer({
         if (detail.file === activeFile || detailName === activeName || activeFile.endsWith(detail.file) || activeFile.replace(/\\/g, '/').endsWith(detail.file.replace(/\\/g, '/'))) {
           setHoverLine(detail.line);
           setHoverBlock(detail.startLine && detail.endLine ? { start: detail.startLine, end: detail.endLine } : null);
-          if (listRef.current && detail.line) {
-            const safeIdx = Math.max(0, detail.line - 1);
-            if (typeof listRef.current.scrollToItem === 'function') listRef.current.scrollToItem(safeIdx, 'center');
-            else if (typeof listRef.current.scrollToRow === 'function') listRef.current.scrollToRow({ index: safeIdx, align: 'center' });
-          }
+          if (detail.line) scrollAndSettle(Math.max(0, detail.line - 1), detail.startLine, detail.endLine);
           return;
         }
       }
@@ -362,7 +516,18 @@ export default function UniversalCodeViewer({
   const displayTokens = tokenizedLines.length > 0 ? tokenizedLines : previousTokensRef.current;
   const displayOpacity = isCrossfading ? 0.35 : 1.0;
 
-  const Row = ({ index, style }) => {
+  const Row = ({
+    index,
+    style,
+    visibleRange = { start: 0, end: 0 },
+    scrollSettled = true,
+    isAiActive = false,
+    isAiFocusing = false,
+    aiLine = null,
+    attention = {},
+    hoverLine = null,
+    hoverBlock = null
+  }) => {
     const tokens = displayTokens[index];
     if (!tokens) return null;
 
@@ -373,14 +538,7 @@ export default function UniversalCodeViewer({
 
     let focusStart = startLine;
     let focusEnd = endLine;
-    if (isAiActive && startLine && endLine) {
-      if (endLine - startLine > 6) {
-        const anchor = aiLine || startLine;
-        focusStart = Math.max(startLine, anchor - 2);
-        focusEnd = Math.min(endLine, anchor + 3);
-      }
-    }
-    const isAiFocus = isAiActive && (focusStart && focusEnd ? (lineNum >= focusStart && lineNum <= focusEnd) : (lineNum === aiLine));
+    const isAiFocus = isAiFocusing && (focusStart && focusEnd ? (lineNum >= focusStart && lineNum <= focusEnd) : (lineNum === aiLine));
     const isHoveredLine = hoverLine === lineNum;
     let activeHoverStart = hoverBlock?.start;
     let activeHoverEnd = hoverBlock?.end;
@@ -393,6 +551,7 @@ export default function UniversalCodeViewer({
     }
     
     const isHoverFocus = hoverBlock && lineNum >= activeHoverStart && lineNum <= activeHoverEnd;
+    // Row-based rendering cannot misalign during scroll, so we no longer need to wait for scrollSettled
     const isFocus = isAiFocus || isHoverFocus;
     const isFirstFocusLine = (isAiFocus && (focusStart ? lineNum === focusStart : lineNum === aiLine)) || (isHoverFocus && lineNum === activeHoverStart);
     const isLastFocusLine = (isAiFocus && (focusEnd ? lineNum === focusEnd : lineNum === aiLine)) || (isHoverFocus && lineNum === activeHoverEnd);
@@ -404,25 +563,35 @@ export default function UniversalCodeViewer({
           opacity: isFocus || isHoveredLine ? 1.0 : opacity,
           display: 'flex',
           alignItems: 'center',
-          background: isFocus
-            ? 'linear-gradient(90deg, rgba(191,219,255,0.06) 0%, rgba(191,219,255,0.02) 40%, rgba(255,255,255,0.01) 100%)'
-            : isHoveredLine
+          background: isHoveredLine
               ? 'linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.0) 20%, rgba(255,255,255,0.0) 80%, rgba(255,255,255,0.04) 100%)'
-              : isFootprint
-                ? 'linear-gradient(90deg, rgba(255,255,255,0.015) 0%, transparent 12%, transparent 88%, rgba(255,255,255,0.015) 100%)'
-                : 'transparent',
-          borderTopLeftRadius: isFocus && isFirstFocusLine ? '6px' : '0px',
-          borderTopRightRadius: isFocus && isFirstFocusLine ? '6px' : '0px',
-          borderBottomLeftRadius: isFocus && isLastFocusLine ? '6px' : '0px',
-          borderBottomRightRadius: isFocus && isLastFocusLine ? '6px' : '0px',
-          boxShadow: isFocus 
-            ? `inset 2px 0 0 0 rgba(191,219,255,0.4), inset 12px 0 24px -10px rgba(191,219,255,0.1), inset -1px 0 0 0 rgba(255,255,255,0.04)
-               ${isFirstFocusLine ? ', inset 0 1px 0 0 rgba(255,255,255,0.08)' : ''}
-               ${isLastFocusLine ? ', inset 0 -1px 0 0 rgba(255,255,255,0.08)' : ''}`
-            : 'none',
+              : isFocus
+                ? 'linear-gradient(90deg, rgba(140,190,255,0.08) 0%, rgba(140,190,255,0.03) 30%, rgba(140,190,255,0.0) 100%)'
+                : isFootprint
+                  ? 'linear-gradient(90deg, rgba(255,255,255,0.015) 0%, transparent 12%, transparent 88%, rgba(255,255,255,0.015) 100%)'
+                  : 'transparent',
+          borderTopRightRadius: isFirstFocusLine ? '6px' : '0',
+          borderBottomRightRadius: isLastFocusLine ? '6px' : '0',
+          boxShadow: isFirstFocusLine && isLastFocusLine
+              ? 'inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 2px 0 rgba(255,255,255,0.02)'
+              : isFirstFocusLine
+              ? 'inset 0 1px 0 rgba(255,255,255,0.1), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 2px 0 rgba(255,255,255,0.02)'
+              : isLastFocusLine
+              ? 'inset 0 -1px 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 -2px 0 rgba(0,0,0,0.1)'
+              : isFocus
+              ? 'inset -1px 0 0 rgba(255,255,255,0.05)'
+              : 'none',
           transition: `opacity 280ms cubic-bezier(0.22, 0.61, 0.36, 1), background 300ms ease`,
         }}
       >
+        {isFocus && (
+          <div style={{
+            position: 'absolute', left: 0, top: 0, bottom: 0, width: '2px', pointerEvents: 'none',
+            background: isFirstFocusLine ? 'linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0.2))' : isLastFocusLine ? 'linear-gradient(180deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))' : 'rgba(255,255,255,0.2)',
+            borderTopLeftRadius: isFirstFocusLine ? '2px' : '0',
+            borderBottomLeftRadius: isLastFocusLine ? '2px' : '0',
+          }} />
+        )}
         <span
           className="flex-shrink-0 select-none text-right pr-[18px] pl-4 flex items-center justify-end"
           style={{
@@ -436,8 +605,8 @@ export default function UniversalCodeViewer({
             position: 'relative'
           }}
         >
-          {isHoveredLine && (
-            <span style={{ position: 'absolute', left: '8px', color: 'rgba(255,255,255,0.6)', fontSize: '10px' }}>&lt;-</span>
+          {(isHoveredLine || (isAiActive && isFirstFocusLine)) && (
+            <span style={{ position: 'absolute', left: '4px', color: 'rgba(255,255,255,0.5)', fontSize: '10px', fontFamily: 'var(--font-mono)' }}>←</span>
           )}
           {lineNum}
         </span>
@@ -471,10 +640,13 @@ export default function UniversalCodeViewer({
   };
 
   const getFileIcon = (filename) => {
-    if (filename.endsWith('.js') || filename.endsWith('.jsx')) return <span style={{color: '#E3B341', fontSize: '10px', fontWeight: 800, background: 'rgba(227,179,65,0.1)', padding: '2px 4px', borderRadius: '3px'}}>JS</span>;
-    if (filename.endsWith('.ts') || filename.endsWith('.tsx')) return <span style={{color: '#3178C6', fontSize: '10px', fontWeight: 800, background: 'rgba(49,120,198,0.1)', padding: '2px 4px', borderRadius: '3px'}}>TS</span>;
-    if (filename.endsWith('.json')) return <span style={{color: '#F85149', fontSize: '11px', fontWeight: 800, background: 'rgba(248,81,73,0.1)', padding: '2px 4px', borderRadius: '3px'}}>{'{ }'}</span>;
-    if (filename.endsWith('.md')) return <span style={{color: '#9CA3AF', fontSize: '11px', fontWeight: 800, background: 'rgba(156,163,175,0.1)', padding: '2px 4px', borderRadius: '3px'}}>MD</span>;
+    const lower = filename.toLowerCase();
+    if (lower.endsWith('.js') || lower.endsWith('.jsx')) return <span style={{color: '#E3B341', fontSize: '10px', fontWeight: 800, background: 'rgba(227,179,65,0.1)', padding: '2px 4px', borderRadius: '3px'}}>JS</span>;
+    if (lower.endsWith('.ts') || lower.endsWith('.tsx')) return <span style={{color: '#3178C6', fontSize: '10px', fontWeight: 800, background: 'rgba(49,120,198,0.1)', padding: '2px 4px', borderRadius: '3px'}}>TS</span>;
+    if (lower.endsWith('.json')) return <span style={{color: '#F85149', fontSize: '11px', fontWeight: 800, background: 'rgba(248,81,73,0.1)', padding: '2px 4px', borderRadius: '3px'}}>{'{ }'}</span>;
+    if (lower.endsWith('.md')) return <span style={{color: '#9CA3AF', fontSize: '11px', fontWeight: 800, background: 'rgba(156,163,175,0.1)', padding: '2px 4px', borderRadius: '3px'}}>MD</span>;
+    if (lower.endsWith('.pdf')) return <span style={{color: '#EF4444', fontSize: '10px', fontWeight: 800, background: 'rgba(239,68,68,0.1)', padding: '2px 4px', borderRadius: '3px'}}>PDF</span>;
+    if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.svg')) return <span style={{color: '#8B5CF6', fontSize: '10px', fontWeight: 800, background: 'rgba(139,92,246,0.1)', padding: '2px 4px', borderRadius: '3px'}}>IMG</span>;
     return <span style={{color: '#9CA3AF', fontSize: '10px', fontWeight: 800, background: 'rgba(156,163,175,0.1)', padding: '2px 4px', borderRadius: '3px'}}>{filename.split('.').pop().toUpperCase().substring(0, 2)}</span>;
   };
 
@@ -503,34 +675,44 @@ export default function UniversalCodeViewer({
                 <div
                   key={tab.id}
                   onClick={() => onSelectTab && onSelectTab(tab.id)}
-                  className="flex items-center justify-center gap-2.5 px-4 cursor-pointer transition-all flex-shrink-0 group relative"
-                  style={{
-                    height: '32px',
-                    color: isTabActive ? 'var(--cs-text)' : 'rgba(255,255,255,0.35)',
-                    fontSize: '12px',
-                    fontFamily: 'var(--font-ui)',
-                    fontWeight: isTabActive ? 500 : 400,
-                    background: isTabActive ? 'rgba(255,255,255,0.08)' : 'transparent',
-                    borderRadius: '8px',
-                    border: '1px solid',
-                    borderColor: isTabActive ? 'rgba(255,255,255,0.06)' : 'transparent',
-                    boxShadow: isTabActive ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
-                    maxWidth: '160px',
-                    minWidth: '60px',
-                    transition: 'all 150ms ease',
-                  }}
-                  onMouseEnter={e => {
-                    if (!isTabActive) {
-                      e.currentTarget.style.color = 'rgba(255,255,255,0.55)';
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (!isTabActive) {
-                      e.currentTarget.style.color = 'rgba(255,255,255,0.28)';
-                      e.currentTarget.style.background = 'transparent';
-                    }
-                  }}
+                  className="flex items-center justify-center gap-2.5 px-4 cursor-pointer flex-shrink-0 group relative"
+                    style={{
+                      height: '34px',
+                      color: isTabActive ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.4)',
+                      fontSize: '12px',
+                      fontFamily: 'var(--font-ui)',
+                      fontWeight: isTabActive ? 500 : 400,
+                      background: isTabActive
+                        ? 'rgba(255,255,255,0.08)'
+                        : 'rgba(255,255,255,0.02)',
+                      borderRadius: '8px 8px 0 0',
+                      border: '1px solid',
+                      borderColor: isTabActive ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)',
+                      borderBottom: 'none',
+                      boxShadow: isTabActive
+                        ? 'inset 0 1px 0 rgba(255,255,255,0.12), 0 4px 12px rgba(0,0,0,0.4)'
+                        : 'inset 0 1px 0 rgba(255,255,255,0.02)',
+                      maxWidth: '160px',
+                      minWidth: '60px',
+                      transform: isTabActive ? 'translateY(-1px)' : 'translateY(0px)',
+                      transition: 'all 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                    }}
+                    onMouseEnter={e => {
+                      if (!isTabActive) {
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!isTabActive) {
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.4)';
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.03)';
+                        e.currentTarget.style.transform = 'translateY(0px)';
+                      }
+                    }}
                 >
                   {isAiFocusTab && (
                     <span style={{ color: 'var(--cs-accent)', fontSize: '9px', display: 'inline-block', flexShrink: 0, opacity: 0.8 }}>✦</span>
@@ -558,69 +740,84 @@ export default function UniversalCodeViewer({
         </div>
       </div>
 
-      {/* ── Reading Logic Bubble — floating glass, shown only during AI reading ── */}
+      {/* ── Reading Logic Panel — persistent floating glass surface ── */}
       <AnimatePresence>
-        {isAiActive && attention.reason && (
+        {isAiActive && (
           <motion.div
-            key="reading-bubble"
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="flex-shrink-0"
+            key="reading-logic-panel"
+            initial={{ opacity: 0, height: 0, scale: 0.98, y: -10 }}
+            animate={{ opacity: 1, height: 'auto', scale: 1, y: 0 }}
+            exit={{ opacity: 0, height: 0, scale: 0.98, y: -10 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             style={{
-              margin: '8px 12px',
-              padding: '9px 14px',
-              background: 'rgba(255,255,255,0.03)',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255,255,255,0.07)',
-              borderRadius: '10px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '3px',
+              flexShrink: 0,
+              overflow: 'hidden',
+              background: 'rgba(255,255,255,0.04)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '8px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)',
+              margin: '10px 16px 12px 16px',
             }}
           >
-            {/* Row 1: label + file + lines */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
-                <span style={{ color: 'var(--cs-accent)', fontSize: '10px', flexShrink: 0, opacity: 0.9 }}>✦</span>
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              padding: '10px 20px',
+              gap: '20px',
+            }}>
+              {/* Left: Label + reason */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', minWidth: 0, flex: 1 }}>
+                <span style={{ color: 'var(--cs-accent)', fontSize: '10px', flexShrink: 0, opacity: 0.9, marginTop: '1px' }}>✦</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: 'rgba(255,255,255,0.6)',
+                    fontFamily: 'var(--font-ui)',
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                  }}>READING LOGIC</span>
+                  <motion.div
+                    key={attention.reason}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.18 }}
+                    style={{
+                      fontSize: '12.5px',
+                      fontFamily: 'var(--font-ui)',
+                      color: 'rgba(255,255,255,0.82)',
+                      lineHeight: '1.5',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      maxWidth: '520px',
+                    }}
+                  >
+                    {attention.reason || 'Examining source...'}
+                  </motion.div>
+                </div>
+              </div>
+              {/* Right: file + line range */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', flexShrink: 0 }}>
                 <span style={{
                   fontSize: '11px',
-                  fontWeight: 600,
-                  color: 'var(--cs-text)',
-                  fontFamily: 'var(--font-ui)',
-                  letterSpacing: '0.02em',
-                  flexShrink: 0,
-                  opacity: 0.7,
-                }}>
-                  READING LOGIC
-                </span>
-              </div>
-              {/* File + lines — right-aligned */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                <span style={{
-                  fontSize: '10px',
                   fontFamily: 'var(--font-mono)',
-                  color: 'var(--cs-muted)',
-                  opacity: 0.6,
-                }}>
-                  {activeFile ? `${activeFile.split('/').pop()}` : ''}
-                  {attention.startLine && attention.endLine ? ` · Lines ${attention.startLine}–${attention.endLine}` : ''}
-                </span>
+                  color: 'rgba(255,255,255,0.35)',
+                }}>{
+                  activeFile
+                    ? activeFile.split('/').pop()
+                    : ''
+                }</span>
+                {attention.startLine && attention.endLine && (
+                  <span style={{
+                    fontSize: '10px',
+                    fontFamily: 'var(--font-mono)',
+                    color: 'rgba(255,255,255,0.25)',
+                  }}>Lines {attention.startLine}–{attention.endLine}</span>
+                )}
               </div>
-            </div>
-            {/* Row 2: reasoning text — single line, truncated */}
-            <div style={{
-              fontSize: '12px',
-              fontFamily: 'var(--font-ui)',
-              color: 'rgba(255,255,255,0.55)',
-              lineHeight: '1.5',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}>
-              {attention.reason}
             </div>
           </motion.div>
         )}
@@ -632,10 +829,7 @@ export default function UniversalCodeViewer({
         {!activeFile ? (
           <motion.div key="empty" initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}} transition={{duration: 0.4}} className="absolute inset-0 flex flex-col items-center justify-center gap-2">
              {activeInvestigation ? (
-                <>
-                  <span className="text-[12px] text-[var(--cs-text)] font-semibold font-mono opacity-80">Tracing repository context...</span>
-                  <span className="text-[11px] text-[var(--cs-muted)] font-sans opacity-50">Preparing evidence route</span>
-                </>
+                <InvestigationActivitySequence event={activeCognitiveEvent} investigationState={investigationState} />
              ) : (
                 <span className="text-[11px] text-[var(--cs-muted)] font-sans opacity-30">Select a file to view code</span>
              )}
@@ -659,15 +853,27 @@ export default function UniversalCodeViewer({
           </motion.div>
         ) : (
           <motion.div key="list" initial={{opacity: 0}} animate={{opacity: displayOpacity}} exit={{opacity: 0}} transition={{duration: 0.4}} style={{ height: '100%', width: '100%', position: 'absolute', inset: 0 }}>
+            {/* Focus box rendering is now handled internally by the Row component slices to guarantee perfect pixel alignment and z-index ordering */}
             <List
               listRef={listRef}
               height={listHeight}
               rowCount={displayTokens.length}
-              rowHeight={24}
+              rowHeight={ROW_HEIGHT}
+              onScroll={({ scrollOffset }) => setScrollOffset(scrollOffset)}
               rowComponent={Row}
-              rowProps={{}}
+              rowProps={{
+                visibleRange,
+                scrollSettled,
+                isAiActive,
+                isAiFocusing,
+                aiLine,
+                attention,
+                hoverLine,
+                hoverBlock
+              }}
               width="100%"
               onItemsRendered={({ visibleStartIndex, visibleStopIndex }) => {
+                visibleRangeRef.current = { start: visibleStartIndex, end: visibleStopIndex };
                 if (visibleRange.start !== visibleStartIndex || visibleRange.end !== visibleStopIndex) {
                   setVisibleRange({ start: visibleStartIndex, end: visibleStopIndex });
                 }

@@ -68,37 +68,70 @@ function AIMemoryRow({
   let isCore = false
 
   if (isDirectory) {
-    baseOpacity = isAssetPath ? 0.40 : 0.65;
+    baseOpacity = isAssetPath ? 0.45 : 0.75;
     fontWeight = 500
   } else if (familiarityState === 'core') {
-    baseOpacity = 0.90
+    baseOpacity = 1.0
     fontWeight = 600
     isCore = true
   } else if (familiarityState === 'investigated') {
-    baseOpacity = 0.75
+    baseOpacity = 0.88
     fontWeight = 500
   } else if (familiarityState === 'scanned') {
-    baseOpacity = 0.55
+    baseOpacity = 0.70
     fontWeight = 400
   } else {
     // untouched
-    baseOpacity = isAssetPath ? 0.30 : 0.42;
+    baseOpacity = isAssetPath ? 0.45 : 0.55;
     fontWeight = 300
   }
 
   const extension = item.name.split('.').pop().toLowerCase()
   let semanticColor = isSelected ? 'var(--cs-text)' : 'rgba(255,255,255,0.85)'
+  if (!isDirectory && !isSelected) {
+    if (['js', 'jsx'].includes(extension)) semanticColor = '#E3B341';
+    else if (['ts', 'tsx'].includes(extension)) semanticColor = '#58A6FF'; // softer blue for text
+    else if (extension === 'json') semanticColor = '#F85149';
+    else if (extension === 'md') semanticColor = '#8B949E';
+    else if (['png', 'jpg', 'svg'].includes(extension)) semanticColor = '#A371F7';
+    else semanticColor = 'rgba(255,255,255,0.7)';
+  }
   
-  const getFileBadge = (filename) => {
-    if (isDirectory) return <span style={{ marginRight: '6px', opacity: 0.6 }}>{isOpen ? '📂' : '📁'}</span>;
-    if (filename.endsWith('.js') || filename.endsWith('.jsx')) return <span style={{color: '#E3B341', fontSize: '10px', fontWeight: 800, background: 'rgba(227,179,65,0.1)', padding: '2px 4px', borderRadius: '3px', marginRight: '6px'}}>JS</span>;
-    if (filename.endsWith('.ts') || filename.endsWith('.tsx')) return <span style={{color: '#3178C6', fontSize: '10px', fontWeight: 800, background: 'rgba(49,120,198,0.1)', padding: '2px 4px', borderRadius: '3px', marginRight: '6px'}}>TS</span>;
-    if (filename.endsWith('.json')) return <span style={{color: '#F85149', fontSize: '11px', fontWeight: 800, background: 'rgba(248,81,73,0.1)', padding: '2px 4px', borderRadius: '3px', marginRight: '6px'}}>{'{ }'}</span>;
-    if (filename.endsWith('.md')) return <span style={{color: '#9CA3AF', fontSize: '11px', fontWeight: 800, background: 'rgba(156,163,175,0.1)', padding: '2px 4px', borderRadius: '3px', marginRight: '6px'}}>MD</span>;
-    return <span style={{color: '#9CA3AF', fontSize: '10px', fontWeight: 800, background: 'rgba(156,163,175,0.1)', padding: '2px 4px', borderRadius: '3px', marginRight: '6px'}}>{filename.split('.').pop().toUpperCase().substring(0, 2)}</span>;
+  const getFileBadge = (filename, isFileSelected) => {
+    const lower = filename.toLowerCase();
+    if (isDirectory) {
+      return (
+        <svg style={{ marginRight: '6px', color: 'rgba(255,255,255,0.7)', width: '13px', height: '13px', flexShrink: 0 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+        </svg>
+      );
+    }
+    
+    // Semantic color overrides for clear scanning
+    const opacityFactor = isFileSelected ? 0.2 : 0.08;
+    
+    if (lower.endsWith('.js') || lower.endsWith('.jsx')) {
+      return <span style={{color: '#E3B341', fontSize: '9px', fontWeight: 800, background: `rgba(227,179,65,${opacityFactor})`, padding: '2px 4px', borderRadius: '3px', marginRight: '6px', border: '1px solid rgba(227,179,65,0.2)'}}>JS</span>;
+    }
+    if (lower.endsWith('.ts') || lower.endsWith('.tsx')) {
+      return <span style={{color: '#3178C6', fontSize: '9px', fontWeight: 800, background: `rgba(49,120,198,${opacityFactor})`, padding: '2px 4px', borderRadius: '3px', marginRight: '6px', border: '1px solid rgba(49,120,198,0.2)'}}>TS</span>;
+    }
+    if (lower.endsWith('.json')) {
+      return <span style={{color: '#F85149', fontSize: '10px', fontWeight: 800, background: `rgba(248,81,73,${opacityFactor})`, padding: '2px 4px', borderRadius: '3px', marginRight: '6px', border: '1px solid rgba(248,81,73,0.2)'}}>{'{ }'}</span>;
+    }
+    if (lower.endsWith('.md')) {
+      return <span style={{color: '#58A6FF', fontSize: '10px', fontWeight: 800, background: `rgba(88,166,255,${opacityFactor})`, padding: '2px 4px', borderRadius: '3px', marginRight: '6px', border: '1px solid rgba(88,166,255,0.2)'}}>MD</span>;
+    }
+    if (lower.endsWith('.pdf')) {
+      return <span style={{color: '#EF4444', fontSize: '9px', fontWeight: 800, background: `rgba(239,68,68,${opacityFactor})`, padding: '2px 4px', borderRadius: '3px', marginRight: '6px', border: '1px solid rgba(239,68,68,0.2)'}}>PDF</span>;
+    }
+    if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.svg')) {
+      return <span style={{color: '#8B5CF6', fontSize: '9px', fontWeight: 800, background: `rgba(139,92,246,${opacityFactor})`, padding: '2px 4px', borderRadius: '3px', marginRight: '6px', border: '1px solid rgba(139,92,246,0.2)'}}>IMG</span>;
+    }
+    return <span style={{color: 'rgba(255,255,255,0.5)', fontSize: '9px', fontWeight: 800, background: `rgba(255,255,255,${opacityFactor})`, padding: '2px 4px', borderRadius: '3px', marginRight: '6px', border: '1px solid rgba(255,255,255,0.1)'}}>{filename.split('.').pop().toUpperCase().substring(0, 2)}</span>;
   };
   
-  const icon = getFileBadge(item.name);
+  const icon = getFileBadge(item.name, isSelected);
 
   // Calculate Recency Underline Opacity (0-10 min decay)
   let recencyOpacity = 0
@@ -151,22 +184,32 @@ function AIMemoryRow({
           paddingTop: hasSummary ? '6px' : '2px',
           paddingBottom: hasSummary ? '6px' : '2px',
           cursor: 'pointer',
-          borderRadius: '4px',
-          margin: '1px 2px',
+          borderRadius: '6px',
+          margin: '2px 4px',
           background: isSelected
-            ? 'rgba(191,200,216,0.07)'
-            : hovered
-              ? 'rgba(255,255,255,0.04)'
-              : 'transparent',
-          borderLeft: isSelected
-            ? '2px solid rgba(191,200,216,0.55)'
-            : isCore
-              ? '1px solid rgba(191,200,216,0.18)'
+            ? 'rgba(255,255,255,0.12)'
+            : isCurrentlyReading
+              ? 'linear-gradient(90deg, rgba(140,190,255,0.12) 0%, rgba(140,190,255,0.03) 100%)'
               : hovered
-                ? '2px solid rgba(255,255,255,0.07)'
+                ? 'rgba(255,255,255,0.04)'
+                : 'transparent',
+          boxShadow: isCurrentlyReading
+            ? 'inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 8px rgba(0,0,0,0.2)'
+            : isSelected
+              ? '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(255,255,255,0.02)'
+              : 'none',
+          border: isCurrentlyReading
+            ? '1px solid rgba(140,190,255,0.2)'
+            : '1px solid transparent',
+          borderLeft: isCurrentlyReading
+            ? '2px solid rgba(140,190,255,0.8)'
+            : isSelected
+              ? '2px solid rgba(255,255,255,0.8)'
+              : isCore
+                ? '1px solid rgba(255,255,255,0.3)'
                 : '1px solid transparent',
           userSelect: 'none',
-          transition: 'min-height 200ms cubic-bezier(0.16, 1, 0.3, 1), background 150ms ease, border-color 150ms ease',
+          transition: 'min-height 200ms cubic-bezier(0.16, 1, 0.3, 1), background 150ms ease, border-color 150ms ease, box-shadow 150ms ease',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, height: '20px', position: 'relative' }}>
@@ -178,7 +221,7 @@ function AIMemoryRow({
               height: '100%',
               fontFamily: 'var(--cs-mono)',
               fontSize: '13px',
-              color: 'rgba(255,255,255,0.08)',
+              color: 'rgba(255,255,255,0.35)', // Increased opacity for stronger hierarchy
               whiteSpace: 'pre',
               pointerEvents: 'none',
               marginRight: '6px'
