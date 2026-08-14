@@ -33,8 +33,16 @@ class PlanValidator {
     }
 
     // 2. Check executionSteps
-    if (!Array.isArray(parsed.executionSteps) || parsed.executionSteps.length === 0) {
-      throw new Error('Plan Validation Failed: "executionSteps" must be a non-empty array');
+    if (!parsed.executionSteps) {
+      parsed.executionSteps = [];
+    }
+    
+    if (!Array.isArray(parsed.executionSteps)) {
+      throw new Error('Plan Validation Failed: "executionSteps" must be an array');
+    }
+    
+    if (parsed.executionSteps.length === 0 && !parsed.isResolved) {
+      throw new Error('Plan Validation Failed: "executionSteps" must be a non-empty array unless "isResolved" is true');
     }
 
     for (let i = 0; i < parsed.executionSteps.length; i++) {
