@@ -236,6 +236,89 @@ body {
 .animate-row-rise   { animation: row-rise 200ms var(--ease-out) both; }
 .animate-crossfade  { animation: crossfade 200ms ease both; }
 
+/* ── Ambient Observation animations ─────────────────────────────────
+   Principle: animate the LIGHT behind the rail, not the border.
+   Left rail = primary light source, right = faint echo.
+   Center stays near-transparent so code is never obscured.
+─────────────────────────────────────────────────────────────────── */
+
+/* Focus Box breathing — 5s cycle, asymmetric left↔right */
+@keyframes obs-breathe {
+  0%, 100% {
+    background: linear-gradient(
+      90deg,
+      rgba(200,220,255,0.15) 0%,
+      rgba(180,210,255,0.06) 12%,
+      transparent 35%,
+      transparent 65%,
+      rgba(180,210,255,0.05) 88%,
+      rgba(200,220,255,0.12) 100%
+    );
+    opacity: 0.9;
+  }
+  50% {
+    background: linear-gradient(
+      90deg,
+      rgba(200,220,255,0.25) 0%,
+      rgba(180,210,255,0.10) 14%,
+      transparent 38%,
+      transparent 62%,
+      rgba(180,210,255,0.08) 86%,
+      rgba(200,220,255,0.18) 100%
+    );
+    opacity: 1;
+  }
+}
+
+/* Reading Logic breathing — 7s cycle, ~50% of Focus Box intensity */
+@keyframes obs-breathe-soft {
+  0%, 100% {
+    background: linear-gradient(
+      90deg,
+      rgba(200,220,255,0.10) 0%,
+      rgba(180,210,255,0.04) 12%,
+      transparent 35%,
+      transparent 65%,
+      rgba(180,210,255,0.03) 88%,
+      rgba(200,220,255,0.07) 100%
+    );
+    opacity: 0.95;
+  }
+  50% {
+    background: linear-gradient(
+      90deg,
+      rgba(200,220,255,0.15) 0%,
+      rgba(180,210,255,0.06) 14%,
+      transparent 38%,
+      transparent 62%,
+      rgba(180,210,255,0.04) 86%,
+      rgba(200,220,255,0.10) 100%
+    );
+    opacity: 1;
+  }
+}
+
+/* Rare light sweep — travels left→center and dissolves. Used on :after pseudo */
+@keyframes obs-sweep {
+  0%   { opacity: 0; transform: translateX(-100%); }
+  15%  { opacity: 0.35; }
+  60%  { opacity: 0.15; }
+  100% { opacity: 0; transform: translateX(30%); }
+}
+
+.animate-obs-focus {
+  animation: obs-breathe 5s ease-in-out infinite;
+  position: relative;
+}
+.animate-obs-reading {
+  animation: obs-breathe-soft 7s ease-in-out infinite;
+}
+
+/* Legacy alias — kept so any remaining refs don't break */
+.animate-focus-breathe {
+  animation: obs-breathe 5s ease-in-out infinite;
+}
+
 @keyframes slide-up-report {
   from { opacity: 0; transform: translateY(100%); }
   to   { opacity: 1; transform: translateY(0); }

@@ -75,14 +75,14 @@ function AIMemoryRow({
     fontWeight = 600
     isCore = true
   } else if (familiarityState === 'investigated') {
-    baseOpacity = 0.88
+    baseOpacity = 0.75
     fontWeight = 500
   } else if (familiarityState === 'scanned') {
-    baseOpacity = 0.70
+    baseOpacity = 0.60
     fontWeight = 400
   } else {
     // untouched
-    baseOpacity = isAssetPath ? 0.45 : 0.55;
+    baseOpacity = isAssetPath ? 0.35 : 0.45;
     fontWeight = 300
   }
 
@@ -221,7 +221,7 @@ function AIMemoryRow({
               height: '100%',
               fontFamily: 'var(--cs-mono)',
               fontSize: '13px',
-              color: 'rgba(255,255,255,0.35)', // Increased opacity for stronger hierarchy
+              color: 'rgba(255,255,255,0.1)', // Substantially quieter
               whiteSpace: 'pre',
               pointerEvents: 'none',
               marginRight: '6px'
@@ -288,7 +288,7 @@ function AIMemoryRow({
                 )
               }}>
                 {isCurrentlyReading
-                  ? '●'
+                  ? <span style={{display: 'flex', alignItems: 'center', gap: '3px'}}><span style={{fontSize: '11px', color: 'var(--cs-accent)'}}>◉</span> <span style={{fontSize: '9px', fontWeight: 600, color: 'var(--cs-accent)', opacity: 0.8, letterSpacing: '0.05em'}}>AI</span></span>
                   : familiarityState === 'core' || familiarityState === 'investigated'
                     ? '✓'
                     : familiarityState === 'scanned'
