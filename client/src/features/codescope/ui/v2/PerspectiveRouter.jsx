@@ -94,11 +94,11 @@ export default function PerspectiveRouter({
             minWidth: '240px',
             maxWidth: '300px',
             borderRadius: '14px',
-            background: 'rgba(8,8,10,0.6)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-            border: '1px solid rgba(255,255,255,0.04)',
-            boxShadow: '0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
+            background: 'rgba(4, 5, 7, 0.72)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid rgba(255,255,255,0.055)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.025), 0 0 0 1px rgba(0,0,0,0.35)',
             overflow: 'hidden',
           }}
         >
@@ -192,11 +192,11 @@ export default function PerspectiveRouter({
           minWidth: '280px',
           maxWidth: '380px',
           borderRadius: '14px',
-          background: 'rgba(8,8,10,0.6)',
-          backdropFilter: 'blur(24px)',
-          WebkitBackdropFilter: 'blur(24px)',
-          border: '1px solid rgba(255,255,255,0.04)',
-          boxShadow: '0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
+          background: 'rgba(4, 5, 7, 0.72)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid rgba(255,255,255,0.055)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.025), 0 0 0 1px rgba(0,0,0,0.35)',
           overflow: 'hidden',
         }}
       >
@@ -238,29 +238,27 @@ export default function PerspectiveRouter({
         </>
       )}
 
-      {/* ── Collapsed Report Dock ── */}
+      {/* ── View Report Button (Top Right) ── */}
       {activeInvestigation && sessionState !== SESSION_STATES.IDLE && isReadingComplete && reportDismissed && perspective !== 'branch' && (
-        <div
+        <button
           onClick={() => setReportDismissed(false)}
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 cursor-pointer transition-all hover:scale-[1.02]"
+          className="absolute top-4 right-6 z-40 flex items-center gap-2 cursor-pointer transition-all hover:scale-[1.02]"
           style={{
-            padding: '8px 16px',
-            background: 'var(--cs-glass-float)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255,255,255,0.09)',
-            borderRadius: '20px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.5), var(--cs-inset-top)',
+            padding: '6px 12px',
+            background: 'rgba(255,255,255,0.04)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '6px',
+            color: 'rgba(255,255,255,0.85)',
+            fontSize: '11px',
+            fontWeight: 500,
+            fontFamily: 'var(--font-ui)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
           }}
         >
-          <span style={{ color: 'var(--cs-accent)', fontSize: '11px' }}>✦</span>
-          <span style={{ fontSize: '12px', color: 'var(--cs-text)', fontWeight: 500 }}>
-            {activeInvestigation.query || activeInvestigation.title || 'Investigation Report'}
-          </span>
-          <span style={{ fontSize: '10px', color: 'var(--cs-muted)' }}>
-            · {presentation.findings?.length || 0} insights
-          </span>
-        </div>
+          <span style={{ color: 'var(--cs-accent)', fontSize: '10px' }}>✦</span>
+          View Report
+        </button>
       )}
     </div>
   );

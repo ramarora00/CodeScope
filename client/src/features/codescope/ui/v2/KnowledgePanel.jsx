@@ -100,18 +100,27 @@ export default function KnowledgePanel({
         {activeFinding && (
           <div>
             <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', fontWeight: 700, fontStyle: 'italic', fontFamily: 'var(--font-ui)', marginBottom: '6px', letterSpacing: '0.10em' }}>NOW EXAMINING</div>
-            {activeFinding.filePath && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingBottom: '6px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.95)', fontFamily: 'var(--font-ui)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {activeFinding.filePath.split(/[/\\]/).pop()}
-                </span>
-                <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.35)' }}>
-                  Lines {activeFinding.startLine}–{activeFinding.endLine}
-                </span>
+            <div style={{
+              borderLeft: '2px solid rgba(255,255,255,0.9)',
+              background: 'linear-gradient(90deg, rgba(140,190,255,0.06) 0%, transparent 60%)',
+              padding: '6px 0 6px 12px',
+              marginLeft: '-14px',
+              borderTopRightRadius: '4px',
+              borderBottomRightRadius: '4px',
+            }}>
+              {activeFinding.filePath && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingBottom: '4px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.95)', fontFamily: 'var(--font-ui)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {activeFinding.filePath.split(/[/\\]/).pop()}
+                  </span>
+                  <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.35)' }}>
+                    Lines {activeFinding.startLine}–{activeFinding.endLine}
+                  </span>
+                </div>
+              )}
+              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', fontFamily: 'var(--font-ui)', lineHeight: '1.6', marginTop: '2px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {activeFinding.reason}
               </div>
-            )}
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', fontFamily: 'var(--font-ui)', lineHeight: '1.6', marginTop: '4px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-              {activeFinding.reason}
             </div>
           </div>
         )}
@@ -134,8 +143,15 @@ export default function KnowledgePanel({
           )}
 
           {/* Key Findings header */}
-          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', fontWeight: 700, fontStyle: 'italic', fontFamily: 'var(--font-ui)', letterSpacing: '0.10em' }}>
-            KEY FINDINGS
+          <div>
+            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', fontWeight: 700, fontStyle: 'italic', fontFamily: 'var(--font-ui)', letterSpacing: '0.10em' }}>
+              KEY FINDINGS
+            </div>
+            {findings?.length > 0 && (
+              <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px', fontFamily: 'var(--font-ui)', marginTop: '2px' }}>
+                Accumulated evidence
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -200,35 +216,25 @@ export default function KnowledgePanel({
                     transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1], delay: Math.min(i * 0.04, 0.2) }}
                     className="group"
                     style={{
-                      padding: '14px',
-                      background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))',
-                      backdropFilter: 'blur(20px)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderTop: '1px solid rgba(255,255,255,0.2)', // silver edge
-                      borderRadius: '8px',
+                      padding: '14px 0',
+                      borderBottom: '1px solid rgba(255,255,255,0.06)',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '12px',
-                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 8px 24px rgba(0,0,0,0.4)',
-                      transition: 'background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease',
+                      background: 'transparent',
+                      transition: 'background 180ms ease, border-color 180ms ease',
                     }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03))';
-                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
-                      e.currentTarget.style.borderTopColor = 'rgba(255,255,255,0.3)';
-                      e.currentTarget.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.15), 0 12px 32px rgba(0,0,0,0.5)';
-                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))';
-                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
-                      e.currentTarget.style.borderTopColor = 'rgba(255,255,255,0.2)';
-                      e.currentTarget.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.1), 0 8px 24px rgba(0,0,0,0.4)';
-                      e.currentTarget.style.transform = 'translateY(0px)';
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
                     }}
                   >
                     {item.filePath && (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', paddingBottom: '6px' }}>
                         <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.95)', fontFamily: 'var(--font-ui)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {item.filePath.split(/[/\\]/).pop()}
                         </span>

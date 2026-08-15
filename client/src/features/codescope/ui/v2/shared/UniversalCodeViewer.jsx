@@ -538,7 +538,7 @@ export default function UniversalCodeViewer({
 
     let focusStart = startLine;
     let focusEnd = endLine;
-    const isAiFocus = isAiFocusing && (focusStart && focusEnd ? (lineNum >= focusStart && lineNum <= focusEnd) : (lineNum === aiLine));
+    const isAiFocus = isAiFocusing && (focusStart && focusEnd ? (lineNum >= focusStart && lineNum <= endLine) : (lineNum === aiLine));
     const isHoveredLine = hoverLine === lineNum;
     let activeHoverStart = hoverBlock?.start;
     let activeHoverEnd = hoverBlock?.end;
@@ -558,40 +558,29 @@ export default function UniversalCodeViewer({
 
     return (
       <div
+        className={isFocus ? 'animate-obs-focus' : ''}
         style={{
           ...style,
           opacity: isFocus || isHoveredLine ? 1.0 : opacity,
           display: 'flex',
           alignItems: 'center',
-          background: isHoveredLine
-              ? 'linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.0) 20%, rgba(255,255,255,0.0) 80%, rgba(255,255,255,0.04) 100%)'
-              : isFocus
-                ? 'linear-gradient(90deg, rgba(140,190,255,0.08) 0%, rgba(140,190,255,0.03) 30%, rgba(140,190,255,0.0) 100%)'
+          background: !isFocus
+              ? (isHoveredLine
+                ? 'rgba(255,255,255,0.03)'
                 : isFootprint
-                  ? 'linear-gradient(90deg, rgba(255,255,255,0.015) 0%, transparent 12%, transparent 88%, rgba(255,255,255,0.015) 100%)'
-                  : 'transparent',
-          borderTopRightRadius: isFirstFocusLine ? '6px' : '0',
-          borderBottomRightRadius: isLastFocusLine ? '6px' : '0',
-          boxShadow: isFirstFocusLine && isLastFocusLine
-              ? 'inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 2px 0 rgba(255,255,255,0.02)'
-              : isFirstFocusLine
-              ? 'inset 0 1px 0 rgba(255,255,255,0.1), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 2px 0 rgba(255,255,255,0.02)'
-              : isLastFocusLine
-              ? 'inset 0 -1px 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 -2px 0 rgba(0,0,0,0.1)'
-              : isFocus
-              ? 'inset -1px 0 0 rgba(255,255,255,0.05)'
+                  ? 'rgba(255,255,255,0.008)'
+                  : 'transparent')
+              : undefined,
+          borderTopRightRadius: isFirstFocusLine ? '18px' : '0',
+          borderBottomRightRadius: isLastFocusLine ? '18px' : '0',
+          borderTopLeftRadius: isFirstFocusLine ? '18px' : '0',
+          borderBottomLeftRadius: isLastFocusLine ? '18px' : '0',
+          boxShadow: isFocus
+              ? 'inset 2px 0 0 rgba(255,255,255,0.95), inset -2px 0 0 rgba(255,255,255,0.95)'
               : 'none',
           transition: `opacity 280ms cubic-bezier(0.22, 0.61, 0.36, 1), background 300ms ease`,
         }}
       >
-        {isFocus && (
-          <div style={{
-            position: 'absolute', left: 0, top: 0, bottom: 0, width: '2px', pointerEvents: 'none',
-            background: isFirstFocusLine ? 'linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0.2))' : isLastFocusLine ? 'linear-gradient(180deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))' : 'rgba(255,255,255,0.2)',
-            borderTopLeftRadius: isFirstFocusLine ? '2px' : '0',
-            borderBottomLeftRadius: isLastFocusLine ? '2px' : '0',
-          }} />
-        )}
         <span
           className="flex-shrink-0 select-none text-right pr-[18px] pl-4 flex items-center justify-end"
           style={{
@@ -657,17 +646,17 @@ export default function UniversalCodeViewer({
       className="flex flex-col flex-1 min-w-0 h-full relative"
       style={{ background: 'var(--cs-editor)', gap: 0 }}
     >
-      {/* ── Editor Header / Tab Bar ── */}
+      {/* ── Editor Header / Tab Bar — sits flush against editor, no gap ── */}
       <div className="flex flex-col flex-shrink-0" style={{ background: 'transparent' }}>
         <div
           className="flex items-center flex-shrink-0"
           style={{
-            height: '52px',
-            padding: '10px 16px 0',
+            height: '42px',
+            padding: '8px 12px 0px',
             overflow: 'hidden'
           }}
         >
-          <div className="flex items-center gap-3 overflow-x-auto no-scrollbar h-full w-full pb-2">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar h-full w-full">
             {tabs.map(tab => {
               const isTabActive = tab.id === activeFile;
               const isAiFocusTab = tab.id === attention.file;
@@ -675,48 +664,44 @@ export default function UniversalCodeViewer({
                 <div
                   key={tab.id}
                   onClick={() => onSelectTab && onSelectTab(tab.id)}
-                  className="flex items-center justify-center gap-2.5 px-4 cursor-pointer flex-shrink-0 group relative"
-                    style={{
+                  className="flex items-center justify-center cursor-pointer flex-shrink-0 group relative"
+                  style={{
+                      gap: '8px',
+                      padding: '0 14px',
                       height: '34px',
-                      color: isTabActive ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.4)',
-                      fontSize: '12px',
+                      color: isTabActive ? 'rgba(255,255,255,0.90)' : 'rgba(255,255,255,0.28)',
+                      fontSize: '11px',
                       fontFamily: 'var(--font-ui)',
                       fontWeight: isTabActive ? 500 : 400,
                       background: isTabActive
-                        ? 'rgba(255,255,255,0.08)'
-                        : 'rgba(255,255,255,0.02)',
-                      borderRadius: '8px 8px 0 0',
+                        ? 'linear-gradient(180deg, rgba(255,255,255,0.075), rgba(255,255,255,0.025))'
+                        : 'transparent',
+                      borderRadius: '999px',
                       border: '1px solid',
-                      borderColor: isTabActive ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)',
-                      borderBottom: 'none',
+                      borderColor: isTabActive ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.02)',
                       boxShadow: isTabActive
-                        ? 'inset 0 1px 0 rgba(255,255,255,0.12), 0 4px 12px rgba(0,0,0,0.4)'
-                        : 'inset 0 1px 0 rgba(255,255,255,0.02)',
-                      maxWidth: '160px',
+                        ? 'inset 0 1px 0 rgba(255,255,255,0.10), 0 4px 14px rgba(0,0,0,0.18)'
+                        : 'none',
+                      maxWidth: '180px',
                       minWidth: '60px',
-                      transform: isTabActive ? 'translateY(-1px)' : 'translateY(0px)',
-                      transition: 'all 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                      transform: isTabActive ? 'translateY(-1px)' : 'translateY(0)',
+                      transition: 'all 180ms ease',
                     }}
                     onMouseEnter={e => {
                       if (!isTabActive) {
-                        e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.65)';
                         e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
-                        e.currentTarget.style.transform = 'translateY(-1px)';
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)';
                       }
                     }}
                     onMouseLeave={e => {
                       if (!isTabActive) {
-                        e.currentTarget.style.color = 'rgba(255,255,255,0.4)';
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.03)';
-                        e.currentTarget.style.transform = 'translateY(0px)';
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.28)';
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.borderColor = 'transparent';
                       }
                     }}
                 >
-                  {isAiFocusTab && (
-                    <span style={{ color: 'var(--cs-accent)', fontSize: '9px', display: 'inline-block', flexShrink: 0, opacity: 0.8 }}>✦</span>
-                  )}
                   {getFileIcon(tab.name)}
                   <span style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                     {tab.name.split(/[\\/]/).pop()}
@@ -742,41 +727,40 @@ export default function UniversalCodeViewer({
 
       {/* ── Reading Logic Panel — persistent floating glass surface ── */}
       <AnimatePresence>
-        {isAiActive && (
+        {isAiActive && !isLoading && !!content && (
           <motion.div
             key="reading-logic-panel"
             initial={{ opacity: 0, height: 0, scale: 0.98, y: -10 }}
             animate={{ opacity: 1, height: 'auto', scale: 1, y: 0 }}
             exit={{ opacity: 0, height: 0, scale: 0.98, y: -10 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="animate-obs-reading"
             style={{
               flexShrink: 0,
               overflow: 'hidden',
-              background: 'rgba(255,255,255,0.04)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '8px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)',
-              margin: '10px 16px 12px 16px',
+              borderRadius: '18px',
+              padding: '8px 24px 8px 18px',
+              margin: '0 12px 6px 12px',
+              position: 'relative',
+              boxShadow: 'inset 2px 0 0 rgba(255,255,255,0.75), inset -2px 0 0 rgba(255,255,255,0.45)'
             }}
           >
             <div style={{
               display: 'flex',
-              alignItems: 'flex-start',
+              alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '10px 20px',
               gap: '20px',
             }}>
               {/* Left: Label + reason */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', minWidth: 0, flex: 1 }}>
-                <span style={{ color: 'var(--cs-accent)', fontSize: '10px', flexShrink: 0, opacity: 0.9, marginTop: '1px' }}>✦</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                   <span style={{
                     fontSize: '10px',
-                    fontWeight: 700,
-                    color: 'rgba(255,255,255,0.6)',
+                    fontWeight: 600,
+                    color: 'rgba(255,255,255,0.3)',
                     fontFamily: 'var(--font-ui)',
-                    letterSpacing: '0.08em',
+                    letterSpacing: '0.10em',
+                    fontStyle: 'italic',
                     textTransform: 'uppercase',
                   }}>READING LOGIC</span>
                   <motion.div
@@ -785,14 +769,14 @@ export default function UniversalCodeViewer({
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.18 }}
                     style={{
-                      fontSize: '12.5px',
+                      fontSize: '12px',
                       fontFamily: 'var(--font-ui)',
-                      color: 'rgba(255,255,255,0.82)',
-                      lineHeight: '1.5',
+                      color: 'rgba(255,255,255,0.85)',
+                      lineHeight: '1.4',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
-                      maxWidth: '520px',
+                      maxWidth: '600px',
                     }}
                   >
                     {attention.reason || 'Examining source...'}
