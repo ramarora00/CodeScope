@@ -52,7 +52,7 @@ function MarkdownRenderer({ text }) {
   );
 }
 
-export default function InvestigationReportSheet({ answer, error, findings = [], providerUsed, onClose, onRetryInvestigation, query }) {
+export default function InvestigationReportSheet({ answer, error, findings = [], providerUsed, onClose, onRetryInvestigation, onClearInvestigation, query }) {
   const consultedFiles = [...new Set(
     findings
       .map(f => f.filePath?.split(/[\\/]/).pop())
@@ -172,29 +172,51 @@ export default function InvestigationReportSheet({ answer, error, findings = [],
                   Investigation Failed
                 </div>
                 <p style={{ fontSize: '13px', color: 'rgba(252, 165, 165, 0.8)', lineHeight: 1.6 }}>{error}</p>
-                {onRetryInvestigation && (
-                  <button
-                    onClick={onRetryInvestigation}
-                    style={{
-                      marginTop: '16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      background: 'rgba(239, 68, 68, 0.08)',
-                      border: '1px solid rgba(239, 68, 68, 0.2)',
-                      color: 'rgba(252, 165, 165, 0.9)',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      fontFamily: 'var(--font-ui)',
-                    }}
-                  >
-                    <RefreshCw size={11} />
-                    Retry Investigation
-                  </button>
-                )}
+                <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                  {onRetryInvestigation && (
+                    <button
+                      onClick={onRetryInvestigation}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        background: 'rgba(239, 68, 68, 0.08)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        color: 'rgba(252, 165, 165, 0.9)',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-ui)',
+                      }}
+                    >
+                      <RefreshCw size={11} />
+                      Retry Investigation
+                    </button>
+                  )}
+                  {onClearInvestigation && (
+                    <button
+                      onClick={onClearInvestigation}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: 'var(--cs-text)',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-ui)',
+                      }}
+                    >
+                      Back to Repository
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
@@ -328,6 +350,30 @@ export default function InvestigationReportSheet({ answer, error, findings = [],
                     <span style={{ fontStyle: 'italic', opacity: 0.4 }}>
                       provider: fallback
                     </span>
+                  )}
+                  {onClearInvestigation && (
+                    <button
+                      onClick={onClearInvestigation}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: 'var(--cs-text)',
+                        fontSize: '11px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-ui)',
+                        transition: 'background 150ms ease'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                    >
+                      Back to Repository
+                    </button>
                   )}
                 </div>
 

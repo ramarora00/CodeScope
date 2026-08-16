@@ -128,7 +128,7 @@ export default function CommandBar({ branch = 'main', onNewInvestigation, active
             <Search size={16} style={{ color: activeQuery ? 'var(--cs-faint)' : 'rgba(255,255,255,0.4)' }} />
             <span className="flex-1 text-left truncate" style={{ letterSpacing: '0.005em' }}>
               {activeQuery 
-                ? (activeQuery === 'Repository Understanding' ? 'Exploring repository...' : `⌕ ${activeQuery}`) 
+                ? (activeQuery === 'Repository Understanding' ? 'Exploring repository...' : activeQuery) 
                 : 'Investigate this repository...'}
             </span>
             {!activeQuery && (

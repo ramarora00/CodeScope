@@ -228,6 +228,23 @@ export default function UniversalCodeViewer({
   const isResolved = runtimeStatus === 'resolved' && !activeCognitiveEvent;
   const confidence = isResolved ? 'High' : attention.type === 'insight' ? 'High' : 'Medium';
 
+  // ── SEMANTIC EDGE INTENSITY ──
+  // Maps investigation lifecycle to edge-bloom opacity.
+  // Idle = barely visible, Reading = soft, Evidence = stronger, then settles.
+  const edgeIntensity = useMemo(() => {
+    if (!isAiActive) return 0.02;
+    const eventType = activeCognitiveEvent?.type;
+    if (eventType === 'evidence.added' || eventType === 'knowledge.added') return 0.12;
+    if (eventType === 'investigation.completed') return 0.08;
+    switch (investigationState) {
+      case 'READING': case 'EVALUATING': return 0.10;
+      case 'SEARCHING': case 'TRACING': return 0.08;
+      case 'INDEXING': case 'PLANNING': return 0.06;
+      case 'COMPLETED': return 0.04;
+      default: return 0.02;
+    }
+  }, [isAiActive, investigationState, activeCognitiveEvent?.type]);
+
   // ── PHASE B/C: BELIEVABLE COGNITION (Evidence Commit Pipeline) ──
   // When file changes, reset AI cursor to top to avoid jumping from bottom
   useEffect(() => {
@@ -526,7 +543,8 @@ export default function UniversalCodeViewer({
     aiLine = null,
     attention = {},
     hoverLine = null,
-    hoverBlock = null
+    hoverBlock = null,
+    edgeIntensity = 0.15
   }) => {
     const tokens = displayTokens[index];
     if (!tokens) return null;
@@ -576,9 +594,9 @@ export default function UniversalCodeViewer({
           borderTopLeftRadius: isFirstFocusLine ? '18px' : '0',
           borderBottomLeftRadius: isLastFocusLine ? '18px' : '0',
           boxShadow: isFocus
-              ? 'inset 2px 0 0 rgba(255,255,255,0.95), inset -2px 0 0 rgba(255,255,255,0.95)'
+              ? `inset 48px 0 48px -32px rgba(255,255,255,${edgeIntensity}), inset -48px 0 48px -32px rgba(255,255,255,${edgeIntensity})`
               : 'none',
-          transition: `opacity 280ms cubic-bezier(0.22, 0.61, 0.36, 1), background 300ms ease`,
+          transition: `opacity 280ms cubic-bezier(0.22, 0.61, 0.36, 1), background 300ms ease, box-shadow 800ms ease`,
         }}
       >
         <span
@@ -742,7 +760,8 @@ export default function UniversalCodeViewer({
               padding: '8px 24px 8px 18px',
               margin: '0 12px 6px 12px',
               position: 'relative',
-              boxShadow: 'inset 2px 0 0 rgba(255,255,255,0.75), inset -2px 0 0 rgba(255,255,255,0.45)'
+              boxShadow: `inset 48px 0 48px -32px rgba(255,255,255,${edgeIntensity * 0.8}), inset -48px 0 48px -32px rgba(255,255,255,${edgeIntensity * 0.8})`,
+              transition: 'box-shadow 800ms ease'
             }}
           >
             <div style={{
@@ -853,7 +872,8 @@ export default function UniversalCodeViewer({
                 aiLine,
                 attention,
                 hoverLine,
-                hoverBlock
+                hoverBlock,
+                edgeIntensity
               }}
               width="100%"
               onItemsRendered={({ visibleStartIndex, visibleStopIndex }) => {
