@@ -503,3 +503,23 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-08-15T12:34:00+05:30*
 
+
+## Sprint — Workspace Routing and Launch Experience Refinement
+
+**Commits**
+- `14fd9fb` feat(codescope): update app routing, workspace root, launch experience, and router
+- `13d80b6` feat(codescope): refine command bar, report sheet, and shared code viewer
+- `84fca06` feat(codescope): enhance file explorer and global styles
+- `401ff5c` chore(logs): add all investigation session telemetry recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **App Shell & Routing**: Refined \App.jsx\ routing and heavily updated the \LaunchExperience\ alongside \PerspectiveRouter\ and \WorkspaceRoot\.
+- **Workspace Panels**: Polished \CommandBar\, \InvestigationReportSheet\, and \UniversalCodeViewer\.
+- **Shared UI**: Refined \FileExplorer\ and corresponding global \index.css\ styling adjustments.
+- **Telemetry**: Addressed the exception to batch all 10 recent investigation session logs into one commit.
+
+*Recorded on 2026-08-16T19:27:00+05:30*
+
