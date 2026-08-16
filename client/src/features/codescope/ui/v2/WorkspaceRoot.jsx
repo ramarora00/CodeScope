@@ -15,7 +15,7 @@ import { useWorkspaceLifecycle } from '../../hooks/useWorkspaceLifecycle';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import RepositoryReadingExperience from './RepositoryReadingExperience';
 
-export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvestigation }) {
+export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvestigation, onClearInvestigation }) {
   const { selectedRepo: repo } = useWorkspaceStore();
   
   // ── PRESENTATION-ONLY state (does not affect behavior) ──────────
@@ -193,6 +193,7 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
           memoryFiles={memoryFiles}
           startedAt={startedAt}
           onNewInvestigation={onNewInvestigation}
+          onClearInvestigation={onClearInvestigation}
           fileCount={totalFileCount}
           filesLoading={fileTree.length === 0}
         />

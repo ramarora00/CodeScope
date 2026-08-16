@@ -25,6 +25,7 @@ export default function PerspectiveRouter({
   memoryFiles,
   startedAt,
   onNewInvestigation,
+  onClearInvestigation,
   fileCount,
   filesLoading
 }) {
@@ -234,6 +235,7 @@ export default function PerspectiveRouter({
             query={activeInvestigation?.title || activeInvestigation?.query}
             onClose={() => setReportDismissed(true)}
             onRetryInvestigation={activeInvestigation ? () => onNewInvestigation(activeInvestigation.query || activeInvestigation.title, activeInvestigation.mode) : undefined}
+            onClearInvestigation={onClearInvestigation}
           />
         </>
       )}
