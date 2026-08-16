@@ -77,19 +77,20 @@ export default function ExplorerPerspective({ onNewInvestigation, presentation }
     <div className="flex-1 flex min-h-0 bg-[var(--cs-bg)] gap-[2px]">
       {/* File Tree Panel */}
       <div 
-        className="w-[280px] flex-shrink-0 bg-[var(--cs-panel)] rounded-xl border border-[var(--cs-border)] overflow-hidden shadow-[var(--cs-shadow-panel)] animate-settle"
+        className="w-[280px] flex-shrink-0 bg-[#0C0C0C] border-r border-[var(--cs-border-subtle)] overflow-hidden animate-settle"
         style={{ animationDelay: '100ms' }}
       >
         <div className="px-5 flex items-center justify-between" style={{ height: '40px', borderBottom: '1px solid var(--cs-border)' }}>
-          <span style={{ color: 'var(--cs-faint)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+          <span style={{ color: 'var(--cs-text)', fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-ui)' }}>
             Explorer
           </span>
           {memoryFiles.length > 0 && (
             <span style={{ 
               color: 'var(--cs-accent)', 
-              fontSize: '9px', 
+              fontSize: '11px', 
               fontFamily: 'var(--cs-mono)',
-              opacity: 0.6
+              opacity: 0.6,
+              marginLeft: '8px'
             }}>
               {memoryFiles.length} AI-touched
             </span>

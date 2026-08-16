@@ -85,6 +85,86 @@ function GhostKnowledgeGraph() {
   );
 }
 
+// Subcomponent: Dynamic Boot Progress Visualizer mapping actual SSE status
+function BootProgressVisualizer({ bootStatus }) {
+  const status = (bootStatus || '').toLowerCase();
+  
+  const stages = [
+    { id: 1, label: 'Mapping repository structure', match: ['connecting', 'clone', 'cloning'] },
+    { id: 2, label: 'Following dependency path', match: ['read', 'reading', 'pars', 'parsing', 'resolv', 'import'] },
+    { id: 3, label: 'Reading relevant source', match: ['graph', 'call', 'embed', 'embedding'] },
+    { id: 4, label: 'Building explanation', match: ['complete', 'ready', 'initializ', 'understanding'] }
+  ];
+
+  let currentStageIndex = 0;
+  for (let i = 0; i < stages.length; i++) {
+    if (stages[i].match.some(m => status.includes(m))) {
+      currentStageIndex = i;
+      break;
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '28px', maxWidth: '300px', width: '100%' }}>
+      <motion.div
+        animate={{ opacity: [0.4, 0.9, 0.4] }}
+        transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+        style={{ color: 'var(--cs-accent)', fontSize: '18px', fontWeight: 600 }}
+      >
+        ✦
+      </motion.div>
+
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {stages.map((stage, index) => {
+          const isActive = index === currentStageIndex;
+          const isCompleted = index < currentStageIndex;
+
+          return (
+            <div
+              key={stage.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                opacity: isActive ? 1.0 : isCompleted ? 0.7 : 0.25,
+                transition: 'opacity 300ms ease',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '12px',
+                  fontFamily: 'var(--font-ui)',
+                  fontWeight: isActive ? 600 : 400,
+                  fontStyle: isActive ? 'italic' : 'normal',
+                  color: isActive ? 'var(--cs-text)' : 'var(--cs-muted)',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                {stage.label}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', width: '12px', justifyContent: 'center' }}>
+                {isCompleted ? (
+                  <span style={{ color: 'var(--cs-accent)', fontSize: '11px', fontWeight: 700 }}>✓</span>
+                ) : isActive ? (
+                  <motion.span
+                    animate={{ opacity: [0.3, 1.0, 0.3] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                    style={{ color: 'var(--cs-accent)', fontSize: '11px' }}
+                  >
+                    ●
+                  </motion.span>
+                ) : (
+                  <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '11px' }}>○</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function RepositoryReadingExperience({ bootStatus, currentFile, currentLine, currentContent }) {
   const [tokenizedLines, setTokenizedLines] = useState([]);
   const [listHeight, setListHeight] = useState(600);
@@ -283,10 +363,7 @@ export default function RepositoryReadingExperience({ bootStatus, currentFile, c
             transition={{ duration: 0.2, ease: [0.4, 0.0, 1.0, 1] }}
             className="absolute inset-0 flex items-center justify-center"
           >
-            <StaggeredText 
-              text="Reading repository..." 
-              className="font-sans text-[15px] text-[#8A8A8E] tracking-wide" 
-            />
+            <BootProgressVisualizer bootStatus={bootStatus} />
           </motion.div>
         ) : (
           <motion.div

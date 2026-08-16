@@ -54,40 +54,84 @@ function AIMemoryRow({
   const aiSummary = meta.summary || item.aiSummary || null
   const lastInvestigatedTime = meta.lastInvestigatedTime || null
 
+  // Check if this file is under assets/public folders for quieting
+  const isAssetPath = item.path.startsWith('public/') || 
+                      item.path.startsWith('assets/') || 
+                      item.path.startsWith('images/') || 
+                      item.path.startsWith('static/') || 
+                      item.path.includes('/public/') || 
+                      item.path.includes('/assets/');
+
   // Calculate Opacity based on AI Familiarity System (quieter baseline values)
-  let baseOpacity = 0.25
-  let fontWeight = 300
+  let baseOpacity = 0.40
+  let fontWeight = 400
   let isCore = false
 
   if (isDirectory) {
-    baseOpacity = 0.55
+    baseOpacity = isAssetPath ? 0.45 : 0.75;
     fontWeight = 500
   } else if (familiarityState === 'core') {
-    baseOpacity = 0.90
-    fontWeight = 500
+    baseOpacity = 1.0
+    fontWeight = 600
     isCore = true
   } else if (familiarityState === 'investigated') {
-    baseOpacity = 0.70
+    baseOpacity = 0.75
     fontWeight = 500
   } else if (familiarityState === 'scanned') {
-    baseOpacity = 0.45
+    baseOpacity = 0.60
     fontWeight = 400
+  } else {
+    // untouched
+    baseOpacity = isAssetPath ? 0.35 : 0.45;
+    fontWeight = 300
   }
 
-  // Semantic File Type Color
   const extension = item.name.split('.').pop().toLowerCase()
-  let semanticColor = 'var(--cs-text)'
+  let semanticColor = isSelected ? 'var(--cs-text)' : 'rgba(255,255,255,0.85)'
   if (!isDirectory && !isSelected) {
-    if (['md', 'txt', 'csv'].includes(extension)) {
-      semanticColor = 'rgba(220, 225, 235, 0.75)' // Document tone
-    } else if (['json', 'yml', 'yaml', 'env', 'config'].includes(extension)) {
-      semanticColor = 'rgba(195, 215, 205, 0.85)' // Config tone
-    } else if (['js', 'jsx', 'ts', 'tsx', 'py', 'go', 'rs', 'java', 'c', 'cpp'].includes(extension)) {
-      semanticColor = 'rgba(215, 230, 255, 0.95)' // Source tone
-    } else {
-      semanticColor = 'rgba(255, 255, 255, 0.85)' // Default fallback
-    }
+    if (['js', 'jsx'].includes(extension)) semanticColor = '#E3B341';
+    else if (['ts', 'tsx'].includes(extension)) semanticColor = '#58A6FF'; // softer blue for text
+    else if (extension === 'json') semanticColor = '#F85149';
+    else if (extension === 'md') semanticColor = '#8B949E';
+    else if (['png', 'jpg', 'svg'].includes(extension)) semanticColor = '#A371F7';
+    else semanticColor = 'rgba(255,255,255,0.7)';
   }
+  
+  const getFileBadge = (filename, isFileSelected) => {
+    const lower = filename.toLowerCase();
+    if (isDirectory) {
+      return (
+        <svg style={{ marginRight: '7px', color: isOpen ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.3)', width: '14px', height: '14px', flexShrink: 0, transition: 'color 200ms ease, transform 200ms ease', transform: isOpen ? 'rotate(0deg)' : 'rotate(-8deg)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+        </svg>
+      );
+    }
+    
+    // Semantic color overrides for clear scanning
+    const opacityFactor = isFileSelected ? 0.2 : 0.08;
+    
+    if (lower.endsWith('.js') || lower.endsWith('.jsx')) {
+      return <span style={{color: '#E3B341', fontSize: '9px', fontWeight: 800, background: `rgba(227,179,65,${opacityFactor})`, padding: '2px 4px', borderRadius: '3px', marginRight: '6px', border: '1px solid rgba(227,179,65,0.2)'}}>JS</span>;
+    }
+    if (lower.endsWith('.ts') || lower.endsWith('.tsx')) {
+      return <span style={{color: '#3178C6', fontSize: '9px', fontWeight: 800, background: `rgba(49,120,198,${opacityFactor})`, padding: '2px 4px', borderRadius: '3px', marginRight: '6px', border: '1px solid rgba(49,120,198,0.2)'}}>TS</span>;
+    }
+    if (lower.endsWith('.json')) {
+      return <span style={{color: '#F85149', fontSize: '10px', fontWeight: 800, background: `rgba(248,81,73,${opacityFactor})`, padding: '2px 4px', borderRadius: '3px', marginRight: '6px', border: '1px solid rgba(248,81,73,0.2)'}}>{'{ }'}</span>;
+    }
+    if (lower.endsWith('.md')) {
+      return <span style={{color: '#58A6FF', fontSize: '10px', fontWeight: 800, background: `rgba(88,166,255,${opacityFactor})`, padding: '2px 4px', borderRadius: '3px', marginRight: '6px', border: '1px solid rgba(88,166,255,0.2)'}}>MD</span>;
+    }
+    if (lower.endsWith('.pdf')) {
+      return <span style={{color: '#EF4444', fontSize: '9px', fontWeight: 800, background: `rgba(239,68,68,${opacityFactor})`, padding: '2px 4px', borderRadius: '3px', marginRight: '6px', border: '1px solid rgba(239,68,68,0.2)'}}>PDF</span>;
+    }
+    if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.svg')) {
+      return <span style={{color: '#8B5CF6', fontSize: '9px', fontWeight: 800, background: `rgba(139,92,246,${opacityFactor})`, padding: '2px 4px', borderRadius: '3px', marginRight: '6px', border: '1px solid rgba(139,92,246,0.2)'}}>IMG</span>;
+    }
+    return <span style={{color: 'rgba(255,255,255,0.5)', fontSize: '9px', fontWeight: 800, background: `rgba(255,255,255,${opacityFactor})`, padding: '2px 4px', borderRadius: '3px', marginRight: '6px', border: '1px solid rgba(255,255,255,0.1)'}}>{filename.split('.').pop().toUpperCase().substring(0, 2)}</span>;
+  };
+  
+  const icon = getFileBadge(item.name, isSelected);
 
   // Calculate Recency Underline Opacity (0-10 min decay)
   let recencyOpacity = 0
@@ -134,30 +178,41 @@ function AIMemoryRow({
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          minHeight: hasSummary ? '44px' : '30px',
+          minHeight: hasSummary ? '44px' : '28px',
           paddingLeft: '12px',
           paddingRight: '12px',
-          paddingTop: hasSummary ? '6px' : '4px',
-          paddingBottom: hasSummary ? '6px' : '4px',
+          paddingTop: hasSummary ? '6px' : '2px',
+          paddingBottom: hasSummary ? '6px' : '2px',
           cursor: 'pointer',
-          borderRadius: '4px',
-          margin: '1px 2px',
+          borderRadius: '6px',
+          margin: '2px 4px',
           background: isSelected
-            ? 'rgba(191,200,216,0.08)'
-            : hovered
-              ? 'rgba(191,200,216,0.04)'
-              : 'transparent',
-          borderLeft: isSelected
-            ? '2px solid var(--cs-accent)'
-            : isCore
-              ? '1px solid rgba(191,200,216,0.5)'
-              : '1px solid transparent',
-          opacity: hovered ? Math.min(1.0, baseOpacity + 0.15) : baseOpacity,
+            ? 'rgba(255,255,255,0.12)'
+            : isCurrentlyReading
+              ? 'linear-gradient(90deg, rgba(140,190,255,0.12) 0%, rgba(140,190,255,0.03) 100%)'
+              : hovered
+                ? 'rgba(255,255,255,0.04)'
+                : 'transparent',
+          boxShadow: isCurrentlyReading
+            ? 'inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 8px rgba(0,0,0,0.2)'
+            : isSelected
+              ? '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(255,255,255,0.02)'
+              : 'none',
+          border: isCurrentlyReading
+            ? '1px solid rgba(140,190,255,0.2)'
+            : '1px solid transparent',
+          borderLeft: isCurrentlyReading
+            ? '2px solid rgba(140,190,255,0.8)'
+            : isSelected
+              ? '2px solid rgba(255,255,255,0.8)'
+              : isCore
+                ? '1px solid rgba(255,255,255,0.3)'
+                : '1px solid transparent',
           userSelect: 'none',
-          transition: 'min-height 200ms cubic-bezier(0.16, 1, 0.3, 1), opacity 150ms ease, background 150ms ease',
+          transition: 'min-height 200ms cubic-bezier(0.16, 1, 0.3, 1), background 150ms ease, border-color 150ms ease, box-shadow 150ms ease',
         }}
       >
-        <div style={{ display: 'flex', items: 'center', minWidth: 0, height: '20px', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, height: '20px', position: 'relative' }}>
           {/* Continuous Tree Lines (ASCII) */}
           <div
             style={{
@@ -166,7 +221,7 @@ function AIMemoryRow({
               height: '100%',
               fontFamily: 'var(--cs-mono)',
               fontSize: '13px',
-              color: 'rgba(255,255,255,0.3)',
+              color: 'rgba(255,255,255,0.1)', // Substantially quieter
               whiteSpace: 'pre',
               pointerEvents: 'none',
               marginRight: '6px'
@@ -198,36 +253,52 @@ function AIMemoryRow({
             )}
 
             {/* Filename with Recency Underline */}
-            <div style={{ display: 'inline-flex', flexDirection: 'column', position: 'relative', minWidth: 0, flex: 1, marginLeft: isDirectory ? '0' : '12px' }}>
+            <div style={{ display: 'inline-flex', flexDirection: 'row', alignItems: 'center', position: 'relative', minWidth: 0, flex: 1, marginLeft: isDirectory ? '0' : '12px', opacity: hovered ? Math.min(1.0, baseOpacity + 0.15) : baseOpacity, gap: '0px' }}>
               <span
                 style={{
                   fontFamily: 'var(--cs-mono)',
-                  fontSize: '13px',
+                  fontSize: isDirectory ? '12px' : '13px',
                   fontWeight: isSelected ? 500 : fontWeight,
                   color: isSelected ? 'var(--cs-text)' : semanticColor,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  letterSpacing: isDirectory ? '0.02em' : '0',
                 }}
               >
-                {item.name}
+                {icon}{item.name}
               </span>
-              {/* Recency 1px Underline */}
-              {!isDirectory && recencyOpacity > 0 && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: '1px',
-                    left: 0,
-                    width: '100%',
-                    height: '1px',
-                    background: 'var(--cs-accent)',
-                    opacity: recencyOpacity,
-                    pointerEvents: 'none',
-                  }}
-                />
-              )}
             </div>
+
+            {/* AI state indicator — right-aligned, restrained. Repository tree first, AI state second. */}
+            {!isDirectory && (
+              <span style={{
+                flexShrink: 0,
+                marginLeft: '8px',
+                fontFamily: 'var(--cs-mono)',
+                fontSize: '10px',
+                lineHeight: '20px',
+                userSelect: 'none',
+                ...(isCurrentlyReading
+                  ? { color: 'var(--cs-accent)', opacity: 1 }        // ● active
+                  : familiarityState === 'core' || familiarityState === 'investigated'
+                    ? { color: 'var(--cs-muted)', opacity: 0.6 }      // ✓ visited
+                    : familiarityState === 'scanned'
+                      ? { color: 'var(--cs-hint)', opacity: 0.5 }     // ○ contextual
+                      : { display: 'none' }                            // untouched — no indicator
+                )
+              }}>
+                {isCurrentlyReading
+                  ? <span style={{display: 'flex', alignItems: 'center', gap: '3px'}}><span style={{fontSize: '11px', color: 'var(--cs-accent)'}}>◉</span> <span style={{fontSize: '9px', fontWeight: 600, color: 'var(--cs-accent)', opacity: 0.8, letterSpacing: '0.05em'}}>AI</span></span>
+                  : familiarityState === 'core' || familiarityState === 'investigated'
+                    ? '✓'
+                    : familiarityState === 'scanned'
+                      ? '○'
+                      : null}
+              </span>
+            )}
           </div>
         </div>
 
@@ -286,14 +357,11 @@ const FileExplorer = ({
   onFileSelect,
   aiMemoryMap = {},
   selectedPath = null,
-  isContext,
   activeInvestigatingFile = null
 }) => {
   const [tree, setTree] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [sortMode, setSortMode] = useState('structure') // 'structure' | 'relevance'
-  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     if (repo) fetchFileTree()
@@ -329,21 +397,17 @@ const FileExplorer = ({
           animation: 'spin 800ms linear infinite',
         }}
       />
-      {!isContext && (
-        <span style={{ color: 'var(--cs-muted)', fontSize: '11px', fontFamily: 'var(--cs-mono)', opacity: 0.5 }}>
-          AI reading repository structure...
-        </span>
-      )}
+      <span style={{ color: 'var(--cs-muted)', fontSize: '11px', fontFamily: 'var(--cs-mono)', opacity: 0.5 }}>
+        AI reading repository structure...
+      </span>
     </div>
   )
 
   if (error) return (
     <div style={{ padding: '24px', textAlign: 'center' }}>
-      {!isContext && (
-        <span style={{ color: 'var(--cs-red)', fontSize: '11px', fontFamily: 'var(--cs-mono)', opacity: 0.7 }}>
-          {error}
-        </span>
-      )}
+      <span style={{ color: 'var(--cs-red)', fontSize: '11px', fontFamily: 'var(--cs-mono)', opacity: 0.7 }}>
+        {error}
+      </span>
       <button
         onClick={fetchFileTree}
         style={{ color: 'var(--cs-accent)', fontSize: '11px', background: 'none', border: 'none', cursor: 'pointer', marginTop: '8px' }}
@@ -353,31 +417,12 @@ const FileExplorer = ({
     </div>
   )
 
-  // Context Level Representation (Sliver mode)
-  if (isContext) {
-    return (
-      <div className="flex flex-col items-center h-full pt-8 pb-4 border-r border-transparent hover:bg-white/[0.02] transition-colors w-[48px]">
-        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', color: 'var(--cs-faint)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '24px', opacity: 0.8 }}>
-          Memory
-        </div>
-        <div className="flex-1 flex flex-col items-center gap-2 w-full pt-2">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} style={{
-              width: '12px', height: '4px', borderRadius: '1px',
-              background: i < 3 ? 'var(--cs-accent)' : 'var(--cs-border)',
-              opacity: i < 3 ? 0.7 : 0.2
-            }} />
-          ))}
-        </div>
-      </div>
-    )
-  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '24px 24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 0 }}>
 
       {/* Tree Content */}
-      <div className="flex-1 overflow-y-auto no-scrollbar" style={{ padding: '4px 0' }}>
+      <div className="flex-1 overflow-y-auto no-scrollbar" style={{ padding: 0 }}>
         {tree.length > 0 ? tree.map((item, idx) => (
           <AIMemoryRow
             key={`${item.path}-${idx}`}

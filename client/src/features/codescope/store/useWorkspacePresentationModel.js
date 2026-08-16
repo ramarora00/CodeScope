@@ -21,6 +21,10 @@ export function useWorkspacePresentationModel() {
   const isAsset = useInvestigationSession(s => s.isAsset);
   const activeCognitiveEvent = useInvestigationSession(s => s.activeCognitiveEvent);
   const commitActiveCognitiveEvent = useInvestigationSession(s => s.commitActiveCognitiveEvent);
+  const startLine = useInvestigationSession(s => s.startLine);
+  const endLine = useInvestigationSession(s => s.endLine);
+
+  const lockedAttention = useInvestigationSession(s => s.lockedAttention);
 
   const userSelectedFile = useWorkspaceStore(s => s.userSelectedFile);
 
@@ -28,22 +32,67 @@ export function useWorkspacePresentationModel() {
   const displayedFile = userSelectedFile || aiFocusFile;
 
   // ── 1. AIOverlayEditor Contract ──
+  //
+  // Canonical resolver — strictly ordered, never hybrid:
+  //   1. lockedAttention  (atomic: file+startLine+endLine+reason from ONE event boundary)
+  //   2. committed state  (fallback: before first file.read.started)
+  //   3. user selected    (user took control — no AI attention fields shown)
+  //
+  // INVARIANT: attention.file, .startLine, .endLine, .reason must always be
+  // consistent with each other. Never mix fields from different events.
   const attention = useMemo(() => {
-    if (!displayedFile) return {};
-    const filePath = typeof displayedFile === 'string'
-      ? displayedFile
-      : displayedFile?.path;
-      
-    // If the user selected a file, the AI isn't reading it, so don't show the 'read' animation
-    const isAiControlling = !userSelectedFile || userSelectedFile === aiFocusFile;
-      
+    // User selected a different file — show it, but no AI attention fields
+    const isAiControlling = !userSelectedFile ||
+      (typeof userSelectedFile === 'string'
+        ? userSelectedFile === aiFocusFile
+        : userSelectedFile?.path === aiFocusFile);
+
+    if (!isAiControlling) {
+      const filePath = typeof userSelectedFile === 'string'
+        ? userSelectedFile
+        : userSelectedFile?.path;
+      return {
+        file: filePath,
+        line: null,
+        startLine: null,
+        endLine: null,
+        reason: 'User Selection',
+        type: 'appear',
+      };
+    }
+
+    if (!aiFocusFile) return {};
+
+    const aiFocusFilePath = typeof aiFocusFile === 'string'
+      ? aiFocusFile
+      : aiFocusFile?.path;
+
+    const isPlaying = sessionState === SESSION_STATES.PLAYING;
+
+    // Priority 1: lockedAttention — atomically set on file.read.started
+    // All 4 fields guaranteed to be from the same event boundary
+    if (lockedAttention && lockedAttention.file === aiFocusFilePath) {
+      return {
+        file: lockedAttention.file,
+        line: currentLine || lockedAttention.startLine || 1,
+        startLine: lockedAttention.startLine,
+        endLine: lockedAttention.endLine,
+        reason: lockedAttention.reason,
+        type: isPlaying ? 'read' : 'appear',
+      };
+    }
+
+    // Priority 2: committed state (before file.read.started fires, or after file.read.completed)
+    // Still from the same file — no stale line ranges from a different file can leak in
     return {
-      file: filePath,
-      line: isAiControlling ? (currentLine || 1) : null,
-      type: (isAiControlling && sessionState === SESSION_STATES.PLAYING) ? 'read' : 'appear',
-      reason: isAiControlling ? currentReason : 'User Selection',
+      file: aiFocusFilePath,
+      line: currentLine || 1,
+      startLine: startLine,
+      endLine: endLine,
+      reason: currentReason,
+      type: isPlaying ? 'read' : 'appear',
     };
-  }, [displayedFile, userSelectedFile, aiFocusFile, currentLine, currentReason, sessionState]);
+  }, [lockedAttention, aiFocusFile, userSelectedFile, currentLine, startLine, endLine, currentReason, sessionState]);
 
   const runtimeStatus = useMemo(() => {
     if (focusContext.status === 'review') return 'resolved';
@@ -134,15 +183,7 @@ export function useWorkspacePresentationModel() {
 
   // ── 3. KnowledgePanel Contract ──
   const findings = useMemo(() => {
-    return (focusContext.findings || []).map(f => {
-      const filePath = typeof f.source === 'string' ? f.source : f.source?.file;
-      return {
-        name: filePath ? filePath.split('/').pop() : 'Finding',
-        filePath: filePath,
-        active: true,
-        text: f.fact
-      };
-    });
+    return focusContext.findings || [];
   }, [focusContext.findings]);
 
   const relatedSymbols = useMemo(() => {
@@ -237,6 +278,7 @@ export function useWorkspacePresentationModel() {
       relatedSymbols,
       intelligenceStream,
       answer,
+      providerUsed: focusContext.providerUsed,
       isResolving,
       aiMemoryMap,
       selectedTimelineEventId,

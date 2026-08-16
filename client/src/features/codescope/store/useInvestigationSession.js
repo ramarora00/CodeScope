@@ -78,6 +78,12 @@ export const useInvestigationSession = create((set, get) => ({
   fileProgress: 0,
   currentLine: 0,
   totalLines: 0,
+  startLine: null,
+  endLine: null,
+  // Canonical authoritative attention target — set atomically on file.read.started
+  // All 4 fields (file, startLine, endLine, reason) come from the same event boundary.
+  // Never construct from mixed events. Clear on file.selected (clear-before-replace).
+  lockedAttention: null,
 
 
   // --- ACTIONS ---
@@ -103,6 +109,9 @@ export const useInvestigationSession = create((set, get) => ({
       fileProgress: 0,
       currentLine: 0,
       totalLines: 0,
+      startLine: null,
+      endLine: null,
+      lockedAttention: null,
       focusContext: {
         id: sessionId,
         mission: null,
@@ -238,7 +247,10 @@ export const useInvestigationSession = create((set, get) => ({
       currentReason: null,
       fileProgress: 0,
       currentLine: 0,
-      totalLines: 0
+      totalLines: 0,
+      startLine: null,
+      endLine: null,
+      lockedAttention: null
     });
   },
   applyEventToState: (event) => {
@@ -278,7 +290,8 @@ export const useInvestigationSession = create((set, get) => ({
             currentStep: state.metadata.isUnderstandingMode ? 'Understanding repository' : 'Plan generated',
             answer: event.plan.hypothesis,
             confidence: event.plan.confidence,
-            relatedNodes: targets
+            relatedNodes: targets,
+            providerUsed: event.metadata?.providerUsed
           }
         }));
         break;
@@ -304,7 +317,28 @@ export const useInvestigationSession = create((set, get) => ({
           fileProgress: 0, 
           currentLine: 0, 
           totalLines: 0,
+          startLine: null,
+          endLine: null,
+          // CLEAR: old attention must disappear before new target is set
+          lockedAttention: null,
           focusContext: { ...state.focusContext, currentStep: `Selected ${event.file?.split('/').pop() || 'file'}` }
+        }));
+        break;
+        
+      case 'file.read.started':
+        // SET: atomic canonical attention — all 4 fields from the same event boundary
+        // file comes from aiFocusFile (set by the preceding file.selected event)
+        // reason comes from currentReason (also set by file.selected)
+        // Never mix fields from different events.
+        set((state) => ({
+          startLine: event.startLine,
+          endLine: event.endLine,
+          lockedAttention: {
+            file: state.aiFocusFile,
+            startLine: event.startLine,
+            endLine: event.endLine,
+            reason: state.currentReason,
+          }
         }));
         break;
         
@@ -332,18 +366,29 @@ export const useInvestigationSession = create((set, get) => ({
         
       case 'evidence.added':
         set((state) => {
+          const newEvidence = {
+            investigationId: state.metadata.sessionId,
+            filePath: typeof event.source === 'string' ? event.source : event.source?.file || state.aiFocusFile,
+            startLine: state.startLine || 1,
+            endLine: state.endLine || 10,
+            reason: event.fact,
+            sourceEventId: event.eventId,
+            type: state.metadata.isUnderstandingMode ? 'orientation' : 'investigation',
+            createdAt: Date.now(),
+            status: 'resolved'
+          };
           if (state.metadata.isUnderstandingMode) {
             return {
               repositoryContext: {
                 ...state.repositoryContext,
-                findings: [...state.repositoryContext.findings, { fact: event.fact, source: event.source, eventId: event.eventId }]
+                findings: [...state.repositoryContext.findings, newEvidence]
               }
             };
           } else {
             return {
               focusContext: {
                 ...state.focusContext,
-                findings: [...state.focusContext.findings, { fact: event.fact, source: event.source, eventId: event.eventId }]
+                findings: [...state.focusContext.findings, newEvidence]
               }
             };
           }
@@ -362,7 +407,8 @@ export const useInvestigationSession = create((set, get) => ({
             ...state.focusContext, 
             status: 'review', 
             currentStep: state.metadata.isUnderstandingMode ? 'Repository Understanding complete' : 'Investigation completed',
-            answer: event.answer || state.focusContext.answer
+            answer: event.answer || state.focusContext.answer,
+            isResolved: event.result?.isResolved || false
           }
         }));
         get().completeSession();

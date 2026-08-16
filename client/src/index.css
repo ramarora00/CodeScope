@@ -7,31 +7,34 @@
 ═══════════════════════════════════════════════════════════════ */
 :root {
   /* ── Fonts ── */
-  --cs-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --cs-mono: 'JetBrains Mono', 'Fira Code', monospace;
-  --font-sans: var(--cs-sans);
-  --font-mono: var(--cs-mono);
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --cs-sans: var(--font-ui); /* Legacy fallback */
+  --cs-mono: var(--font-mono); /* Legacy fallback */
+  --font-sans: var(--font-ui); /* Tailwind alias */
 
-  /* ── Backgrounds — pure black, no blue/purple tint ── */
-  --cs-bg:           #0A0A0A;   /* Root (ChatGPT-style pure black) */
-  --cs-panel:        #101010;   /* Secondary panels */
-  --cs-editor:       #0D0D0D;   /* Editor surface */
-  --cs-panel-raised: #151515;   /* Hover states */
-  --cs-dock:         #0D0D0D;   /* Left dock */
+  /* ── Backgrounds — Cinematic Surface & Contrast Lock ── */
+  --cs-bg:           #050505;   /* Global Canvas: near-black */
+  --cs-workspace:    #070707;   /* Primary Workspace: slightly lifted */
+  --cs-editor:       #000000;   /* Editor: deepest surface, primary focus */
+  --cs-panel:        #0B0B0C;   /* Panels (Explorer/Knowledge): charcoal elevation */
+  --cs-panel-raised: #101011;   /* Cards/Hover states: slightly elevated charcoal */
+  --cs-dock:         #050505;   /* Left dock */
+  --cs-active:       #151516;   /* Active/selected surfaces */
 
-  /* legacy aliases — don't break old components */
+  /* legacy aliases — mapped to new tokens */
   --bg-void:      var(--cs-bg);
   --bg-main:      var(--cs-panel);
   --bg-surface:   var(--cs-panel-raised);
-  --bg-elevated:  #1A1A1A;
+  --bg-elevated:  var(--cs-panel-raised);
   --bg-sidebar:   var(--cs-panel);
   --bg-hover:     var(--cs-panel-raised);
-  --bg-active:    rgba(255,255,255,0.04);
+  --bg-active:    var(--cs-active);
 
-  /* ── Borders — use only ultra-subtle rgba, never solid ── */
-  --cs-border:        rgba(255,255,255,0.02);
-  --cs-border-strong: rgba(255,255,255,0.04);
-  --cs-border-subtle: rgba(255,255,255,0.01);
+  /* ── Borders — use only ultra-subtle rgba, never solid, never bright ── */
+  --cs-border:        rgba(255,255,255,0.06);
+  --cs-border-strong: rgba(255,255,255,0.09);
+  --cs-border-subtle: rgba(255,255,255,0.025);
   --border:           var(--cs-border);
   --border-strong:    var(--cs-border-strong);
   --border-subtle:    var(--cs-border-subtle);
@@ -42,9 +45,27 @@
 
   /* ── Typography — grayscale hierarchy ── */
   --cs-text:    #E8E8E8;   /* Primary — bright white-ish */
-  --cs-muted:   #8A8A8A;   /* Secondary — medium grey */
-  --cs-faint:   #4A4A4A;   /* Tertiary — dim grey */
-  --cs-hint:    #2A2A2A;   /* Ultra-dim — barely visible */
+  --cs-muted:   #969696;   /* Secondary — medium grey */
+  --cs-faint:   #5A5A5A;   /* Tertiary — dim grey */
+  --cs-hint:    #3A3A3A;   /* Ultra-dim — barely visible */
+
+  /* ── Typographic Scale ── */
+  --cs-font-display: 20px;
+  --cs-font-heading: 15px;
+  --cs-font-panel-title: 10px;
+  --cs-font-body: 13px;
+  --cs-font-metadata: 11px;
+  --cs-font-code: 13px;
+  --cs-font-status: 11px;
+  --cs-font-caption: 10px;
+
+  --cs-weight-bold: 600;
+  --cs-weight-medium: 500;
+  --cs-weight-normal: 400;
+
+  --cs-lh-body: 1.6;
+  --cs-lh-code: 1.8;
+
   --text-primary:   var(--cs-text);
   --text-secondary: var(--cs-muted);
   --text-muted:     var(--cs-faint);
@@ -93,6 +114,22 @@
   --ease-thought: cubic-bezier(0.22, 0.61, 0.36, 1); /* Phase B Cognitive Animation */
   --ease:         var(--ease-in-out);
   --transition:   all 300ms var(--ease-calm);
+
+  /* ── Additional tokens ── */
+  --cs-hover:           rgba(255,255,255,0.025);   /* panel hover surface */
+  --cs-error:           var(--cs-red);             /* error alias */
+  --cs-panel-border:    rgba(255,255,255,0.04);    /* slightly stronger panel separator */
+
+  /* ── Glass Surface Tokens — selective, not global ── */
+  /* Applied to: Explorer, Knowledge, CommandBar, Report, Dock pills */
+  /* NOT applied to: Editor (deepest anchor, no blur) */
+  --cs-glass-panel:     rgba(255,255,255,0.022);  /* primary glass fill */
+  --cs-glass-float:     rgba(255,255,255,0.04);   /* elevated floats (Report dock, pills) */
+  --cs-glass-report:    rgba(10,10,12,0.75);      /* glass-black for Report Sheet */
+  --cs-blur-panel:      blur(12px);               /* panel backdrop blur */
+  --cs-blur-float:      blur(20px);               /* floating element blur */
+  --cs-inset-top:       inset 0 1px 0 rgba(255,255,255,0.06);  /* top-edge highlight */
+  --cs-inset-top-soft:  inset 0 1px 0 rgba(255,255,255,0.03);  /* subtle version */
 }
 
 /* ── Reset ── */
@@ -114,8 +151,27 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.10); }
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    border-color: rgba(255,255,255,0.08);
+  }
+  50% {
+    opacity: 0.85;
+    border-color: rgba(191,200,216,0.25);
+  }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
 
 /* ── Keyframes ── */
 @keyframes rise {
@@ -180,6 +236,96 @@ body {
 .animate-row-rise   { animation: row-rise 200ms var(--ease-out) both; }
 .animate-crossfade  { animation: crossfade 200ms ease both; }
 
+/* ── Ambient Observation animations ─────────────────────────────────
+   Principle: animate the LIGHT behind the rail, not the border.
+   Left rail = primary light source, right = faint echo.
+   Center stays near-transparent so code is never obscured.
+─────────────────────────────────────────────────────────────────── */
+
+/* Focus Box breathing — 5s cycle, asymmetric left↔right */
+@keyframes obs-breathe {
+  0%, 100% {
+    background: linear-gradient(
+      90deg,
+      rgba(200,220,255,0.15) 0%,
+      rgba(180,210,255,0.06) 12%,
+      transparent 35%,
+      transparent 65%,
+      rgba(180,210,255,0.05) 88%,
+      rgba(200,220,255,0.12) 100%
+    );
+    opacity: 0.9;
+  }
+  50% {
+    background: linear-gradient(
+      90deg,
+      rgba(200,220,255,0.25) 0%,
+      rgba(180,210,255,0.10) 14%,
+      transparent 38%,
+      transparent 62%,
+      rgba(180,210,255,0.08) 86%,
+      rgba(200,220,255,0.18) 100%
+    );
+    opacity: 1;
+  }
+}
+
+/* Reading Logic breathing — 7s cycle, ~50% of Focus Box intensity */
+@keyframes obs-breathe-soft {
+  0%, 100% {
+    background: linear-gradient(
+      90deg,
+      rgba(200,220,255,0.10) 0%,
+      rgba(180,210,255,0.04) 12%,
+      transparent 35%,
+      transparent 65%,
+      rgba(180,210,255,0.03) 88%,
+      rgba(200,220,255,0.07) 100%
+    );
+    opacity: 0.95;
+  }
+  50% {
+    background: linear-gradient(
+      90deg,
+      rgba(200,220,255,0.15) 0%,
+      rgba(180,210,255,0.06) 14%,
+      transparent 38%,
+      transparent 62%,
+      rgba(180,210,255,0.04) 86%,
+      rgba(200,220,255,0.10) 100%
+    );
+    opacity: 1;
+  }
+}
+
+/* Rare light sweep — travels left→center and dissolves. Used on :after pseudo */
+@keyframes obs-sweep {
+  0%   { opacity: 0; transform: translateX(-100%); }
+  15%  { opacity: 0.35; }
+  60%  { opacity: 0.15; }
+  100% { opacity: 0; transform: translateX(30%); }
+}
+
+.animate-obs-focus {
+  animation: obs-breathe 5s ease-in-out infinite;
+  position: relative;
+}
+.animate-obs-reading {
+  animation: obs-breathe-soft 7s ease-in-out infinite;
+}
+
+/* Legacy alias — kept so any remaining refs don't break */
+.animate-focus-breathe {
+  animation: obs-breathe 5s ease-in-out infinite;
+}
+
+@keyframes slide-up-report {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up-report { animation: slide-up-report 550ms var(--ease-out) forwards; }
+
 /* Dock icon hover scale */
 .dock-icon {
   transition: transform 200ms var(--ease-out), opacity 200ms ease;
@@ -187,3 +333,5 @@ body {
 .dock-icon:hover {
   transform: scale(1.06);
 }
+ 
+ 

@@ -27,7 +27,7 @@ class ContextBuilder {
       return '';
     }
 
-    // Filter by relevance threshold and limit N dynamically
+    // Filter by relevance threshold
     // In LanceDB, distance is L2 by default (lower is better, typically 0.0 to 2.0)
     const relevantResults = results.filter(r => r.score < threshold);
     
@@ -36,14 +36,12 @@ class ContextBuilder {
     // If we filtered too aggressively, ensure we return at least a few top results
     const finalResults = relevantResults.length > 0 ? relevantResults : results.slice(0, 5);
 
-    // Format the output specifically for the LLM prompt
-    let contextStr = '';
-    finalResults.forEach((res, index) => {
-      contextStr += `FILE PATH: ${res.path}\n`;
-      // Cap the text length per snippet to avoid blowing up the context window
-      const snippet = res.text.substring(0, 1500); 
-      contextStr += `SNIPPET:\n${snippet}\n\n`;
-    });
+    // Use ContextBudgeter to deduplicate, rank, and budget tokens
+    const { ContextBudgeter } = require('./ContextBudgeter');
+    const budgeter = new ContextBudgeter();
+    
+    // Pass along options like currentFile for boosted scoring
+    const contextStr = budgeter.budgetContext(finalResults, 3500, options);
 
     return contextStr;
   }

@@ -68,6 +68,7 @@ JSON SCHEMA:
   "mission": "The mission statement",
   "hypothesis": "Your reasoning or hypothesis of where to look and why.",
   "confidence": 0.95, // 0.0 to 1.0
+  "isResolved": false,
   "executionSteps": [
     {
       "action": "read", // or "jump"

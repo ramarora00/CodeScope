@@ -162,32 +162,6 @@ export default function InvestigationPanel({ timelineEvents = [], planSteps = []
 
   // Removed handleAsk
 
-  // Law of Representation: Context Level
-  if (isContext) {
-    return (
-      <div className="flex flex-col items-center h-full pt-8 pb-4 border-r border-transparent hover:bg-white/[0.02] transition-colors w-[48px]">
-        {/* minimalist vertical progress line */}
-        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', color: 'var(--cs-faint)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '32px', opacity: 0.8 }}>
-          Timeline
-        </div>
-        
-        <div className="flex-1 flex flex-col items-center w-full relative">
-          <div className="absolute top-0 bottom-0 w-[1px] bg-[var(--cs-border)]" style={{ opacity: 0.5 }} />
-          {planSteps.map((step, i) => {
-             const topOffset = planSteps.length > 1 ? (i / (planSteps.length - 1)) * 100 : 50;
-             return (
-               <div key={step.id} className="absolute left-1/2 -translate-x-1/2 z-10" style={{ top: `calc(${topOffset}% - 3px)` }}>
-                  <div style={{ 
-                    width: '6px', height: '6px', borderRadius: '50%',
-                    background: step.done ? 'var(--cs-green)' : step.active ? 'var(--cs-text)' : 'var(--cs-border)'
-                  }} />
-               </div>
-             );
-          })}
-        </div>
-      </div>
-    );
-  }
 
   // Law of Representation: Hero/Supporting Level
   return (

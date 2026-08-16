@@ -1,28 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, ChevronRight, GitBranch, Workflow, TestTube, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-const ACTIONS = [
-  { id: 'dep-map', icon: GitBranch, label: 'View dependency map' },
-  { id: 'explain', icon: Workflow, label: 'Explain this flow' },
-  { id: 'tests', icon: TestTube, label: 'Generate test cases' },
-];
-
-function SectionHeader({ label }) {
-  return (
-    <div style={{ marginBottom: '12px' }}>
-      <span style={{
-        color: 'rgba(255,255,255,0.07)',
-        fontSize: '8.5px',
-        fontWeight: 600,
-        letterSpacing: '0.14em',
-        textTransform: 'uppercase',
-      }}>
-        {label}
-      </span>
-    </div>
-  );
-}
 
 export default function KnowledgePanel({
   repo,
@@ -34,24 +11,14 @@ export default function KnowledgePanel({
   selectedFile,
   selectedTimelineEventId,
   onReturnToPresent,
-  isContext
+  answer
 }) {
-  // Removed askQuery state since input surface is now centralized in Top Bar
-  const [activeTab, setActiveTab] = useState('repository'); // 'repository' or 'investigation'
-
   const activeFilePath = typeof selectedFile === 'string' ? selectedFile : selectedFile?.path;
-  const displayFindings = activeFilePath
-    ? findings.filter(f => f.filePath === activeFilePath)
-    : findings;
-
-  const handleAction = (id) => {
-    console.log(`KnowledgePanel action clicked: ${id}`);
-  };
-
-  // Removed handleAsk
+  const activeFinding = activeFilePath ? findings.find(f => f.filePath === activeFilePath) : findings[findings.length - 1];
 
   const [panelState, setPanelState] = useState('dormant');
   const prevFindingsRef = React.useRef(findings.length);
+  const executiveSummary = answer || `Investigation initialized for ${repo?.name?.split('/')?.pop() || 'this repository'}. Analyzing architectural patterns, component hierarchies, and cross-file dependencies to resolve the query.`;
 
   useEffect(() => {
     if (findings.length > prevFindingsRef.current) {
@@ -65,215 +32,236 @@ export default function KnowledgePanel({
       };
     } else if (findings.length > 0) {
       if (panelState === 'dormant') setPanelState('passive');
-    } else if (findings.length === 0 && !isContext) {
+    } else if (findings.length === 0) {
       setPanelState('watching');
     }
     prevFindingsRef.current = findings.length;
-  }, [findings.length, isContext]);
+  }, [findings.length, panelState]);
 
   return (
     <div
-      className="flex flex-col h-full flex-shrink-0 transition-all duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)] relative"
-      style={{
-        width: isContext ? '220px' : '310px',
-        opacity: isContext ? 0.4 : 1,
-        background: 'var(--cs-panel)',
-      }}
+      className="flex-1 overflow-hidden flex flex-col relative"
+      style={{ transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease' }}
     >
-      {/* ── Header with Tabs ── */}
+      {/* ── KNOWLEDGE Header ── */}
       <div
-        className="flex flex-col flex-shrink-0"
+        className="flex-shrink-0"
+        style={{
+          paddingTop: '20px',
+          paddingLeft: '20px',
+          paddingRight: '20px',
+          paddingBottom: '16px',
+          borderBottom: '1px solid rgba(255,255,255,0.05)',
+        }}
       >
-        <div className="flex items-center justify-between px-5" style={{ height: '40px' }}>
-          <span style={{
-            color: 'var(--cs-faint)',
-            fontSize: '9px',
-            fontWeight: 700,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            Knowledge
-            {!isContext && (
-              <span
-                className="transition-colors duration-500"
-                style={{
-                  color: panelState === 'receiving' ? 'var(--cs-accent)'
-                    : panelState === 'settling' ? 'rgba(62, 168, 255, 0.4)'
-                      : panelState === 'watching' ? 'rgba(255,255,255,0.1)'
-                        : 'transparent',
-                  fontStyle: 'normal',
-                  fontSize: '8px'
-                }}
-              >
-                ●
-              </span>
-            )}
+        <span style={{
+          color: 'rgba(255,255,255,0.85)',
+          fontSize: '12px',
+          fontWeight: 700,
+          fontStyle: 'italic',
+          fontFamily: 'var(--font-ui)',
+          letterSpacing: '0.10em',
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: '8px',
+        }}>
+          KNOWLEDGE
+          <span
+            className="transition-colors duration-500"
+            style={{
+              color: panelState === 'receiving' ? 'var(--cs-accent)'
+                : panelState === 'settling' ? 'rgba(62, 168, 255, 0.4)'
+                  : panelState === 'watching' ? 'rgba(255,255,255,0.1)'
+                    : 'transparent',
+              fontStyle: 'normal',
+              fontSize: '8px'
+            }}
+          >
+            ●
           </span>
-        </div>
+        </span>
       </div>
 
-      {/* ── Context State (Minimalist) ── */}
-      {isContext ? (
-        <div className="flex-1 flex flex-col p-4 gap-6 animate-fade-in opacity-80 overflow-y-auto no-scrollbar">
-          {/* Minimal Repository Summary */}
-          <div className="flex flex-col gap-2 border-b pb-4" style={{ borderColor: 'var(--cs-border)' }}>
-            <span style={{ color: 'var(--cs-hint)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              Repo Context
-            </span>
-            <span className="text-[11px] font-mono font-bold text-[var(--cs-text)] truncate">{repo?.name?.replace(/-\d{10,}$/, '') || 'Workspace'}</span>
-            <div className="flex items-center gap-2 mt-1 text-[10px] text-[var(--cs-muted)] font-mono">
-              {repo?.framework && (
-                <>
-                  <span className="truncate">{repo.framework}</span>
-                  <span>·</span>
-                </>
-              )}
-              <span>{fileCount} files</span>
-            </div>
+      {/* ── Pinned Top Section: REPO / NOW EXAMINING ── */}
+      <div className="flex-shrink-0 flex flex-col gap-5" style={{ padding: '16px 20px 20px' }}>
+        {/* REPOSITORY OVERVIEW */}
+        <div>
+          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', fontWeight: 700, fontStyle: 'italic', fontFamily: 'var(--font-ui)', marginBottom: '6px', letterSpacing: '0.10em' }}>REPOSITORY</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'rgba(255,255,255,1.0)', fontFamily: 'var(--font-ui)', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {repo?.name?.split('/')?.pop()?.replace(/-\d{10,}$/, '') || 'Workspace'}
           </div>
-
-          {/* Minimal Findings */}
-          <div className="flex flex-col gap-3 border-b pb-4" style={{ borderColor: 'var(--cs-border)' }}>
-            <span style={{ color: 'var(--cs-hint)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              Findings
-            </span>
-            <div className="flex items-center gap-2 text-[11px] text-[var(--cs-muted)] font-mono">
-              <span className="w-2 h-2 rounded-full bg-[var(--cs-accent)] opacity-50"></span>
-              {displayFindings.length} active findings
-            </div>
-          </div>
-
-          {/* Minimal Related Symbols */}
-          <div className="flex flex-col gap-3">
-            <span style={{ color: 'var(--cs-hint)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              Related Symbols
-            </span>
-            <div className="flex items-center gap-2 text-[11px] text-[var(--cs-muted)] font-mono">
-              <span className="w-2 h-2 rounded-full border border-[var(--cs-hint)]"></span>
-              {relatedSymbols.length} referenced
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', color: 'rgba(255,255,255,0.4)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
+            <span>{fileCount} files</span>
+            {repo?.framework && (<><span>·</span><span>{repo.framework}</span></>)}
           </div>
         </div>
-      ) : (
-        /* ── Hero State: Single Stream ── */
-        <div className="flex-1 overflow-y-auto no-scrollbar min-h-0">
-          <div style={{ padding: '32px 32px' }} className="flex flex-col gap-8 animate-fade-in">
 
-            {/* ── REPOSITORY OVERVIEW ── */}
-            <div>
-              <div style={{ color: 'var(--cs-faint)', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '12px' }}>Repository</div>
-              <div className="text-[13px] font-bold text-[var(--cs-text)] font-mono truncate">{repo?.name?.split('/')?.pop()?.replace(/-\d{10,}$/, '') || 'Workspace'}</div>
-              {repo?.repositorySummary && (
-                <div style={{ lineHeight: '1.6', marginTop: '8px' }} className="text-[12px] text-[var(--cs-muted)] italic">
-                  {repo.repositorySummary}
+        {/* NOW EXAMINING */}
+        {activeFinding && (
+          <div>
+            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', fontWeight: 700, fontStyle: 'italic', fontFamily: 'var(--font-ui)', marginBottom: '6px', letterSpacing: '0.10em' }}>NOW EXAMINING</div>
+            <div style={{
+              borderLeft: '2px solid rgba(255,255,255,0.9)',
+              background: 'linear-gradient(90deg, rgba(140,190,255,0.06) 0%, transparent 60%)',
+              padding: '6px 0 6px 12px',
+              marginLeft: '-14px',
+              borderTopRightRadius: '4px',
+              borderBottomRightRadius: '4px',
+            }}>
+              {activeFinding.filePath && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingBottom: '4px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.95)', fontFamily: 'var(--font-ui)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {activeFinding.filePath.split(/[/\\]/).pop()}
+                  </span>
+                  <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.35)' }}>
+                    Lines {activeFinding.startLine}–{activeFinding.endLine}
+                  </span>
                 </div>
               )}
-              <div className="flex items-center gap-4 mt-4">
-                <span style={{ color: 'var(--cs-hint)', fontSize: '12px', fontFamily: 'var(--cs-mono)' }}>{fileCount} files</span>
-                {repo?.framework && <span style={{ color: 'var(--cs-hint)', fontSize: '12px', fontFamily: 'var(--cs-sans)' }}>{repo.framework}</span>}
+              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', fontFamily: 'var(--font-ui)', lineHeight: '1.6', marginTop: '2px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {activeFinding.reason}
               </div>
             </div>
+          </div>
+        )}
+      </div>
 
-            {/* Divider (spacing not border) */}
-            <div style={{ height: '1px', background: 'rgba(255,255,255,0.03)' }} />
+      {/* ── Scrollable: Executive Summary + Key Findings ── */}
+      <div className="flex-1 overflow-y-auto no-scrollbar relative min-h-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ padding: '16px 16px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
-            {/* ── UNDERSTANDING ── */}
-            <div className="space-y-4">
-              <AnimatePresence initial={false}>
-                {!intelligenceStream || intelligenceStream.length === 0 ? (
+          {/* Executive Summary — only when investigation has findings */}
+          {findings?.length > 0 && (
+            <div>
+              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', fontWeight: 700, fontStyle: 'italic', fontFamily: 'var(--font-ui)', letterSpacing: '0.10em', marginBottom: '8px' }}>
+                EXECUTIVE SUMMARY
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '12px', fontFamily: 'var(--font-ui)', lineHeight: '1.65', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {executiveSummary}
+              </div>
+            </div>
+          )}
+
+          {/* Key Findings header */}
+          <div>
+            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', fontWeight: 700, fontStyle: 'italic', fontFamily: 'var(--font-ui)', letterSpacing: '0.10em' }}>
+              KEY FINDINGS
+            </div>
+            {findings?.length > 0 && (
+              <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px', fontFamily: 'var(--font-ui)', marginTop: '2px' }}>
+                Accumulated evidence
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <AnimatePresence initial={false}>
+              {!findings || findings.length === 0 ? (
+                <motion.div key="empty-state" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '4px 0' }}>
+                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', fontFamily: 'var(--font-ui)', lineHeight: '1.6' }}>
+                    The repository has been mapped.<br />
+                    Ask a question to trace its reasoning.
+                  </div>
+                  {/* Glass action chips — Option A: real triggers */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {[
+                      { label: 'Explore dependencies', query: 'Show me the dependency relationships of this repository' },
+                      { label: 'Explain a flow', query: 'Explain the main execution flow of this codebase' },
+                      { label: 'Generate tests', query: 'What test cases should be written for this repository' },
+                    ].map(action => (
+                      <button
+                        key={action.label}
+                        onClick={() => onNewInvestigation?.(action.query)}
+                        style={{
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: '8px',
+                          padding: '9px 12px',
+                          color: 'rgba(255,255,255,0.55)',
+                          fontSize: '12px',
+                          fontFamily: 'var(--font-ui)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'all 160ms ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)';
+                          e.currentTarget.style.color = 'rgba(255,255,255,0.85)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                          e.currentTarget.style.color = 'rgba(255,255,255,0.55)';
+                        }}
+                      >
+                        <span style={{ color: 'var(--cs-accent)', opacity: 0.7, fontSize: '10px', flexShrink: 0 }}>→</span>
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              ) : findings.map((item, i) => {
+                const isCardFocused = activeFinding?.sourceEventId === item.sourceEventId;
+                if (isCardFocused) return null;
+
+                return (
                   <motion.div
-                    initial={{ opacity: 0, y: 10 }}
+                    key={item.sourceEventId || i}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex flex-col items-center justify-center p-6 rounded-lg mt-2"
-                    style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.02)' }}
-                  >
-                    <div style={{ color: 'var(--cs-faint)', fontSize: '12px', textAlign: 'center' }}>No intelligence collected yet.</div>
-                  </motion.div>
-                ) : intelligenceStream.map((item, i) => (
-                  <motion.div
-                    key={item.id || i}
-                    layout
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{
-                      x: { ease: [0.2, 0.0, 0.0, 1.0], duration: 0.2, delay: i * 0.08 + 0.5 },
-                      opacity: { duration: 0.2, delay: i * 0.08 + 0.5 },
-                    }}
-                    className="flex flex-col gap-3 rounded-lg cursor-pointer transition-all duration-300"
+                    transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1], delay: Math.min(i * 0.04, 0.2) }}
+                    className="group"
                     style={{
-                      padding: '12px 16px',
+                      padding: '14px 0',
+                      borderBottom: '1px solid rgba(255,255,255,0.06)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
                       background: 'transparent',
-                      borderTop: '1px solid rgba(255,255,255,0.015)',
-                      opacity: item.active ? 1.0 : 0.45,
-                      borderRadius: 0,
+                      transition: 'background 180ms ease, border-color 180ms ease',
                     }}
                     onMouseEnter={e => {
                       e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)';
-                      if (item.source) window.dispatchEvent(new CustomEvent('editor-highlight', { detail: { file: item.source, line: 1 } }));
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.01)';
-                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.02)';
-                      window.dispatchEvent(new CustomEvent('editor-highlight', { detail: null }));
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
                     }}
                   >
-                    {item.source && (
-                      <div className="flex flex-col gap-1 pb-2 mb-1" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-                        <span className="text-[13px] font-bold text-[var(--cs-accent)] font-mono truncate">
-                          {typeof item.source === 'string' ? item.source.split(/[\\/]/).pop() : item.source.file.split(/[\\/]/).pop()}
+                    {item.filePath && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.95)', fontFamily: 'var(--font-ui)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.filePath.split(/[/\\]/).pop()}
                         </span>
-                        {typeof item.source !== 'string' && item.source.line && (
-                          <span className="text-[10px] text-[var(--cs-muted)] font-mono">
-                            line {item.source.line}
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--cs-accent)', flexShrink: 0, background: 'rgba(99,170,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                            L{item.startLine}–L{item.endLine}
                           </span>
-                        )}
+                        </div>
                       </div>
                     )}
-                    <div className="flex flex-col gap-1.5">
-                      <span style={{ color: 'var(--cs-faint)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                        {item.type || 'Evidence'}
-                      </span>
-                      <span style={{ color: item.active ? 'var(--cs-text)' : 'rgba(255,255,255,0.7)', fontSize: '12px', fontFamily: 'var(--cs-sans)', lineHeight: '1.6' }}>
-                        {item.text}
-                      </span>
+                    <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '11px', fontFamily: 'var(--font-ui)', lineHeight: '1.55', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {item.reason}
                     </div>
+                    {item.filePath && (
+                      <div style={{ color: 'var(--cs-accent)', fontSize: '10px', fontWeight: 500, fontFamily: 'var(--font-ui)', opacity: 0.5, transition: 'opacity 150ms ease', marginTop: '2px' }}
+                        className="group-hover:opacity-100"
+                      >
+                        → Open in editor
+                      </div>
+                    )}
                   </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          <div style={{ marginTop: '8px' }}>
-            <div className="space-y-2">
-              {ACTIONS.map(action => (
-                <div
-                  key={action.id}
-                  onClick={() => handleAction(action.id)}
-                  className="flex items-center gap-3 cursor-pointer transition-colors duration-[220ms] group"
-                  style={{ height: '40px', padding: '0 12px', borderRadius: '8px', background: 'transparent', opacity: 0.6 }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                    e.currentTarget.style.opacity = 1.0;
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.opacity = 0.6;
-                  }}
-                >
-                  <action.icon size={12} style={{ color: 'var(--cs-hint)' }} className="group-hover:text-[var(--cs-faint)] transition-colors" />
-                  <span style={{ color: 'var(--cs-muted)', fontSize: '13px', transition: 'color 150ms ease' }} className="group-hover:text-[var(--cs-text)]">
-                    {action.label}
-                  </span>
-                </div>
-              ))}
-            </div>
+                );
+              })}
+            </AnimatePresence>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

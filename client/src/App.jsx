@@ -4,10 +4,13 @@ import { useInvestigationSession } from './features/codescope/store/useInvestiga
 import { useWorkspaceStore } from './features/codescope/store/useWorkspaceStore';
 import LaunchExperience from './features/codescope/ui/LaunchExperience';
 import WorkspaceRoot from './features/codescope/ui/v2/WorkspaceRoot';
+import LoginExperience from './features/auth/ui/LoginExperience';
+import { subscribeToAuthChanges } from './auth/authService';
 import './App.css';
 
 function App() {
-  const [appState, setAppState] = useState('launch');
+  const [appState, setAppState] = useState('loading');
+  const [user, setUser] = useState(null);
   const [repos, setRepos] = useState([]);
   
   const { selectedRepo, setSelectedRepo, activeInvestigationId, setActiveInvestigationId, setUserSelectedFile } = useWorkspaceStore();
@@ -26,8 +29,22 @@ function App() {
   };
 
   useEffect(() => {
-    fetchRepos();
+    const unsubscribe = subscribeToAuthChanges((currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        setAppState('launch');
+      } else {
+        setAppState('login');
+      }
+    });
+    return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchRepos();
+    }
+  }, [user]);
 
   const handleConnect = async (urlOrPath) => {
     if (urlOrPath === '__demo__') {
@@ -67,9 +84,13 @@ function App() {
       if (!response.ok) throw new Error(data.error || 'Failed to connect repository');
 
       setRepos(prev => [data, ...prev]);
+      setUserSelectedFile(null); // Clear previous file selection
       setSelectedRepo(data);
       useInvestigationSession.getState().resetSession(data.id);
       setAppState('workspace');
+      if (window.location.hash !== '#workspace') {
+        window.history.pushState({ appState: 'workspace' }, '', '#workspace');
+      }
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -77,13 +98,22 @@ function App() {
   };
 
   const handleSelectRepo = (repo) => {
+    setUserSelectedFile(null); // Bug Fix: clear any ghost file selection from previous repo
     setSelectedRepo(repo);
     useInvestigationSession.getState().resetSession(repo.id);
     setAppState('workspace');
+    if (window.location.hash !== '#workspace') {
+      window.history.pushState({ appState: 'workspace' }, '', '#workspace');
+    }
   };
 
-  const handleConnectNew = () => {
+  const handleConnectNew = (fromPopState) => {
+    const isPop = fromPopState === true;
+    setUserSelectedFile(null); // Clear file selection when going back to home
     setAppState('launch');
+    if (!isPop && window.location.hash === '#workspace') {
+      window.history.back();
+    }
   };
 
   const activeInvestigation = useMemo(() => {
@@ -108,6 +138,21 @@ function App() {
       }
     });
   }, [activeInvestigationId]);
+
+  useEffect(() => {
+    const handlePopState = (e) => {
+      // If the back button is pressed and we're no longer on the investigation hash, clear it
+      if (activeInvestigationId && window.location.hash !== '#investigation') {
+        clearInvestigation(true);
+      } 
+      // If we are in the workspace but the hash is now empty (back past #workspace)
+      else if (!activeInvestigationId && appState === 'workspace' && window.location.hash === '') {
+        handleConnectNew(true);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [activeInvestigationId, appState]);
 
   const startNewInvestigation = async (queryText, mode = 'investigation') => {
     // Cancel any existing backend investigation first
@@ -140,10 +185,39 @@ function App() {
 
     setInvestigations(prev => [newInv, ...prev]);
     setActiveInvestigationId(newId);
+
+    // Push history state so the browser back button can be used to exit the investigation
+    if (window.location.hash !== '#investigation') {
+      window.history.pushState({ investigation: newId }, '', '#investigation');
+    }
+  };
+
+  const clearInvestigation = async (fromPopState) => {
+    const isPop = fromPopState === true;
+    if (selectedRepo?.id) {
+      try {
+        await fetch(`${API_BASE}/api/repo/${selectedRepo.id}/investigate`, { method: 'DELETE' });
+      } catch (e) { }
+    }
+    setActiveInvestigationId(null);
+    setUserSelectedFile(null);
+
+    // If cleared from UI, pop the state to keep browser history consistent
+    if (!isPop && window.location.hash === '#investigation') {
+      window.history.back();
+    }
   };
 
   return (
     <div className="w-full h-full min-h-screen overflow-hidden" style={{ background: 'var(--cs-bg)' }}>
+      {appState === 'loading' && (
+        <div className="w-full h-full min-h-screen flex items-center justify-center text-[12px] font-mono text-[var(--cs-muted)]">
+          Initializing CodeScope...
+        </div>
+      )}
+      {appState === 'login' && (
+        <LoginExperience />
+      )}
       {appState === 'launch' && (
         <LaunchExperience onConnect={handleConnect} repos={repos} />
       )}
@@ -152,6 +226,7 @@ function App() {
           onBack={handleConnectNew}
           activeInvestigation={activeInvestigation}
           onNewInvestigation={startNewInvestigation}
+          onClearInvestigation={clearInvestigation}
         />
       )}
     </div>

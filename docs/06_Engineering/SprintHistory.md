@@ -405,3 +405,121 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-08-08T17:48:00+05:30*
 
+
+## Sprint — Universal Code Viewer, LLM Fallback Provider, and Workspace UI Refinements
+
+**Commits**
+- `3ac09e1` feat(codescope): refine workspace stores and presentation model
+- `905950d` feat(codescope): update explorer perspective and router
+- `74c7cf9` feat(codescope): refine investigation and knowledge panels
+- `0925f7c` feat(codescope): update workspace shell components
+- `cedf3c9` feat(codescope): enhance shared viewer and ready state
+- `ee02920` feat(server): add LLM fallback provider and routing logic
+- `c88fa21` feat(server): update execution engine and environment config
+- `cd1510a` style(client): update global css
+- `35902d5` chore(logs): add all investigation session telemetry recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **State Management**: Refined the useWorkspacePresentationModel, useWorkspaceStore, and useInvestigationSession hooks.
+- **UI Perspectives**: Updated ExplorerPerspective and PerspectiveRouter logic.
+- **Investigation Panels**: Deep refinements across InvestigationPanel, InvestigationReportSheet, and KnowledgePanel.
+- **Workspace Shell**: Updated CommandBar, Dock, and WorkspaceRoot for better state integration.
+- **Shared UI**: Huge enhancements to the UniversalCodeViewer, RepositoryReadyState, and FileExplorer.
+- **Server Fallback Provider**: Implemented FallbackProvider and ProviderRouter in the server planner to gracefully handle LLM API failures.
+- **Server Core**: Hardened ExecutionEngine and updated .env.example.
+- **Styles**: Updated index.css for new panel layouts.
+- **Telemetry**: Addressed the exception to batch all 64 recent investigation session logs into one commit.
+
+*Recorded on 2026-08-09T21:35:00+05:30*
+
+
+## Sprint — Authentication Foundation and UI Polish
+
+**Commits**
+- `e4dcee9` feat(client): implement authentication feature and configuration
+- `92ec8c6` chore(client): update package dependencies
+- `c922a63` feat(codescope): update app shell, launch experience, and workspace root
+- `50aa381` feat(codescope): refine dock, command bar, and workspace perspectives
+- `15e0152` feat(codescope): enhance shared code viewer, styles, and ready state
+- `7131534` chore(logs): add all investigation session telemetry recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **Authentication**: Added foundational auth service, Firebase integration, and LoginExperience UI.
+- **Dependencies**: Updated \package.json\ and lockfile for new libraries.
+- **App Shell**: Refined \App.jsx\, \LaunchExperience\, \WorkspaceRoot\, and \FileExplorer\.
+- **Workspace Panels**: Polished \CommandBar\, \Dock\, \KnowledgePanel\, and \PerspectiveRouter\.
+- **Shared UI**: Updated \UniversalCodeViewer\, \RepositoryReadyState\, and global styles (\index.css\).
+- **Telemetry**: Addressed the exception to batch all 38 recent investigation session logs into one commit.
+
+*Recorded on 2026-08-10T17:38:00+05:30*
+
+
+## Sprint — Planner Context Budgeting and Provider Hardening
+
+**Commits**
+- `6592050` feat(codescope): refine investigation perspective, report sheet, and reading experience
+- `939117a` feat(codescope): update workspace command bar, knowledge panel, and global styles
+- `77b6d0c` feat(codescope): refine file explorer, presentation model, session state, and code viewer
+- `96492ce` feat(server): update context builder, context budgeter, and plan validator
+- `b7a9174` feat(server): refine LLM providers, routing logic, and add backup provider
+- `ee6c330` feat(server): harden execution engine
+- `4bd489d` chore(logs): add all investigation session telemetry recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **UI Perspectives**: Refined \InvestigationPerspective\ and \RepositoryReadingExperience\.
+- **Workspace Panels**: Updated \CommandBar\, \KnowledgePanel\, and \InvestigationReportSheet\.
+- **Workspace State**: Hardened \useInvestigationSession\, \useWorkspacePresentationModel\, and \UniversalCodeViewer\.
+- **Server Planner Core**: Introduced \ContextBudgeter\ to manage context limits alongside \ContextBuilder\ and \PlanValidator\.
+- **LLM Providers**: Added \BackupProvider\ and refined \FallbackProvider\, \GeminiProvider\, and \ProviderRouter\.
+- **Execution Engine**: Further hardened \ExecutionEngine\ resilience.
+- **Telemetry**: Addressed the exception to batch all 59 recent investigation session logs into one commit.
+
+*Recorded on 2026-08-14T18:14:00+05:30*
+
+
+## Sprint — Workspace Polish and UI Iteration
+
+**Commits**
+- `5e4debb` feat(codescope): refine knowledge panel, router, and code viewer
+- `0fef691` feat(codescope): enhance file explorer and global styles
+- `c653e58` chore(logs): add all investigation session telemetry recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **Workspace Panels**: Refined \KnowledgePanel\, \PerspectiveRouter\, and \UniversalCodeViewer\.
+- **UI Shell**: Enhanced \FileExplorer\ and updated global \index.css\ styles.
+- **Telemetry**: Addressed the exception to batch all 23 recent investigation session logs into one commit.
+
+*Recorded on 2026-08-15T12:34:00+05:30*
+
+
+## Sprint — Workspace Routing and Launch Experience Refinement
+
+**Commits**
+- `14fd9fb` feat(codescope): update app routing, workspace root, launch experience, and router
+- `13d80b6` feat(codescope): refine command bar, report sheet, and shared code viewer
+- `84fca06` feat(codescope): enhance file explorer and global styles
+- `401ff5c` chore(logs): add all investigation session telemetry recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **App Shell & Routing**: Refined \App.jsx\ routing and heavily updated the \LaunchExperience\ alongside \PerspectiveRouter\ and \WorkspaceRoot\.
+- **Workspace Panels**: Polished \CommandBar\, \InvestigationReportSheet\, and \UniversalCodeViewer\.
+- **Shared UI**: Refined \FileExplorer\ and corresponding global \index.css\ styling adjustments.
+- **Telemetry**: Addressed the exception to batch all 10 recent investigation session logs into one commit.
+
+*Recorded on 2026-08-16T19:27:00+05:30*
+
