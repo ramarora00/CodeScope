@@ -523,3 +523,26 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-08-16T19:27:00+05:30*
 
+
+## Sprint — Auth Redesign, Assets, and UI Polish
+
+**Commits**
+- `a9e13c1` feat(auth): redesign login experience and add auth hooks
+- `ec14991` feat(codescope): integrate avatar dropdown and update workspace shell
+- `6dd848c` feat(codescope): polish architecture perspective, command bar, and dock
+- `3ed9e25` chore(assets): add hero assets, capture references, and update global styles
+- `f8edd59` chore(scratch): add manual capture script
+- `d1e815f` chore(logs): add all investigation session telemetry recordings
+
+**Status**
+? Completed
+
+**Summary**
+- **Auth Redesign**: Replaced old LoginExperience with a comprehensive new \LoginPage\ modular UI and new \useAuth\ hook.
+- **Workspace Core**: Added \UserAvatarDropdown\ component and deeply integrated it into \WorkspaceRoot\, \LaunchExperience\, and \App\.
+- **UI Polish**: High fidelity adjustments across \ArchitecturePerspective\, \CommandBar\, \Dock\, and \MacOSTitleBar\.
+- **Assets & Styles**: Introduced \hero_asset\ images, updated \index.css\, and added capture debugging scripts.
+- **Telemetry**: Addressed the exception to batch all 5 recent investigation session logs into one commit.
+
+*Recorded on 2026-08-18T17:47:00+05:30*
+
