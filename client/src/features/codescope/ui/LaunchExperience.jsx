@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, Box, ArrowRight, Folder, File } from 'lucide-react';
 import { logout } from '../../../auth/authService';
+import UserAvatarDropdown from './v2/shared/UserAvatarDropdown';
 
 // ─── Seeded PRNG (mulberry32) — deterministic across renders ──────────────────
 function mulberry32(seed) {
@@ -1154,6 +1155,11 @@ export default function LaunchExperience({ onConnect, repos = [] }) {
           maxHeight: '100vh',
         }}
       >
+        {/* Top-Right Avatar */}
+        <div style={{ position: 'absolute', top: '24px', right: '32px', zIndex: 40 }}>
+          <UserAvatarDropdown />
+        </div>
+
         {/* Content column */}
         <section className="codescope-content">
 
@@ -1430,27 +1436,6 @@ export default function LaunchExperience({ onConnect, repos = [] }) {
             )}
           </AnimatePresence>
 
-          {/* ── Sign out — below repository list ── */}
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: isConnecting ? 0 : 1 }}
-            transition={{ delay: 0.7, duration: 0.5 }}
-            onClick={() => logout()}
-            style={{
-              alignSelf: 'center',
-              marginTop: '42px',
-              display: 'flex', alignItems: 'center', gap: '8px',
-              background: 'transparent', border: 'none', cursor: 'pointer',
-              color: 'rgba(255,255,255,0.58)', fontSize: '13px',
-              fontFamily: "'Inter', sans-serif", letterSpacing: '0.02em',
-              padding: '8px 16px', transition: 'color 300ms ease',
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.95)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.58)'}
-          >
-            <LogOut size={13} strokeWidth={1.5} style={{ opacity: 0.7 }} />
-            Sign out
-          </motion.button>
         </section>
       </motion.div>
 
