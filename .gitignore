@@ -3,6 +3,11 @@ node_modules/
 repos/
 *.db
 *.db-journal
+*.db.bak
 client/dist/
 client/build/
 server/data/
+*firebase-adminsdk*.json
+serviceAccountKey.json
+.logs/
+*.log
