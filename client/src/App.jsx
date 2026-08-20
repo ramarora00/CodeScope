@@ -13,6 +13,7 @@ function App() {
   const [appState, setAppState] = useState('loading');
   const [user, setUser] = useState(null);
   const [repos, setRepos] = useState([]);
+  const [activeDashboardRepoId, setActiveDashboardRepoId] = useState(null);
   
   const [isConnecting, setIsConnecting] = useState(false);
   
@@ -34,6 +35,7 @@ function App() {
       } else {
         setAppState('login');
         setRepos([]);
+        setActiveDashboardRepoId(null);
         useWorkspaceStore.getState().resetWorkspace();
       }
     });
@@ -47,7 +49,13 @@ function App() {
     
     apiFetch(`${API_BASE}/api/repo`, { signal: controller.signal })
       .then(r => r.json())
-      .then(d => { if (Array.isArray(d)) setRepos(d); })
+      .then(d => { 
+        if (Array.isArray(d)) {
+          setRepos(d); 
+          const active = d.find(r => ['cloning', 'indexing', 'mapping', 'syncing'].includes(r.status));
+          if (active) setActiveDashboardRepoId(active.id);
+        }
+      })
       .catch(e => {
         if (e.name !== 'AbortError') console.error(e);
       });
@@ -128,6 +136,7 @@ function App() {
       if (!response.ok) throw new Error(data.error || 'Failed to connect repository');
 
       setRepos(prev => [data, ...prev]);
+      setActiveDashboardRepoId(data.id);
       setUserSelectedFile(null); // Clear previous file selection
       setSelectedRepo(data);
       useInvestigationSession.getState().resetSession(data.id);
@@ -159,6 +168,7 @@ function App() {
   const handleConnectNew = (fromPopState) => {
     const isPop = fromPopState === true;
     setUserSelectedFile(null); // Clear file selection when going back to home
+    setActiveDashboardRepoId(null); // Reset active analysis card
     setAppState('launch');
     if (!isPop && window.location.hash === '#workspace') {
       window.history.back();
@@ -266,7 +276,11 @@ function App() {
         <LoginPage />
       )}
       {appState === 'launch' && (
-        <LaunchExperience onConnect={handleConnect} repos={repos} isConnectingProp={isConnecting} />
+        <LaunchExperience 
+          onConnect={handleConnect} 
+          activeRepo={repos.find(r => r.id === activeDashboardRepoId)} 
+          isConnectingProp={isConnecting} 
+        />
       )}
       {appState === 'workspace' && (
         <WorkspaceRoot
