@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, GitBranch, Database, Globe, ChevronRight, RefreshCw, AlertTriangle, CheckCircle2, Server, Code2 } from 'lucide-react';
+import { Box, Code2, Link as LinkIcon, Component, Layers, Zap, Search, GitBranch, Database, Globe, ChevronRight, RefreshCw, AlertTriangle, CheckCircle2, Server } from 'lucide-react';
+import { apiFetch } from '../config/apiFetch';
+import { API_BASE } from '../config/api';
 
 /* ─── Layer type → visual config ─── */
 const LAYER_CONFIG = {
@@ -150,8 +152,7 @@ const ArchitectureScreen = ({ repo }) => {
   const fetchArch = async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`http://localhost:5000/api/repo/${repo.id}/architecture`);
-      if (!res.ok) throw new Error(`Server ${res.status}`);
+      const res = await apiFetch(`${API_BASE}/api/repo/${repo.id}/architecture`);
       const d = await res.json();
       setData(d);
     } catch (e) { setError(e.message); }

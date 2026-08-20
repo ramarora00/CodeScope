@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Zap, AlertTriangle, FileCode2, ChevronRight, RefreshCw, Search, Info } from 'lucide-react';
+import { apiFetch } from '../config/apiFetch';
+import { API_BASE } from '../config/api';
+import FileIcon from './FileIcon';
 
 /* ─── Blast Radius ring animation canvas ─── */
 const BlastCanvas = ({ riskCounts }) => {
@@ -115,7 +118,7 @@ const ImpactScreen = ({ repo, selectedFile }) => {
 
   const fetchFiles = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/repo/${repo.id}/files`);
+      const res = await apiFetch(`${API_BASE}/api/repo/${repo.id}/files`);
       const data = await res.json();
       setFiles(data);
     } catch (e) {}
@@ -130,8 +133,8 @@ const ImpactScreen = ({ repo, selectedFile }) => {
     setResult(null);
     setShowFilePicker(false);
     try {
-      const res = await fetch(`http://localhost:5000/api/repo/${repo.id}/impact?filePath=${encodeURIComponent(target)}`);
-      if (!res.ok) throw new Error(`Server ${res.status}`);
+      const res = await apiFetch(`${API_BASE}/api/repo/${repo.id}/impact?filePath=${encodeURIComponent(target)}`);
+      if (!res.ok) throw new Error('Impact analysis failed');
       const data = await res.json();
       setResult(data);
     } catch (e) {
