@@ -77,13 +77,13 @@ export default function InvestigationReportSheet({ answer, error, findings = [],
           bottom: '5%',
           left: '12%',
           right: '12%',
-          background: 'linear-gradient(180deg, rgba(28,28,34,0.7), rgba(18,18,22,0.85))',
-          backdropFilter: 'blur(32px)',
-          WebkitBackdropFilter: 'blur(32px)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderTop: '1px solid rgba(255,255,255,0.2)',
+          background: 'linear-gradient(180deg, rgba(10,10,12,0.5), rgba(0,0,0,0.8))',
+          backdropFilter: 'blur(48px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(48px) saturate(150%)',
+          border: '1px solid rgba(255,255,255,0.05)',
+          borderTop: '1px solid rgba(255,255,255,0.1)',
           borderRadius: '16px',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.1)',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05)',
           overflow: 'hidden'
         }}
       >
@@ -297,7 +297,7 @@ export default function InvestigationReportSheet({ answer, error, findings = [],
                         border: '1px solid rgba(255,255,255,0.03)',
                         color: 'var(--cs-muted)', fontSize: '12px',
                       }}>
-                        No direct evidence was collected during this investigation.
+                        Answered from general knowledge. Insufficient repository evidence was retrieved to answer this confidently.
                       </div>
                     )}
                   </div>

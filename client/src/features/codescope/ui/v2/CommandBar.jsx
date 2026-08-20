@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { ChevronRight, Search } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import UserAvatarDropdown from './shared/UserAvatarDropdown';
+import CodeScopeInfo from './shared/CodeScopeInfo';
 
-export default function CommandBar({ branch = 'main', onNewInvestigation, activeInvestigation }) {
+export default function CommandBar({ branch = 'main', onNewInvestigation, activeInvestigation, perspective }) {
   const repo = useWorkspaceStore(s => s.selectedRepo);
   const org = (repo?.name?.split('/')?.[0] ?? 'acme').replace(/-\d{10,}$/, '');
   const repoName = repo?.name?.split('/')?.pop()?.replace(/-\d{10,}$/, '') ?? 'Workspace';
@@ -132,19 +133,14 @@ export default function CommandBar({ branch = 'main', onNewInvestigation, active
                 ? (activeQuery === 'Repository Understanding' ? 'Exploring repository...' : activeQuery) 
                 : 'Investigate this repository...'}
             </span>
-            {!activeQuery && (
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '24px', padding: '0 6px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)', fontSize: '10px', fontWeight: 600, fontFamily: 'var(--font-ui)'
-              }}>
-                ⌘K
-              </div>
-            )}
+
           </button>
         )}
       </div>
 
       {/* Right Actions */}
       <div className="flex items-center gap-4 flex-shrink-0 justify-end" style={{ width: '150px' }}>
+        <CodeScopeInfo page={perspective || 'workspace'} />
         {/* Avatar */}
         <UserAvatarDropdown />
       </div>

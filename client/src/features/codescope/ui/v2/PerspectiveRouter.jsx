@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { API_BASE } from '../../../../config/api';
 import { motion, AnimatePresence } from 'framer-motion';
+import { apiFetch } from '../../../../config/apiFetch';
 
 // Panels
 
@@ -66,11 +67,21 @@ export default function PerspectiveRouter({
 
     const fetchContent = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/repo/${presentation.selectedRepo.id}/file/content?filePath=${encodeURIComponent(activeFilePath)}`);
+        const res = await apiFetch(`${API_BASE}/api/repo/${presentation.selectedRepo.id}/file/content?filePath=${encodeURIComponent(activeFilePath)}`);
         const data = await res.json();
+        
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            alert(`Forbidden: ${data.error || 'Invalid or expired token'}`);
+          }
+          setFetchedContent({ path: activeFilePath, content: '// Failed to load file' });
+          return;
+        }
+
         setFetchedContent({ path: activeFilePath, content: data.content || '// Empty file' });
       } catch (e) {
         console.error('Failed to fetch file content', e);
+        setFetchedContent({ path: activeFilePath, content: '// Failed to load file' });
       }
     };
     fetchContent();
