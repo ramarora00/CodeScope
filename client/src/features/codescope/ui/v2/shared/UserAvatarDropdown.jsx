@@ -87,16 +87,12 @@ export default function UserAvatarDropdown() {
 
         {/* Hover Chevron */}
         <div 
-          className={`overflow-hidden transition-all duration-300 ease-out flex items-center justify-center ${
-            isOpen 
-              ? 'max-w-[20px] opacity-100 ml-0.5 mr-1' 
-              : 'max-w-0 opacity-0 group-hover:max-w-[20px] group-hover:opacity-100 group-hover:ml-0.5 group-hover:mr-1'
-          }`}
+          className="overflow-hidden transition-all duration-300 ease-out flex items-center justify-center max-w-[20px] ml-0.5 mr-1"
         >
           <ChevronDown 
             size={13} 
-            className={`transition-transform duration-300 flex-shrink-0 ${
-              isOpen ? 'rotate-180 text-[rgba(96,165,250,0.8)]' : 'text-[rgba(255,255,255,0.4)] group-hover:text-[rgba(255,255,255,0.7)]'
+            className={`transition-all duration-300 flex-shrink-0 ${
+              isOpen ? 'rotate-180 text-[rgba(96,165,250,0.8)] opacity-100' : 'text-[rgba(255,255,255,0.3)] group-hover:text-[rgba(255,255,255,0.6)] opacity-[0.4] group-hover:opacity-100'
             }`} 
           />
         </div>

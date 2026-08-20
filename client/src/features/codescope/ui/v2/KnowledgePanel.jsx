@@ -55,7 +55,7 @@ export default function KnowledgePanel({
         }}
       >
         <span style={{
-          color: 'rgba(255,255,255,0.85)',
+          color: 'rgba(255,255,255,0.5)',
           fontSize: '12px',
           fontWeight: 700,
           fontStyle: 'italic',
@@ -87,7 +87,7 @@ export default function KnowledgePanel({
         {/* REPOSITORY OVERVIEW */}
         <div>
           <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', fontWeight: 700, fontStyle: 'italic', fontFamily: 'var(--font-ui)', marginBottom: '6px', letterSpacing: '0.10em' }}>REPOSITORY</div>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: 'rgba(255,255,255,1.0)', fontFamily: 'var(--font-ui)', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'rgba(255,255,255,0.7)', fontFamily: 'var(--font-ui)', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {repo?.name?.split('/')?.pop()?.replace(/-\d{10,}$/, '') || 'Workspace'}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', color: 'rgba(255,255,255,0.4)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
@@ -110,7 +110,7 @@ export default function KnowledgePanel({
             }}>
               {activeFinding.filePath && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingBottom: '4px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.95)', fontFamily: 'var(--font-ui)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.75)', fontFamily: 'var(--font-ui)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {activeFinding.filePath.split(/[/\\]/).pop()}
                   </span>
                   <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.35)' }}>
@@ -235,7 +235,7 @@ export default function KnowledgePanel({
                   >
                     {item.filePath && (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.95)', fontFamily: 'var(--font-ui)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.75)', fontFamily: 'var(--font-ui)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {item.filePath.split(/[/\\]/).pop()}
                         </span>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>

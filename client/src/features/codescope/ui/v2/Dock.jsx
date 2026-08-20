@@ -1,22 +1,17 @@
 import React from 'react';
 import {
-  FolderOpen,
+  Library,
   Sparkles,
-  Network,
-  Search,
-  Settings,
+  Waypoints
 } from 'lucide-react';
 
 const TOP_ITEMS = [
-  { id: 'files',         icon: FolderOpen,     title: 'Explorer' },
+  { id: 'files',         icon: Library,        title: 'Explorer' },
   { id: 'investigation', icon: Sparkles,       title: 'Investigation', active: true },
-  { id: 'branch',        icon: Network,        title: 'Code Graph' },
-  { id: 'search',        icon: Search,         title: 'Search' },
+  { id: 'branch',        icon: Waypoints,      title: 'Code Graph' },
 ];
 
-const BOTTOM_ITEMS = [
-  { id: 'settings', icon: Settings, title: 'Settings' },
-];
+const BOTTOM_ITEMS = [];
 
 function DockIcon({ item, onSelect }) {
   const Icon = item.icon;
@@ -31,8 +26,8 @@ function DockIcon({ item, onSelect }) {
         <div
           className="absolute inset-0 rounded-lg"
           style={{
-            background: '#0F1318',
-            border: '1px solid #20262D',
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.05)',
           }}
         />
       )}
@@ -107,14 +102,7 @@ export default function Dock({ activeItem, onSelect }) {
       </div>
 
       <div className="flex-1 w-full flex justify-center py-4">
-        <div style={{ width: '1px', height: '100%', background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.03), transparent)' }} />
-      </div>
-
-      {/* Bottom icons */}
-      <div className="flex flex-col items-center gap-2 pb-4">
-        {BOTTOM_ITEMS.map(item => (
-          <DockIcon key={item.id} item={{ ...item, active: false }} onSelect={onSelect} />
-        ))}
+        {/* Spacer */}
       </div>
     </div>
   );
