@@ -105,31 +105,41 @@ const collectFilesFromDisk = (dirPath, relativePath = '') => {
 //  MAIN INDEXING PIPELINE
 // ============================================================================
 
-const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
+const runBackgroundIndex = async (repoId, repoUrl, repoPath, pass3BatchSize = 50) => {
   let activeStep = 'cloning';
   try {
+    const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+    if (!repo) return;
+    let currentStatus = repo.status;
     const pass1Start = Date.now();
+    
     // --- CLONE ---
-    indexingEmitter.emit('progress', { repoId, step: 'cloning', status: 'running' });
-    if (repoUrl.startsWith('local://')) {
-      console.log(`[Background] Using local directory ${repoPath}, skipping clone.`);
-      indexingEmitter.emit('progress', { repoId, step: 'cloning', status: 'done' });
-    } else {
-      console.log(`[Background] Cloning ${repoUrl}...`);
-      await prisma.repo.update({ where: { id: repoId }, data: { status: 'cloning' } });
-      await simpleGit().clone(repoUrl, repoPath);
-      indexingEmitter.emit('progress', { repoId, step: 'cloning', status: 'done' });
+    if (currentStatus === 'cloning') {
+      const cloneStart = Date.now();
+      indexingEmitter.emit('progress', { repoId, step: 'cloning', status: 'running' });
+      if (repoUrl.startsWith('local://')) {
+        console.log(`[BENCHMARK] Clone: skipped (local dir)`);
+        indexingEmitter.emit('progress', { repoId, step: 'cloning', status: 'done' });
+      } else {
+        console.log(`[Background] Cloning ${repoUrl}...`);
+        await prisma.repo.update({ where: { id: repoId }, data: { status: 'cloning' } });
+        await simpleGit().clone(repoUrl, repoPath);
+        indexingEmitter.emit('progress', { repoId, step: 'cloning', status: 'done' });
+        console.log(`[BENCHMARK] Clone: ${((Date.now() - cloneStart) / 1000).toFixed(2)}s`);
+      }
+      currentStatus = 'indexing';
+      await prisma.repo.update({ where: { id: repoId }, data: { status: currentStatus } });
     }
 
     // =========================================================================
     //  PASS 1: File Scanning + AST Symbol Extraction
     // =========================================================================
-    console.log(`[Background] Starting PASS 1: Symbol Extraction for ${repoId}`);
-    activeStep = 'reading';
-    indexingEmitter.emit('progress', { repoId, step: 'reading', status: 'running' });
-    await prisma.repo.update({ where: { id: repoId }, data: { status: 'indexing' } });
-
-    const rawFiles = collectFilesFromDisk(repoPath);
+    if (currentStatus === 'indexing') {
+      console.log(`[Background] Starting PASS 1: Symbol Extraction for ${repoId}`);
+      activeStep = 'reading';
+      indexingEmitter.emit('progress', { repoId, step: 'reading', status: 'running' });
+      
+      const rawFiles = collectFilesFromDisk(repoPath);
     console.log(`[Background] Collected ${rawFiles.length} files from disk.`);
     indexingEmitter.emit('progress', { repoId, step: 'reading', status: 'done', count: rawFiles.length });
 
@@ -252,7 +262,7 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
     }
 
     indexingEmitter.emit('progress', { repoId, step: 'parsing', status: 'done' });
-    console.log(`[Background] PASS 1 complete in ${Date.now() - pass1Start}ms. ${allParsed.length} files indexed.`);
+    console.log(`[BENCHMARK] Pass 1 (File scan + AST): ${((Date.now() - pass1Start) / 1000).toFixed(2)}s | Files: ${allParsed.length}`);
 
     // =========================================================================
     //  PASS 1b: Import Graph Formalization
@@ -420,19 +430,22 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
       }
     }
 
-    console.log(`[Background] PASS 1b (Import Graph) complete in ${Date.now() - pass1bStart}ms. External deps: ${externalSymbolCache.size}`);
+    console.log(`[BENCHMARK] Pass 1b (Import graph): ${((Date.now() - pass1bStart) / 1000).toFixed(2)}s | External deps: ${externalSymbolCache.size}`);
     indexingEmitter.emit('progress', { repoId, step: 'resolve_imports', status: 'done' });
+    currentStatus = 'mapping';
+    await prisma.repo.update({ where: { id: repoId }, data: { status: currentStatus } });
+    } // End PASS 1 block
 
     // =========================================================================
     //  PASS 2: Call Graph Resolution (Cross-File, Alias-Aware)
     // =========================================================================
-    activeStep = 'call_graph';
-    indexingEmitter.emit('progress', { repoId, step: 'call_graph', status: 'running' });
-    console.log(`[Background] Starting PASS 2: Call Graph Resolution for ${repoId}`);
-    const pass2Start = Date.now();
-    await prisma.repo.update({ where: { id: repoId }, data: { status: 'mapping' } });
+    if (currentStatus === 'mapping') {
+      activeStep = 'call_graph';
+      indexingEmitter.emit('progress', { repoId, step: 'call_graph', status: 'running' });
+      console.log(`[Background] Starting PASS 2: Call Graph Resolution for ${repoId}`);
+      const pass2Start = Date.now();
 
-    // Refresh data after Pass 1b (new symbols may have been created)
+      // Refresh data after Pass 1b (new symbols may have been created)
     const allFilesPass2 = await prisma.file.findMany({ where: { repoId }, include: { symbols: true } });
     const allFilesMapPass2 = new Map(allFilesPass2.map(f => [normalizePath(f.path), f]));
     const allSymbolsPass2 = await prisma.symbol.findMany({ where: { repoId } });
@@ -550,7 +563,7 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
       }
     }
 
-    console.log(`[Background] PASS 2 (Call Graph) complete in ${Date.now() - pass2Start}ms.`);
+    console.log(`[BENCHMARK] Pass 2 (Call graph): ${((Date.now() - pass2Start) / 1000).toFixed(2)}s`);
 
     // =========================================================================
     //  PASS 2b: Route Flow Mapping with Sequential Middleware Chains
@@ -666,30 +679,54 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath) => {
       }
     }
 
-    console.log(`[Background] PASS 2b (Route Flow) complete in ${Date.now() - pass2bStart}ms.`);
+    console.log(`[BENCHMARK] Pass 2b (Route flow): ${((Date.now() - pass2bStart) / 1000).toFixed(2)}s`);
     indexingEmitter.emit('progress', { repoId, step: 'call_graph', status: 'done' });
+    currentStatus = 'syncing';
+    await prisma.repo.update({ where: { id: repoId }, data: { status: currentStatus } });
+    } // End PASS 2 block
 
     // =========================================================================
     //  PASS 3: Vector Embedding Sync (LanceDB)
     // =========================================================================
-    activeStep = 'embeddings';
-    indexingEmitter.emit('progress', { repoId, step: 'embeddings', status: 'running' });
-    console.log(`[Background] Starting PASS 3: Vector Embedding Sync...`);
-    const pass3Start = Date.now();
-    await prisma.repo.update({ where: { id: repoId }, data: { status: 'syncing' } });
-    const allFilesForEmbed = await prisma.file.findMany({ where: { repoId } });
-    await indexRepo(repoId, allFilesForEmbed);
+    if (currentStatus === 'syncing') {
+      activeStep = 'embeddings';
+      indexingEmitter.emit('progress', { repoId, step: 'embeddings', status: 'running' });
+      console.log(`[Background] Starting PASS 3: Vector Embedding Sync...`);
+      const pass3Start = Date.now();
+      const allFilesForEmbed = await prisma.file.findMany({ where: { repoId } });
+      
+      const onProgress = async (processed, total) => {
+        const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
+        await prisma.repo.update({
+          where: { id: repoId },
+          data: {
+            processedChunks: processed,
+            totalChunks: total,
+            indexingProgress: pct
+          }
+        });
+        indexingEmitter.emit('progress', { repoId, step: 'embeddings', status: 'running', processed, total, pct });
+      };
 
-    indexingEmitter.emit('progress', { repoId, step: 'embeddings', status: 'done' });
-    await prisma.repo.update({ where: { id: repoId }, data: { status: 'ready' } });
-    activeStep = 'ready';
-    indexingEmitter.emit('progress', { repoId, step: 'ready', status: 'done' });
-    const totalTime = Date.now() - pass1Start;
-    console.log(`[Background] PASS 3 (Embeddings) complete in ${Date.now() - pass3Start}ms.`);
-    console.log(`[Background] ✅ Full pipeline complete for ${repoId} in ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s).`);
+      await indexRepo(repoId, allFilesForEmbed, onProgress, repo.processedChunks || 0, pass3BatchSize);
+
+      indexingEmitter.emit('progress', { repoId, step: 'embeddings', status: 'done' });
+      await prisma.repo.update({ where: { id: repoId }, data: { status: 'ready', indexingProgress: 100 } });
+      activeStep = 'ready';
+      indexingEmitter.emit('progress', { repoId, step: 'ready', status: 'done' });
+      const pass3Ms = Date.now() - pass3Start;
+      const totalMs = Date.now() - pass1Start;
+      // ── FULL PIPELINE BENCHMARK ────────────────────────────────────────────
+      console.log(`[BENCHMARK] ═══════════════════════════════════════════════`);
+      console.log(`[BENCHMARK] Repo: ${repoId}`);
+      console.log(`[BENCHMARK] Pass 3 (Embeddings): ${(pass3Ms / 1000).toFixed(2)}s`);
+      console.log(`[BENCHMARK] ─────────────────────────────────────────────`);
+      console.log(`[BENCHMARK] TOTAL pipeline: ${(totalMs / 1000).toFixed(2)}s`);
+      console.log(`[BENCHMARK] ═══════════════════════════════════════════════`);
+    } // End PASS 3 block
   } catch (err) {
     console.error(`[Background] Fatal Error indexing ${repoId}:`, err);
-    await prisma.repo.update({ where: { id: repoId }, data: { status: 'error' } }).catch(() => {});
+    await prisma.repo.update({ where: { id: repoId }, data: { status: 'error', indexingError: err.message } }).catch(() => {});
     indexingEmitter.emit('progress', { repoId, step: activeStep, status: 'failed', error: err.message });
   }
 };
@@ -715,7 +752,8 @@ router.post('/upload', async (req, res) => {
         name: repoName,
         url: repoUrl,
         localPath: repoPath,
-        status: 'cloning'
+        status: 'cloning',
+        userId: req.user.uid
       }
     });
 
@@ -741,7 +779,8 @@ router.post('/index-local', async (req, res) => {
         name,
         url: 'local://' + name,
         localPath,
-        status: 'cloning'
+        status: 'cloning',
+        userId: req.user.uid
       }
     });
 
@@ -754,16 +793,42 @@ router.post('/index-local', async (req, res) => {
   }
 });
 
+// @route   POST /api/repo/:id/resume
+router.post('/:id/resume', async (req, res) => {
+  const repoId = req.params.id;
+  try {
+    const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+    if (!repo) return res.status(404).json({ error: 'Not found' });
+    if (repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
+    if (repo.status === 'ready' || repo.status === 'error') {
+      return res.status(400).json({ error: 'Cannot resume in current state' });
+    }
+    
+    // Fire and forget
+    runBackgroundIndex(repo.id, repo.url || `local://${repo.name}`, repo.localPath);
+    res.json({ message: 'Resumed indexing', status: repo.status });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed', details: err.message });
+  }
+});
+
 // @route   GET /api/repo
 router.get('/', async (req, res) => {
-  const repos = await prisma.repo.findMany({ orderBy: { createdAt: 'desc' } });
+  const repos = await prisma.repo.findMany({
+    where: { userId: req.user.uid },
+    orderBy: { createdAt: 'desc' }
+  });
   res.json(repos);
 });
 
 // @route   GET /api/repo/:id/progress
 // @desc    Stream real-time indexing progress events via SSE
-router.get('/:id/progress', (req, res) => {
+router.get('/:id/progress', async (req, res) => {
   const repoId = req.params.id;
+
+  const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+  if (!repo) return res.status(404).json({ error: 'Repo not found' });
+  if (repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -789,9 +854,10 @@ router.get('/:id/progress', (req, res) => {
 });
 
 // @route   GET /api/repo/:id/files
+// (rest of the code omitted in target content, this line is just context, wait I should use the very bottom)
 router.get('/:id/files', async (req, res) => {
   const repo = await prisma.repo.findUnique({ where: { id: req.params.id } });
-  if (!repo) return res.status(404).json({ error: 'Repo not found' });
+  if (!repo || repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
 
   const getFileTree = (dirPath, relativePath = '') => {
     const files = fs.readdirSync(dirPath);
@@ -817,7 +883,7 @@ router.get('/:id/files', async (req, res) => {
 router.get('/:id/file/content', async (req, res) => {
   const { filePath } = req.query;
   const repo = await prisma.repo.findUnique({ where: { id: req.params.id } });
-  if (!repo) return res.status(404).json({ error: 'Repo not found' });
+  if (!repo || repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
 
   try {
     const fullPath = path.join(repo.localPath, filePath);
@@ -840,6 +906,9 @@ router.get('/:id/file/content', async (req, res) => {
 
 // @route   GET /api/repo/:id/dependencies
 router.get('/:id/dependencies', async (req, res) => {
+  const repo = await prisma.repo.findUnique({ where: { id: req.params.id } });
+  if (!repo || repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
+
   const files = await prisma.file.findMany({
     where: { repoId: req.params.id },
     select: { path: true, metadata: true, language: true, content: true }
@@ -878,6 +947,8 @@ router.get('/:id/dependencies', async (req, res) => {
 router.get('/:id/symbols/graph', async (req, res) => {
   try {
     const repoId = req.params.id;
+    const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+    if (!repo || repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
 
     const symbols = await prisma.symbol.findMany({
       where: { repoId },
@@ -935,6 +1006,8 @@ router.get('/:id/symbols/graph', async (req, res) => {
 router.get('/:id/impact', async (req, res) => {
   const { filePath } = req.query;
   const repoId = req.params.id;
+  const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+  if (!repo || repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
 
   try {
     const targetFile = await prisma.file.findUnique({
@@ -997,6 +1070,9 @@ router.get('/:id/impact', async (req, res) => {
 router.get('/:id/architecture', async (req, res) => {
   try {
     const repoId = req.params.id;
+    const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+    if (!repo || repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
+
     const files = await prisma.file.findMany({
       where: { repoId },
       select: { path: true }
@@ -1052,7 +1128,7 @@ router.post('/:id/reindex', async (req, res) => {
   const repoId = req.params.id;
   try {
     const repo = await prisma.repo.findUnique({ where: { id: repoId } });
-    if (!repo) return res.status(404).json({ error: 'Repo not found' });
+    if (!repo || repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
     if (repo.status !== 'ready' && repo.status !== 'error') {
       return res.status(409).json({ error: `Repo is currently ${repo.status}. Wait for it to finish.` });
     }
@@ -1282,7 +1358,7 @@ router.post('/:id/reindex/full', async (req, res) => {
   const repoId = req.params.id;
   try {
     const repo = await prisma.repo.findUnique({ where: { id: repoId } });
-    if (!repo) return res.status(404).json({ error: 'Repo not found' });
+    if (!repo || repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
     if (repo.status !== 'ready' && repo.status !== 'error') {
       return res.status(409).json({ error: `Repo is currently ${repo.status}. Wait for it to finish.` });
     }
@@ -1442,7 +1518,7 @@ router.get('/:id/stats', async (req, res) => {
 
   try {
     const repo = await prisma.repo.findUnique({ where: { id: repoId } });
-    if (!repo) return res.status(404).json({ error: 'Repo not found' });
+    if (!repo || repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
 
     const symbolCounts = await prisma.symbol.groupBy({
       by: ['type'],
@@ -1583,23 +1659,19 @@ router.get('/:id/graph/query', async (req, res) => {
   const repoId = req.params.id;
   const { type, symbol } = req.query;
 
-  const SUPPORTED_TYPES = ['upstream', 'downstream', 'routes_reaching', 'blast_radius', 'route_dependencies'];
-
-  if (!type || !symbol) {
-    return res.status(400).json({
-      error: 'Missing required query parameters: type and symbol',
-      supportedTypes: SUPPORTED_TYPES
-    });
-  }
-
-  if (!SUPPORTED_TYPES.includes(type)) {
-    return res.status(400).json({
-      error: `Unsupported query type: "${type}"`,
-      supportedTypes: SUPPORTED_TYPES
-    });
-  }
-
   try {
+    const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+    if (!repo || repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
+
+    const SUPPORTED_TYPES = ['upstream', 'downstream', 'routes_reaching', 'blast_radius', 'route_dependencies'];
+
+    if (!type || !symbol || !SUPPORTED_TYPES.includes(type)) {
+      return res.status(400).json({
+        error: `Invalid or missing query parameters`,
+        supportedTypes: SUPPORTED_TYPES
+      });
+    }
+
     const GraphQueryService = require('../utils/graphQuery');
     let results = [];
     let description = '';
@@ -1661,6 +1733,7 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const repo = await prisma.repo.findUnique({ where: { id } });
     if (!repo) return res.status(404).json({ error: 'Repo not found' });
+    if (repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
 
     // 1. Delete local files
     if (fs.existsSync(repo.localPath)) {
@@ -1686,4 +1759,5 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+router.runBackgroundIndex = runBackgroundIndex;
 module.exports = router;
