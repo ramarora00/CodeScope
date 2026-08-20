@@ -12,10 +12,15 @@ datasource db {
 
 model Repo {
   id        String   @id @default(uuid())
+  userId    String
   name      String
   url       String?
   localPath String
-  status          String   @default("ready") // cloning, indexing, ready, error
+  status          String   @default("ready") // cloning, indexing, mapping, syncing, ready, error
+  indexingProgress Int     @default(0)
+  totalChunks      Int     @default(0)
+  processedChunks  Int     @default(0)
+  indexingError    String?
   understandingHash String?
   repositorySummary String?
   createdAt       DateTime @default(now())
