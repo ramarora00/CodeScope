@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronRight, Share2 } from 'lucide-react';
+import UserAvatarDropdown from './shared/UserAvatarDropdown';
 
 export default function MacOSTitleBar({ repo, branch = 'main', onSearch }) {
   const org = repo?.name?.split('/')?.[0] ?? 'acme';
@@ -100,19 +101,7 @@ export default function MacOSTitleBar({ repo, branch = 'main', onSearch }) {
         </button>
 
         {/* Avatar */}
-        <div
-          className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-          style={{
-            background: 'var(--cs-accent-bg)',
-            border: '1px solid var(--cs-accent-border)',
-            fontSize: '10px',
-            fontWeight: 600,
-            color: 'var(--cs-accent)',
-            fontFamily: 'var(--cs-sans)',
-          }}
-        >
-          A
-        </div>
+        <UserAvatarDropdown />
       </div>
     </div>
   );

@@ -143,9 +143,10 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
       <div
         className="animate-settle flex-shrink-0"
         style={{
+          position: 'relative',
+          zIndex: 100,
           borderRadius: '14px',
           background: 'transparent',
-          overflow: 'hidden',
           animationDelay: '0ms',
           display: 'flex',
           justifyContent: 'center',

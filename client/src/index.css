@@ -1,55 +1,46 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap');
+
 @import "tailwindcss";
 
-/* ═══════════════════════════════════════════════════════════════
-   CODESCOPE DESIGN SYSTEM v1.0 — LOCKED
-   95% grayscale · 5% accent · Premium developer tool palette
-═══════════════════════════════════════════════════════════════ */
 :root {
-  /* ── Fonts ── */
   --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-  --cs-sans: var(--font-ui); /* Legacy fallback */
-  --cs-mono: var(--font-mono); /* Legacy fallback */
-  --font-sans: var(--font-ui); /* Tailwind alias */
 
-  /* ── Backgrounds — Cinematic Surface & Contrast Lock ── */
-  --cs-bg:           #050505;   /* Global Canvas: near-black */
-  --cs-workspace:    #070707;   /* Primary Workspace: slightly lifted */
-  --cs-editor:       #000000;   /* Editor: deepest surface, primary focus */
-  --cs-panel:        #0B0B0C;   /* Panels (Explorer/Knowledge): charcoal elevation */
-  --cs-panel-raised: #101011;   /* Cards/Hover states: slightly elevated charcoal */
-  --cs-dock:         #050505;   /* Left dock */
-  --cs-active:       #151516;   /* Active/selected surfaces */
+  --cs-sans: var(--font-ui);
+  --cs-mono: var(--font-mono);
+  --font-sans: var(--font-ui);
 
-  /* legacy aliases — mapped to new tokens */
-  --bg-void:      var(--cs-bg);
-  --bg-main:      var(--cs-panel);
-  --bg-surface:   var(--cs-panel-raised);
-  --bg-elevated:  var(--cs-panel-raised);
-  --bg-sidebar:   var(--cs-panel);
-  --bg-hover:     var(--cs-panel-raised);
-  --bg-active:    var(--cs-active);
+  --cs-bg: #050505;
+  --cs-workspace: #070707;
+  --cs-editor: #000000;
+  --cs-panel: #0B0B0C;
+  --cs-panel-raised: #101011;
+  --cs-dock: #050505;
+  --cs-active: #151516;
 
-  /* ── Borders — use only ultra-subtle rgba, never solid, never bright ── */
-  --cs-border:        rgba(255,255,255,0.06);
+  --bg-void: var(--cs-bg);
+  --bg-main: var(--cs-panel);
+  --bg-surface: var(--cs-panel-raised);
+  --bg-elevated: var(--cs-panel-raised);
+  --bg-sidebar: var(--cs-panel);
+  --bg-hover: var(--cs-panel-raised);
+  --bg-active: var(--cs-active);
+
+  --cs-border: rgba(255,255,255,0.06);
   --cs-border-strong: rgba(255,255,255,0.09);
   --cs-border-subtle: rgba(255,255,255,0.025);
-  --border:           var(--cs-border);
-  --border-strong:    var(--cs-border-strong);
-  --border-subtle:    var(--cs-border-subtle);
 
-  /* ── Desktop Shadows ── */
-  --cs-shadow-panel:  0 8px 40px rgba(0,0,0,0.45);
+  --border: var(--cs-border);
+  --border-strong: var(--cs-border-strong);
+  --border-subtle: var(--cs-border-subtle);
 
+  --cs-shadow-panel: 0 8px 40px rgba(0,0,0,0.45);
 
-  /* ── Typography — grayscale hierarchy ── */
-  --cs-text:    #E8E8E8;   /* Primary — bright white-ish */
-  --cs-muted:   #969696;   /* Secondary — medium grey */
-  --cs-faint:   #5A5A5A;   /* Tertiary — dim grey */
-  --cs-hint:    #3A3A3A;   /* Ultra-dim — barely visible */
+  --cs-text: #E8E8E8;
+  --cs-muted: #969696;
+  --cs-faint: #5A5A5A;
+  --cs-hint: #3A3A3A;
 
-  /* ── Typographic Scale ── */
   --cs-font-display: 20px;
   --cs-font-heading: 15px;
   --cs-font-panel-title: 10px;
@@ -66,272 +57,538 @@
   --cs-lh-body: 1.6;
   --cs-lh-code: 1.8;
 
-  --text-primary:   var(--cs-text);
+  --text-primary: var(--cs-text);
   --text-secondary: var(--cs-muted);
-  --text-muted:     var(--cs-faint);
-  --text-faint:     var(--cs-hint);
+  --text-muted: var(--cs-faint);
+  --text-faint: var(--cs-hint);
 
-  /* ── Accent — Silver Periwinkle (not bright, not indigo) ── */
-  --cs-accent:        #BFC8D8;   /* Primary accent — soft silver */
-  --cs-accent-hover:  #D1D9E6;   /* Hover state */
-  --cs-accent-dim:    rgba(191,200,216,0.06);   /* Background tint */
-  --cs-accent-border: rgba(191,200,216,0.12);   /* Accent borders */
-  --cs-accent-bar:    rgba(191,200,216,0.60);   /* Active indicator bar */
-  --cs-accent-2:      #9CA3AF;   /* Secondary accent */
+  --cs-accent: #BFC8D8;
+  --cs-accent-hover: #D1D9E6;
+  --cs-accent-dim: rgba(191,200,216,0.06);
+  --cs-accent-border: rgba(191,200,216,0.12);
+  --cs-accent-bar: rgba(191,200,216,0.60);
+  --cs-accent-2: #9CA3AF;
 
-  /* legacy */
-  --accent:        var(--cs-accent);
-  --accent-dim:    var(--cs-accent-dim);
+  --accent: var(--cs-accent);
+  --accent-dim: var(--cs-accent-dim);
   --accent-border: var(--cs-accent-border);
-  --accent-glow:   transparent;
+  --accent-glow: transparent;
 
-  /* ── Semantic — GitHub palette ── */
-  --cs-green:   #3FB950;   /* Confirmed findings, live status */
-  --cs-yellow:  #E3B341;   /* Warnings */
-  --cs-red:     #F85149;   /* Errors */
-  --success:    var(--cs-green);
-  --error:      var(--cs-red);
-  --warning:    var(--cs-yellow);
+  --cs-green: #3FB950;
+  --cs-yellow: #E3B341;
+  --cs-red: #F85149;
 
-  /* ── GitHub Dark Syntax Colors ── */
-  --syn-keyword:   #FF7B72;
-  --syn-function:  #D2A8FF;
-  --syn-string:    #A5D6FF;
-  --syn-type:      #79C0FF;
-  --syn-number:    #F2CC60;
-  --syn-comment:   #8B949E;
-  --syn-param:     #FFA657;
-  --syn-operator:  #FF7B72;
-  --syn-default:   #C9D1D9;
-  --syn-punct:     #8B949E;
+  --success: var(--cs-green);
+  --error: var(--cs-red);
+  --warning: var(--cs-yellow);
+
+  --syn-keyword: #FF7B72;
+  --syn-function: #D2A8FF;
+  --syn-string: #A5D6FF;
+  --syn-type: #79C0FF;
+  --syn-number: #F2CC60;
+  --syn-comment: #8B949E;
+  --syn-param: #FFA657;
+  --syn-operator: #FF7B72;
+  --syn-default: #C9D1D9;
+  --syn-punct: #8B949E;
   --syn-decorator: #79C0FF;
 
-  /* ── Easing — Narrative and Calm ── */
   --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-out:     cubic-bezier(0, 0, 0.2, 1);
-  --ease-in-out:  cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-calm:    cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-thought: cubic-bezier(0.22, 0.61, 0.36, 1); /* Phase B Cognitive Animation */
-  --ease:         var(--ease-in-out);
-  --transition:   all 300ms var(--ease-calm);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-calm: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-thought: cubic-bezier(0.22, 0.61, 0.36, 1);
 
-  /* ── Additional tokens ── */
-  --cs-hover:           rgba(255,255,255,0.025);   /* panel hover surface */
-  --cs-error:           var(--cs-red);             /* error alias */
-  --cs-panel-border:    rgba(255,255,255,0.04);    /* slightly stronger panel separator */
+  --ease: var(--ease-in-out);
+  --transition: all 300ms var(--ease-calm);
 
-  /* ── Glass Surface Tokens — selective, not global ── */
-  /* Applied to: Explorer, Knowledge, CommandBar, Report, Dock pills */
-  /* NOT applied to: Editor (deepest anchor, no blur) */
-  --cs-glass-panel:     rgba(255,255,255,0.022);  /* primary glass fill */
-  --cs-glass-float:     rgba(255,255,255,0.04);   /* elevated floats (Report dock, pills) */
-  --cs-glass-report:    rgba(10,10,12,0.75);      /* glass-black for Report Sheet */
-  --cs-blur-panel:      blur(12px);               /* panel backdrop blur */
-  --cs-blur-float:      blur(20px);               /* floating element blur */
-  --cs-inset-top:       inset 0 1px 0 rgba(255,255,255,0.06);  /* top-edge highlight */
-  --cs-inset-top-soft:  inset 0 1px 0 rgba(255,255,255,0.03);  /* subtle version */
+  --cs-hover: rgba(255,255,255,0.025);
+  --cs-error: var(--cs-red);
+  --cs-panel-border: rgba(255,255,255,0.04);
+
+  --cs-glass-panel: rgba(255,255,255,0.022);
+  --cs-glass-float: rgba(255,255,255,0.04);
+  --cs-glass-report: rgba(10,10,12,0.75);
+
+  --cs-blur-panel: blur(12px);
+  --cs-blur-float: blur(20px);
+
+  --cs-inset-top: inset 0 1px 0 rgba(255,255,255,0.06);
+  --cs-inset-top-soft: inset 0 1px 0 rgba(255,255,255,0.03);
 }
 
-/* ── Reset ── */
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-html, body, #root { height: 100%; width: 100%; overflow: hidden; background: var(--cs-bg); }
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+}
+
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--cs-bg);
+}
+
 
 body {
   font-family: var(--cs-sans);
   color: var(--cs-text);
   line-height: 1.5;
+
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: 'cv02','cv03','cv04','cv11','tnum';
+
+  font-feature-settings:
+    'cv02',
+    'cv03',
+    'cv04',
+    'cv11',
+    'tnum';
+
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Scrollbar — barely there ── */
-::-webkit-scrollbar { width: 3px; height: 3px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.10); }
+
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.06);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.10);
+}
+
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
+
+/* =========================================================
+   ANIMATIONS
+   ========================================================= */
+
 @keyframes pulse-subtle {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     border-color: rgba(255,255,255,0.08);
   }
+
   50% {
     opacity: 0.85;
     border-color: rgba(191,200,216,0.25);
   }
 }
+
 .animate-pulse-subtle {
-  animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation:
+    pulse-subtle
+    3s
+    cubic-bezier(0.4, 0, 0.6, 1)
+    infinite;
 }
 
-/* ── Keyframes ── */
+
 @keyframes rise {
-  from { opacity: 0; transform: translateY(5px); }
-  to   { opacity: 1; transform: translateY(0);   }
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
+
+
 @keyframes fade-in {
-  from { opacity: 0; } to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
+
+
 @keyframes fade-slide {
-  from { opacity: 0; transform: translateX(-12px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
+
+
 @keyframes pulse-dot {
-  0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
 }
+
+
 @keyframes read-blink {
-  0%,100% { opacity: 0.9; } 50% { opacity: 0.4; }
-}
-@keyframes reading-wave {
-  0%,100% { transform: scaleY(0.4); }
-  50%      { transform: scaleY(1.0); }
-}
-
-/* Theme 1: Arrival & Hero Narratives */
-@keyframes arrival-fade {
-  from { opacity: 0; filter: blur(4px); transform: scale(0.98); }
-  to   { opacity: 1; filter: blur(0); transform: scale(1); }
-}
-
-@keyframes hero-settle {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* Panel settle — fades in while rising 6px */
-@keyframes settle {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0);   }
-}
-
-/* Timeline row rise — new entries slide up 6px while fading in */
-@keyframes row-rise {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0);   }
-}
-
-/* Tab crossfade — editor content transitions between files */
-@keyframes crossfade {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-.animate-arrival    { animation: arrival-fade 1200ms var(--ease-calm) both; }
-.animate-hero       { animation: hero-settle 800ms var(--ease-calm) both; }
-.animate-rise       { animation: rise 300ms var(--ease-calm) both; }
-.animate-fade-in    { animation: fade-in 300ms ease both; }
-.animate-slide      { animation: fade-slide 300ms var(--ease-calm) both; }
-.animate-pulse-dot  { animation: pulse-dot 2s ease-in-out infinite; }
-.animate-read-blink { animation: read-blink 1.4s ease-in-out infinite; }
-.animate-settle     { animation: settle 250ms var(--ease-out) both; }
-.animate-row-rise   { animation: row-rise 200ms var(--ease-out) both; }
-.animate-crossfade  { animation: crossfade 200ms ease both; }
-
-/* ── Ambient Observation animations ─────────────────────────────────
-   Principle: animate the LIGHT behind the rail, not the border.
-   Left rail = primary light source, right = faint echo.
-   Center stays near-transparent so code is never obscured.
-─────────────────────────────────────────────────────────────────── */
-
-/* Focus Box breathing — 5s cycle, asymmetric left↔right */
-@keyframes obs-breathe {
-  0%, 100% {
-    background: linear-gradient(
-      90deg,
-      rgba(200,220,255,0.15) 0%,
-      rgba(180,210,255,0.06) 12%,
-      transparent 35%,
-      transparent 65%,
-      rgba(180,210,255,0.05) 88%,
-      rgba(200,220,255,0.12) 100%
-    );
+  0%,
+  100% {
     opacity: 0.9;
   }
+
   50% {
-    background: linear-gradient(
-      90deg,
-      rgba(200,220,255,0.25) 0%,
-      rgba(180,210,255,0.10) 14%,
-      transparent 38%,
-      transparent 62%,
-      rgba(180,210,255,0.08) 86%,
-      rgba(200,220,255,0.18) 100%
-    );
+    opacity: 0.4;
+  }
+}
+
+
+@keyframes reading-wave {
+  0%,
+  100% {
+    transform: scaleY(0.4);
+  }
+
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+
+@keyframes arrival-fade {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+  }
+}
+
+
+@keyframes hero-settle {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+@keyframes row-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+@keyframes crossfade {
+  from {
+    opacity: 0;
+  }
+
+  to {
     opacity: 1;
   }
 }
 
-/* Reading Logic breathing — 7s cycle, ~50% of Focus Box intensity */
+
+.animate-arrival {
+  animation:
+    arrival-fade
+    1200ms
+    var(--ease-calm)
+    both;
+}
+
+.animate-hero {
+  animation:
+    hero-settle
+    800ms
+    var(--ease-calm)
+    both;
+}
+
+.animate-rise {
+  animation:
+    rise
+    300ms
+    var(--ease-calm)
+    both;
+}
+
+.animate-fade-in {
+  animation:
+    fade-in
+    300ms
+    ease
+    both;
+}
+
+.animate-slide {
+  animation:
+    fade-slide
+    300ms
+    var(--ease-calm)
+    both;
+}
+
+.animate-pulse-dot {
+  animation:
+    pulse-dot
+    2s
+    ease-in-out
+    infinite;
+}
+
+.animate-read-blink {
+  animation:
+    read-blink
+    1.4s
+    ease-in-out
+    infinite;
+}
+
+.animate-settle {
+  animation:
+    settle
+    250ms
+    var(--ease-out)
+    both;
+}
+
+.animate-row-rise {
+  animation:
+    row-rise
+    200ms
+    var(--ease-out)
+    both;
+}
+
+.animate-crossfade {
+  animation:
+    crossfade
+    200ms
+    ease
+    both;
+}
+
+
+/* =========================================================
+   OBSERVATORY ANIMATIONS
+   ========================================================= */
+
+@keyframes obs-breathe {
+
+  0%,
+  100% {
+    background:
+      linear-gradient(
+        90deg,
+        rgba(200,220,255,0.15) 0%,
+        rgba(180,210,255,0.06) 12%,
+        transparent 35%,
+        transparent 65%,
+        rgba(180,210,255,0.05) 88%,
+        rgba(200,220,255,0.12) 100%
+      );
+
+    opacity: 0.9;
+  }
+
+  50% {
+    background:
+      linear-gradient(
+        90deg,
+        rgba(200,220,255,0.25) 0%,
+        rgba(180,210,255,0.10) 14%,
+        transparent 38%,
+        transparent 62%,
+        rgba(180,210,255,0.08) 86%,
+        rgba(200,220,255,0.18) 100%
+      );
+
+    opacity: 1;
+  }
+}
+
+
 @keyframes obs-breathe-soft {
-  0%, 100% {
-    background: linear-gradient(
-      90deg,
-      rgba(200,220,255,0.10) 0%,
-      rgba(180,210,255,0.04) 12%,
-      transparent 35%,
-      transparent 65%,
-      rgba(180,210,255,0.03) 88%,
-      rgba(200,220,255,0.07) 100%
-    );
+
+  0%,
+  100% {
+    background:
+      linear-gradient(
+        90deg,
+        rgba(200,220,255,0.10) 0%,
+        rgba(180,210,255,0.04) 12%,
+        transparent 35%,
+        transparent 65%,
+        rgba(180,210,255,0.03) 88%,
+        rgba(200,220,255,0.07) 100%
+      );
+
     opacity: 0.95;
   }
+
   50% {
-    background: linear-gradient(
-      90deg,
-      rgba(200,220,255,0.15) 0%,
-      rgba(180,210,255,0.06) 14%,
-      transparent 38%,
-      transparent 62%,
-      rgba(180,210,255,0.04) 86%,
-      rgba(200,220,255,0.10) 100%
-    );
+    background:
+      linear-gradient(
+        90deg,
+        rgba(200,220,255,0.15) 0%,
+        rgba(180,210,255,0.06) 14%,
+        transparent 38%,
+        transparent 62%,
+        rgba(180,210,255,0.04) 86%,
+        rgba(200,220,255,0.10) 100%
+      );
+
     opacity: 1;
   }
 }
 
-/* Rare light sweep — travels left→center and dissolves. Used on :after pseudo */
+
 @keyframes obs-sweep {
-  0%   { opacity: 0; transform: translateX(-100%); }
-  15%  { opacity: 0.35; }
-  60%  { opacity: 0.15; }
-  100% { opacity: 0; transform: translateX(30%); }
+  0% {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+
+  15% {
+    opacity: 0.35;
+  }
+
+  60% {
+    opacity: 0.15;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(30%);
+  }
 }
+
 
 .animate-obs-focus {
-  animation: obs-breathe 5s ease-in-out infinite;
+  animation:
+    obs-breathe
+    5s
+    ease-in-out
+    infinite;
+
   position: relative;
 }
+
+
 .animate-obs-reading {
-  animation: obs-breathe-soft 7s ease-in-out infinite;
+  animation:
+    obs-breathe-soft
+    7s
+    ease-in-out
+    infinite;
 }
 
-/* Legacy alias — kept so any remaining refs don't break */
+
 .animate-focus-breathe {
-  animation: obs-breathe 5s ease-in-out infinite;
+  animation:
+    obs-breathe
+    5s
+    ease-in-out
+    infinite;
 }
+
 
 @keyframes slide-up-report {
-  from { opacity: 0; transform: translateY(100%); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.animate-slide-up-report { animation: slide-up-report 550ms var(--ease-out) forwards; }
 
-/* Dock icon hover scale */
+.animate-slide-up-report {
+  animation:
+    slide-up-report
+    550ms
+    var(--ease-out)
+    forwards;
+}
+
+
 .dock-icon {
-  transition: transform 200ms var(--ease-out), opacity 200ms ease;
+  transition:
+    transform 200ms var(--ease-out),
+    opacity 200ms ease;
 }
+
+
 .dock-icon:hover {
   transform: scale(1.06);
 }
- 
- 

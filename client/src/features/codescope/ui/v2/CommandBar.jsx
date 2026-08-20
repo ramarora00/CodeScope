@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronRight, Search } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
+import UserAvatarDropdown from './shared/UserAvatarDropdown';
 
 export default function CommandBar({ branch = 'main', onNewInvestigation, activeInvestigation }) {
   const repo = useWorkspaceStore(s => s.selectedRepo);
@@ -145,22 +146,7 @@ export default function CommandBar({ branch = 'main', onNewInvestigation, active
       {/* Right Actions */}
       <div className="flex items-center gap-4 flex-shrink-0 justify-end" style={{ width: '150px' }}>
         {/* Avatar */}
-        <div
-          className="flex items-center justify-center flex-shrink-0"
-          style={{
-            width: '24px',
-            height: '24px',
-            borderRadius: '50%',
-            background: 'var(--cs-panel-raised)',
-            border: '1px solid var(--cs-border-strong)',
-            fontFamily: 'var(--cs-sans)',
-            fontSize: '11px',
-            fontWeight: 700,
-            color: 'var(--cs-text)',
-          }}
-        >
-          A
-        </div>
+        <UserAvatarDropdown />
       </div>
     </div>
   );

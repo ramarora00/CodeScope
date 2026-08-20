@@ -4,7 +4,7 @@ import { useInvestigationSession } from './features/codescope/store/useInvestiga
 import { useWorkspaceStore } from './features/codescope/store/useWorkspaceStore';
 import LaunchExperience from './features/codescope/ui/LaunchExperience';
 import WorkspaceRoot from './features/codescope/ui/v2/WorkspaceRoot';
-import LoginExperience from './features/auth/ui/LoginExperience';
+import LoginPage from './features/auth/ui/LoginPage/LoginPage';
 import { subscribeToAuthChanges } from './auth/authService';
 import './App.css';
 
@@ -211,12 +211,10 @@ function App() {
   return (
     <div className="w-full h-full min-h-screen overflow-hidden" style={{ background: 'var(--cs-bg)' }}>
       {appState === 'loading' && (
-        <div className="w-full h-full min-h-screen flex items-center justify-center text-[12px] font-mono text-[var(--cs-muted)]">
-          Initializing CodeScope...
-        </div>
+        <div className="w-full h-full min-h-screen flex items-center justify-center bg-[var(--cs-bg)]" />
       )}
       {appState === 'login' && (
-        <LoginExperience />
+        <LoginPage />
       )}
       {appState === 'launch' && (
         <LaunchExperience onConnect={handleConnect} repos={repos} />
