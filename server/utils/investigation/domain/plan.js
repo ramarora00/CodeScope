@@ -16,6 +16,8 @@ class InvestigationPlan {
     this.mission = planData.mission || '';
     this.hypothesis = planData.hypothesis || '';
     this.confidence = planData.confidence || 0;
+    this.isResolved = planData.isResolved || false;
+    this.consultedFiles = planData.consultedFiles || [];
     this.executionSteps = planData.executionSteps || [];
   }
 }

@@ -11,9 +11,10 @@ class PlanValidator {
    * Validates and parses the raw JSON.
    * 
    * @param {string} rawJson 
+   * @param {string} contextStr
    * @returns {InvestigationPlan}
    */
-  validate(rawJson) {
+  validate(rawJson, contextStr = '') {
     let parsed;
     try {
       parsed = JSON.parse(rawJson);
@@ -31,6 +32,37 @@ class PlanValidator {
     if (typeof parsed.confidence !== 'number' || parsed.confidence < 0 || parsed.confidence > 1) {
       throw new Error('Plan Validation Failed: "confidence" must be a number between 0.0 and 1.0');
     }
+    if (parsed.isResolved !== undefined && typeof parsed.isResolved !== 'boolean') {
+      throw new Error('Plan Validation Failed: "isResolved" must be a boolean');
+    }
+    
+    // Explicitly enforce boolean false if missing or undefined
+    parsed.isResolved = parsed.isResolved === true;
+
+    // Extract valid paths from context
+    const validPaths = new Set();
+    const regex = /FILE PATH: ([^\n]+)/g;
+    let match;
+    while ((match = regex.exec(contextStr)) !== null) {
+      validPaths.add(match[1].trim());
+    }
+
+    // Validate consultedFiles
+    if (Array.isArray(parsed.consultedFiles)) {
+      parsed.consultedFiles = parsed.consultedFiles.filter(f => {
+        if (!f.path || typeof f.path !== 'string') return false;
+        if (!f.reason || typeof f.reason !== 'string') return false;
+        
+        // Ensure path exists in context to prevent LLM hallucination
+        if (!validPaths.has(f.path)) {
+          console.warn(`[PlanValidator] Filtered out invented consultedFile path: ${f.path}`);
+          return false;
+        }
+        return true;
+      });
+    } else {
+      parsed.consultedFiles = [];
+    }
 
     // 2. Check executionSteps
     if (!parsed.executionSteps) {
@@ -42,7 +74,7 @@ class PlanValidator {
     }
     
     if (parsed.executionSteps.length === 0 && !parsed.isResolved) {
-      throw new Error('Plan Validation Failed: "executionSteps" must be a non-empty array unless "isResolved" is true');
+      throw new Error('Plan Validation Failed: "executionSteps" must be a non-empty array unless "isResolved" is true. The AI failed to determine the next steps.');
     }
 
     for (let i = 0; i < parsed.executionSteps.length; i++) {
