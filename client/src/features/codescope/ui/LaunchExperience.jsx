@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, Box, ArrowRight, Folder, File } from 'lucide-react';
 import { logout } from '../../../auth/authService';
 import UserAvatarDropdown from './v2/shared/UserAvatarDropdown';
+import CodeScopeInfo from './v2/shared/CodeScopeInfo';
 
 // ─── Seeded PRNG (mulberry32) — deterministic across renders ──────────────────
 function mulberry32(seed) {
@@ -1111,14 +1112,19 @@ function CubeIcon() {
 }
 
 // ─── Main Launch Experience ────────────────────────────────────────────────────
-export default function LaunchExperience({ onConnect, repos = [] }) {
+export default function LaunchExperience({ onConnect, repos = [], isConnectingProp = false }) {
   const [repoUrl, setRepoUrl] = useState('');
   const [isFocused, setIsFocused] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [localConnecting, setLocalConnecting] = useState(false);
+
+  const isConnecting = localConnecting || isConnectingProp;
 
   const triggerConnect = (targetUrl) => {
-    setIsConnecting(true);
-    setTimeout(() => { onConnect(targetUrl); }, 600);
+    setLocalConnecting(true);
+    setTimeout(() => {
+      onConnect(targetUrl);
+      setLocalConnecting(false);
+    }, 600);
   };
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -1155,8 +1161,9 @@ export default function LaunchExperience({ onConnect, repos = [] }) {
           maxHeight: '100vh',
         }}
       >
-        {/* Top-Right Avatar */}
-        <div style={{ position: 'absolute', top: '24px', right: '32px', zIndex: 40 }}>
+        {/* Top-Right Navigation */}
+        <div style={{ position: 'absolute', top: '24px', right: '32px', zIndex: 40, display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <CodeScopeInfo page="repository" />
           <UserAvatarDropdown />
         </div>
 
@@ -1387,6 +1394,12 @@ export default function LaunchExperience({ onConnect, repos = [] }) {
                                           : `analyzed ${Math.floor(ageMs / 86400000)}d ago`
                       : null;
 
+                    const isReady = r.status === 'ready';
+                    const isError = r.status === 'error';
+                    const isIndexing = !isReady && !isError;
+                    const progressPct = r.indexingProgress || 0;
+                    const progressStr = isIndexing ? `${r.status.toUpperCase()} ${progressPct}%` : '';
+
                     return (
                       <React.Fragment key={r.id}>
                         {/* subtle divider */}
@@ -1396,32 +1409,45 @@ export default function LaunchExperience({ onConnect, repos = [] }) {
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: 0.55 + idx * 0.06, duration: 0.35 }}
                           onClick={() => triggerConnect('__repo__' + r.id)}
-                          disabled={isConnecting}
+                          disabled={isConnecting || !isReady}
                           style={{
                             display: 'flex', alignItems: 'center',
                             justifyContent: 'space-between',
                             minHeight: '66px',
                             padding: '12px 8px',
                             background: 'transparent', border: 'none',
-                            cursor: 'pointer', width: '100%',
+                            cursor: !isReady ? 'default' : 'pointer', width: '100%',
                             transition: 'opacity 300ms cubic-bezier(0.22, 1, 0.36, 1)', // Smooth ease
+                            opacity: !isReady ? 0.6 : 1
                           }}
-                          onMouseEnter={e => e.currentTarget.style.opacity = '0.80'}
-                          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                          onMouseEnter={e => { if (isReady) e.currentTarget.style.opacity = '0.80'; }}
+                          onMouseLeave={e => { if (isReady) e.currentTarget.style.opacity = '1'; }}
                         >
                           <span style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                            <span style={{ color: 'rgba(220,225,230,0.50)' }}><CubeIcon /></span>
+                            <span style={{ color: isIndexing ? '#3b82f6' : isError ? '#ef4444' : 'rgba(220,225,230,0.50)' }}>
+                              <CubeIcon />
+                            </span>
                             <span style={{ fontSize: '15px', color: 'rgba(245,247,250,0.88)', letterSpacing: '0.01em', fontFamily: "'Inter', sans-serif" }}>
                               {displayName}
                             </span>
                           </span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            {ageLabel && (
+                            {isError && (
+                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#ef4444', letterSpacing: '0.03em' }}>
+                                FAILED
+                              </span>
+                            )}
+                            {isIndexing && (
+                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#3b82f6', letterSpacing: '0.03em' }}>
+                                {progressStr}
+                              </span>
+                            )}
+                            {isReady && ageLabel && (
                               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'rgba(215,220,225,0.32)', letterSpacing: '0.03em' }}>
                                 {ageLabel}
                               </span>
                             )}
-                            <ArrowRight size={15} style={{ color: 'rgba(220,225,230,0.42)' }} />
+                            {isReady && <ArrowRight size={15} style={{ color: 'rgba(220,225,230,0.42)' }} />}
                           </span>
                         </motion.button>
                         {/* bottom divider on last row */}

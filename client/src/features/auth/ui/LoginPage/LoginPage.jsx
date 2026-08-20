@@ -3,6 +3,7 @@ import LoginAtmosphere from './components/LoginAtmosphere';
 import LoginPanel from './components/LoginPanel';
 import CodePreview from './components/CodePreview';
 import { loginWithEmail, loginWithGoogle, registerWithEmail } from '../../../../auth/authService';
+import CodeScopeInfo from '../../../codescope/ui/v2/shared/CodeScopeInfo';
 import './LoginPage.css';
 
 export default function LoginPage() {
@@ -66,7 +67,13 @@ export default function LoginPage() {
       await loginWithGoogle();
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Google authentication failed.');
+      let message = 'Google authentication failed.';
+      if (err.message && err.message.includes('Database is closing/hidden')) {
+        message = 'Local browser storage is busy. Please refresh the page and try again.';
+      } else {
+        message = err.message || message;
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -109,7 +116,7 @@ export default function LoginPage() {
         </svg>
       </div>
 
-      <header className="login-header">
+      <header className="login-header flex items-center justify-between px-6">
         <a className="brand" href="/" aria-label="CodeScope home">
           <span className="brand-mark">
             <svg viewBox="0 0 48 48" fill="none">
@@ -119,6 +126,7 @@ export default function LoginPage() {
           </span>
           <span>CODESCOPE</span>
         </a>
+        <CodeScopeInfo page="login" />
       </header>
       
       <main className="login-shell">
