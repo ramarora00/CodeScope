@@ -75,6 +75,7 @@ class SessionManager {
   }
 
   async _runLifecycle(sessionId, repoId, mission, context, eventFactory, eventBus, mode) {
+    const sessionStart = Date.now();
     try {
       eventBus.publish(eventFactory.stateTransition('INTERPRETING'));
       console.log(`[SessionManager] Building snapshot for repo: ${repoId}`);
@@ -137,6 +138,11 @@ class SessionManager {
       }
 
     } finally {
+      const totalSessionMs = Date.now() - sessionStart;
+      console.log(`[BENCHMARK_AI] ═══════════════════════════════════════════════`);
+      console.log(`[BENCHMARK_AI] Session: ${sessionId} | Mode: ${mode}`);
+      console.log(`[BENCHMARK_AI] TOTAL session: ${(totalSessionMs / 1000).toFixed(2)}s`);
+      console.log(`[BENCHMARK_AI] ═══════════════════════════════════════════════`);
       console.log(`[SessionManager] Cleanup for session: ${sessionId}`);
       // 4. Cleanup (idempotent — cancelInvestigation may have already cleaned up)
       if (this.activeSessions.has(sessionId)) {
