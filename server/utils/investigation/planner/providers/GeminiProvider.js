@@ -69,6 +69,12 @@ JSON SCHEMA:
   "hypothesis": "Your reasoning or hypothesis of where to look and why.",
   "confidence": 0.95, // 0.0 to 1.0
   "isResolved": false,
+  "consultedFiles": [
+    {
+      "path": "path/to/file.ts", // MUST be a real file path from the context
+      "reason": "How this file contributed to the answer"
+    }
+  ],
   "executionSteps": [
     {
       "action": "read", // or "jump"
@@ -77,6 +83,13 @@ JSON SCHEMA:
     }
   ]
 }
+
+- consultedFiles must contain ONLY files present in the supplied repository context.
+- Do not invent file paths.
+- If the supplied repository context is insufficient, return an empty consultedFiles array rather than guessing.
+- Distinguish repository evidence from general programming knowledge.
+- If you can answer the mission immediately or if no further steps are possible, set "isResolved": true and leave "executionSteps" empty.
+- If "isResolved" is false, you MUST provide at least one execution step.
 
 Output ONLY valid JSON.
 `.trim();

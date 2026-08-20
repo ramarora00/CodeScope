@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { API_BASE } from './config/api';
+import { apiFetch } from './config/apiFetch';
 import { useInvestigationSession } from './features/codescope/store/useInvestigationSession';
 import { useWorkspaceStore } from './features/codescope/store/useWorkspaceStore';
 import LaunchExperience from './features/codescope/ui/LaunchExperience';
@@ -13,20 +14,17 @@ function App() {
   const [user, setUser] = useState(null);
   const [repos, setRepos] = useState([]);
   
+  const [isConnecting, setIsConnecting] = useState(false);
+  
   const { selectedRepo, setSelectedRepo, activeInvestigationId, setActiveInvestigationId, setUserSelectedFile } = useWorkspaceStore();
   
   // Investigation States
   const [investigations, setInvestigations] = useState([]);
 
-  // Sync health and repositories
-  const fetchRepos = () => {
-    fetch(`${API_BASE}/api/repo`)
-      .then(r => r.json())
-      .then(d => {
-        setRepos(d);
-      })
-      .catch(() => {});
-  };
+  const hasIndexingRepo = useMemo(() => {
+    const activeStatuses = ['cloning', 'indexing', 'mapping', 'syncing'];
+    return repos.some(r => activeStatuses.includes(r.status));
+  }, [repos]);
 
   useEffect(() => {
     const unsubscribe = subscribeToAuthChanges((currentUser) => {
@@ -35,16 +33,60 @@ function App() {
         setAppState('launch');
       } else {
         setAppState('login');
+        setRepos([]);
+        useWorkspaceStore.getState().resetWorkspace();
       }
     });
     return () => unsubscribe();
   }, []);
 
+  // Initial load effect
   useEffect(() => {
-    if (user) {
-      fetchRepos();
-    }
+    if (!user) return;
+    const controller = new AbortController();
+    
+    apiFetch(`${API_BASE}/api/repo`, { signal: controller.signal })
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setRepos(d); })
+      .catch(e => {
+        if (e.name !== 'AbortError') console.error(e);
+      });
+
+    return () => controller.abort();
   }, [user]);
+
+  // Dedicated Polling Effect for Indexing/Syncing
+  useEffect(() => {
+    if (!user || !hasIndexingRepo) return;
+    
+    let isPolling = true;
+    let pollTimeout;
+    const controller = new AbortController();
+
+    const poll = async () => {
+      try {
+        const response = await apiFetch(`${API_BASE}/api/repo`, { signal: controller.signal });
+        const data = await response.json();
+        if (!Array.isArray(data)) return; // Guard: ignore non-array (e.g. auth error response)
+        setRepos(data);
+        
+        const activeStatuses = ['cloning', 'indexing', 'mapping', 'syncing'];
+        if (isPolling && data.some(r => activeStatuses.includes(r.status))) {
+          pollTimeout = setTimeout(poll, 5000);
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') console.error(e);
+      }
+    };
+
+    pollTimeout = setTimeout(poll, 5000);
+
+    return () => {
+      isPolling = false;
+      clearTimeout(pollTimeout);
+      controller.abort();
+    };
+  }, [user, hasIndexingRepo]);
 
   const handleConnect = async (urlOrPath) => {
     if (urlOrPath === '__demo__') {
@@ -57,23 +99,25 @@ function App() {
       const repoId = urlOrPath.replace('__repo__', '');
       const existing = repos.find(r => r.id === repoId);
       if (existing) {
+        if (existing.status !== 'ready') return;
         handleSelectRepo(existing);
         return;
       }
     }
 
     try {
+      setIsConnecting(true);
       const isLocal = !urlOrPath.startsWith('http') && !urlOrPath.startsWith('git@');
       let response;
       if (isLocal) {
         const dirName = urlOrPath.replace(/\\/g, '/').split('/').pop() || 'local-repo';
-        response = await fetch(`${API_BASE}/api/repo/index-local`, {
+        response = await apiFetch(`${API_BASE}/api/repo/index-local`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ localPath: urlOrPath, name: dirName })
         });
       } else {
-        response = await fetch(`${API_BASE}/api/repo/upload`, {
+        response = await apiFetch(`${API_BASE}/api/repo/upload`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ repoUrl: urlOrPath })
@@ -87,13 +131,18 @@ function App() {
       setUserSelectedFile(null); // Clear previous file selection
       setSelectedRepo(data);
       useInvestigationSession.getState().resetSession(data.id);
-      setAppState('workspace');
-      if (window.location.hash !== '#workspace') {
-        window.history.pushState({ appState: 'workspace' }, '', '#workspace');
+      
+      if (data.status === 'ready') {
+        setAppState('workspace');
+        if (window.location.hash !== '#workspace') {
+          window.history.pushState({ appState: 'workspace' }, '', '#workspace');
+        }
       }
     } catch (err) {
       console.error(err);
       alert(err.message);
+    } finally {
+      setIsConnecting(false);
     }
   };
 
@@ -158,7 +207,7 @@ function App() {
     // Cancel any existing backend investigation first
     if (selectedRepo?.id) {
       try {
-        await fetch(`${API_BASE}/api/repo/${selectedRepo.id}/investigate`, {
+        await apiFetch(`${API_BASE}/api/repo/${selectedRepo.id}/investigate`, {
           method: 'DELETE'
         });
       } catch (e) {
@@ -196,7 +245,7 @@ function App() {
     const isPop = fromPopState === true;
     if (selectedRepo?.id) {
       try {
-        await fetch(`${API_BASE}/api/repo/${selectedRepo.id}/investigate`, { method: 'DELETE' });
+        await apiFetch(`${API_BASE}/api/repo/${selectedRepo.id}/investigate`, { method: 'DELETE' });
       } catch (e) { }
     }
     setActiveInvestigationId(null);
@@ -217,7 +266,7 @@ function App() {
         <LoginPage />
       )}
       {appState === 'launch' && (
-        <LaunchExperience onConnect={handleConnect} repos={repos} />
+        <LaunchExperience onConnect={handleConnect} repos={repos} isConnectingProp={isConnecting} />
       )}
       {appState === 'workspace' && (
         <WorkspaceRoot

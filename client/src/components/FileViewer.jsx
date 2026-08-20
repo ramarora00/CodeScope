@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { FileCode, FunctionSquare, Box, Import, Info, Zap } from 'lucide-react'
+import { ChevronDown, RefreshCw, X, Maximize2, Minimize2, Copy, Check, FileCode, Play } from 'lucide-react';
+import { apiFetch } from '../config/apiFetch';
 import { API_BASE } from '../config/api'
 import { CodePreviewBlock, EvidenceBlock, StatusBlock } from '@/shared/ui/EnterpriseBlocks'
 import { LoadingState } from '@/shared/ui/LoadingState'
@@ -19,7 +20,8 @@ const FileViewer = ({ repo, file }) => {
   const fetchFileContent = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/api/repo/${repo.id}/file/content?filePath=${encodeURIComponent(file.path)}`)
+      const res = await apiFetch(`${API_BASE}/api/repo/${repo.id}/file/content?filePath=${encodeURIComponent(file.path)}`)
+      if (!res.ok) throw new Error('Failed to load file content')
       const data = await res.json()
       setContent(data.content || '')
       setMetadata(data.metadata ? JSON.parse(data.metadata) : null)

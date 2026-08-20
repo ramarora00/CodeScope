@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Check, Circle, AlertTriangle } from 'lucide-react';
+import { useSSEConnection } from '../transport/useSSEConnection';
+import { apiFetch } from '../../../config/apiFetch';
+import { API_BASE } from '../../../config/api';
 
 export default function ProcessingExperience({ repo, onComplete, onBack }) {
   const [steps, setSteps] = useState({
@@ -22,82 +25,68 @@ export default function ProcessingExperience({ repo, onComplete, onBack }) {
   const codeContainerRef = useRef(null);
   const activeLineRef = useRef(null);
 
-  // Subscribe to SSE progress
+  // Subscribe to SSE progress using the authenticated hook
+  useSSEConnection({
+    url: repo ? `${API_BASE}/api/repo/${repo.id}/progress` : null,
+    enabled: !!repo && !errorMsg && steps.ready !== 'done',
+    onEvent: (data) => {
+      if (data.step) {
+        setSteps(prev => {
+          const next = { ...prev };
+          next[data.step] = data.status;
+          
+          // Auto-complete preceding steps if we progressed past them
+          const stepOrder = ['cloning', 'reading', 'parsing', 'resolve_imports', 'call_graph', 'embeddings', 'ready'];
+          const currentIdx = stepOrder.indexOf(data.step);
+          if (data.status === 'running') {
+            for (let i = 0; i < currentIdx; i++) {
+              if (next[stepOrder[i]] === 'pending' || next[stepOrder[i]] === 'running') {
+                next[stepOrder[i]] = 'done';
+              }
+            }
+          }
+          return next;
+        });
+      }
+
+      if (data.count !== undefined) {
+        setFileCount(data.count);
+      }
+
+      if (data.file !== undefined) {
+        setCurrentFile(data.file);
+      }
+
+      if (data.content !== undefined) {
+        setCodeContent(data.content);
+      }
+
+      if (data.line !== undefined) {
+        setCurrentLine(data.line);
+      }
+
+      if (data.step === 'ready' && data.status === 'done') {
+        setTimeout(() => {
+          onComplete();
+        }, 800);
+      }
+
+      if (data.status === 'failed') {
+        setErrorMsg(data.error || 'Indexing failed.');
+      }
+    },
+    onError: (err) => {
+      // Stream handles its own closure
+    }
+  });
+
   useEffect(() => {
     if (!repo) return;
-
-    // Initialize with cloning if we just started
     setSteps(prev => ({
       ...prev,
       cloning: repo.status === 'cloning' ? 'running' : 'done'
     }));
-
-    const eventSource = new EventSource(`http://localhost:5000/api/repo/${repo.id}/progress`);
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-
-        if (data.step) {
-          setSteps(prev => {
-            const next = { ...prev };
-            next[data.step] = data.status;
-            
-            // Auto-complete preceding steps if we progressed past them
-            const stepOrder = ['cloning', 'reading', 'parsing', 'resolve_imports', 'call_graph', 'embeddings', 'ready'];
-            const currentIdx = stepOrder.indexOf(data.step);
-            if (data.status === 'running') {
-              for (let i = 0; i < currentIdx; i++) {
-                if (next[stepOrder[i]] === 'pending' || next[stepOrder[i]] === 'running') {
-                  next[stepOrder[i]] = 'done';
-                }
-              }
-            }
-            return next;
-          });
-        }
-
-        if (data.count !== undefined) {
-          setFileCount(data.count);
-        }
-
-        if (data.file !== undefined) {
-          setCurrentFile(data.file);
-        }
-
-        if (data.content !== undefined) {
-          setCodeContent(data.content);
-        }
-
-        if (data.line !== undefined) {
-          setCurrentLine(data.line);
-        }
-
-        if (data.step === 'ready' && data.status === 'done') {
-          eventSource.close();
-          // Call completion handler
-          setTimeout(() => {
-            onComplete();
-          }, 800);
-        }
-
-        if (data.status === 'failed') {
-          setErrorMsg(data.error || 'Indexing failed.');
-          eventSource.close();
-        }
-      } catch (err) {
-        console.error('Failed to parse SSE message:', err);
-      }
-    };
-
-    eventSource.onerror = () => {
-      eventSource.close();
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, [repo, onComplete]);
+  }, [repo]);
 
   // Autoscroll logic for code line progression
   useEffect(() => {
@@ -217,7 +206,7 @@ export default function ProcessingExperience({ repo, onComplete, onBack }) {
                 onClick={async () => {
                   if (repo && repo.id) {
                     try {
-                      await fetch(`http://localhost:5000/api/repo/${repo.id}`, { method: 'DELETE' });
+                      await apiFetch(`${API_BASE}/api/repo/${repo.id}`, { method: 'DELETE' });
                     } catch (e) {
                       console.error("Failed to delete repo:", e);
                     }

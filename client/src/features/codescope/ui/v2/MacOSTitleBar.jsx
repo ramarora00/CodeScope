@@ -1,8 +1,9 @@
 import React from 'react';
 import { ChevronRight, Share2 } from 'lucide-react';
 import UserAvatarDropdown from './shared/UserAvatarDropdown';
+import CodeScopeInfo from './shared/CodeScopeInfo';
 
-export default function MacOSTitleBar({ repo, branch = 'main', onSearch }) {
+export default function MacOSTitleBar({ repo, branch = 'main', onSearch, perspective = 'workspace' }) {
   const org = repo?.name?.split('/')?.[0] ?? 'acme';
   const rawRepoName = repo?.name?.split('/')?.[1] ?? 'payments-service';
   const repoName = rawRepoName.replace(/-\d{10,}$/, '');
@@ -81,6 +82,7 @@ export default function MacOSTitleBar({ repo, branch = 'main', onSearch }) {
         className="flex items-center gap-3 flex-shrink-0"
         style={{ WebkitAppRegion: 'no-drag' }}
       >
+        <CodeScopeInfo page={perspective} />
         {/* Live indicator */}
         <div className="flex items-center gap-1.5">
           <div

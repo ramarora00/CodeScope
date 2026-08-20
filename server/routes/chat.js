@@ -15,6 +15,13 @@ router.post('/', async (req, res) => {
   try {
     let context = {};
 
+    if (repoId) {
+      const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+      if (!repo || repo.userId !== req.user.uid) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    }
+
     if (repoId && filePath) {
       // Fetch file content and metadata from DB for context
       const file = await prisma.file.findUnique({

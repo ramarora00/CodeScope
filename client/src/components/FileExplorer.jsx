@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { API_BASE } from '../config/api'
+import { API_BASE } from '../config/api';
+import { apiFetch } from '../config/apiFetch';
+import { FileIcon } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────
 // AI MEMORY FILE ROW
@@ -371,8 +373,8 @@ const FileExplorer = ({
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`${API_BASE}/api/repo/${repo.id}/files`)
-      const data = await res.json()
+      const res = await apiFetch(`${API_BASE}/api/repo/${repo.id}/files`);
+      const data = await res.json();
       if (res.ok && Array.isArray(data)) {
         setTree(data)
       } else {

@@ -18,6 +18,14 @@ router.get('/:id/investigate/stream', async (req, res) => {
     return res.status(400).json({ error: 'Repository ID is required' });
   }
 
+  // Enforce repository ownership
+  const { PrismaClient } = require('@prisma/client');
+  const prisma = new PrismaClient();
+  const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+  if (!repo || repo.userId !== req.user.uid) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   // Set up transports
   const sseTransport = new SSETransport(res);
   
@@ -50,8 +58,15 @@ router.get('/:id/investigate/stream', async (req, res) => {
 
 // @route   DELETE /api/repo/:id/investigate
 // @desc    Cancel the active investigation for a repository
-router.delete('/:id/investigate', (req, res) => {
+router.delete('/:id/investigate', async (req, res) => {
   const repoId = req.params.id;
+
+  const { PrismaClient } = require('@prisma/client');
+  const prisma = new PrismaClient();
+  const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+  if (!repo || repo.userId !== req.user.uid) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
   
   if (sessionManager.repoToSession.has(repoId)) {
     const sessionId = sessionManager.repoToSession.get(repoId);

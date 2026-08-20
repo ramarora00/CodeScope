@@ -60,6 +60,16 @@ class ExecutionEngine {
       maxJumps: 25
     }));
 
+    // --- NEW: Immediate Resolution Path ---
+    if (plan.isResolved && plan.consultedFiles && plan.consultedFiles.length > 0) {
+      for (const file of plan.consultedFiles) {
+        // Emit fileSelected so it counts as a consulted file in the result context.
+        this._publish(this.events.fileSelected(file.path, `Context consulted: ${file.reason}`, plan.confidence, false));
+        // Emit evidenceAdded so it populates the findings array in the UI, without falsely pretending it was an execution step.
+        this._publish(this.events.evidenceAdded(file.reason, file.path, plan.confidence));
+      }
+    }
+
     for (let i = 0; i < executionSteps.length; i++) {
       if (this.context.isCancelled || (signal && signal.aborted)) {
         this._publish(this.events.investigationCancelled('User aborted investigation.'));

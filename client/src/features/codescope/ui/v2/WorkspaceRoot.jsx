@@ -5,6 +5,7 @@ import Dock from './Dock';
 import PerspectiveRouter from './PerspectiveRouter';
 import { API_BASE } from '../../../../config/api';
 import TransitionWrapper from './shared/TransitionWrapper';
+import { apiFetch } from '../../../../config/apiFetch';
 
 // ── Behavior Layer ──────────────────────────────────────────────
 import { useInvestigationSession, SESSION_STATES } from '../../store/useInvestigationSession';
@@ -45,7 +46,7 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
     if (bootPhase === 'booting') return; // Wait until repo is ready
     
     const fetchFiles = () => {
-      fetch(`${API_BASE}/api/repo/${repo.id}/files`)
+      apiFetch(`${API_BASE}/api/repo/${repo.id}/files`)
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) setFileTree(data);
@@ -67,7 +68,7 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
     
     if (memoryFiles.find(m => m.file === filePath || m.name === filePath)) return;
 
-    fetch(`${API_BASE}/api/repo/${repo.id}/file/content?filePath=${encodeURIComponent(filePath)}`)
+    apiFetch(`${API_BASE}/api/repo/${repo.id}/file/content?filePath=${encodeURIComponent(filePath)}`)
       .then(res => res.json())
       .then(data => {
         setMemoryFiles(prev => {
@@ -75,7 +76,7 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
           return [...prev, {
             name: filePath,
             file: filePath,
-            content: data.content || '',
+            content: data.content || '// Failed to load content or empty',
             language: filePath.endsWith('.ts') ? 'typescript' : 'javascript',
           }];
         });
@@ -157,6 +158,7 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
           branch="main"
           onNewInvestigation={onNewInvestigation}
           activeInvestigation={activeInvestigation}
+          perspective={presentation?.perspective}
         />
       </div>
 
