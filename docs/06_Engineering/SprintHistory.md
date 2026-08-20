@@ -546,3 +546,17 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-08-18T17:47:00+05:30*
 
+
+## Sprint — Secondary UI Refinements
+
+**Commits**
+- `571cc9c` feat(codescope): refine architecture perspective, dock, knowledge panel, and avatar dropdown
+
+**Status**
+? Completed
+
+**Summary**
+- **UI Polish**: Continued refinement of the \ArchitecturePerspective\, \Dock\, \KnowledgePanel\, and \UserAvatarDropdown\ components.
+
+*Recorded on 2026-08-19T10:30:00+05:30*
+
