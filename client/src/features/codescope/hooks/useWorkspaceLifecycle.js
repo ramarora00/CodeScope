@@ -19,8 +19,13 @@ export function useWorkspaceLifecycle({ repo, activeInvestigation, onNewInvestig
   useEffect(() => {
     // Only reset if we are changing to a completely new repo
     if (bootStartedRef.current !== repo?.id) {
-      setBootPhase('booting');
-      setBootStatus('Connecting...');
+      if (repo?.status === 'ready') {
+        setBootPhase('ready');
+        setBootStatus('Workspace ready');
+      } else {
+        setBootPhase('booting');
+        setBootStatus('Connecting...');
+      }
       bootStartedRef.current = repo?.id;
     }
 
@@ -37,7 +42,7 @@ export function useWorkspaceLifecycle({ repo, activeInvestigation, onNewInvestig
     if (repo.status === 'ready') {
       if (!repo.understandingHash && !activeInvestigation) {
         setBootStatus('Initializing understanding pass...');
-        setBootPhase('understanding');
+        setBootPhase('ready'); // Instantly unlock the workspace UI
         if (onNewInvestigation) {
           onNewInvestigation('Repository Understanding', 'understanding');
         }
