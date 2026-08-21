@@ -589,3 +589,21 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-08-20T20:14:00+05:30*
 
+
+## Sprint — Legacy Code Cleanup and Graph Deprecation
+
+**Commits**
+- `483f735` refactor(client): remove deprecated top-level components
+- `47ab926` feat(codescope): refine v2 explorer perspective, investigation panel, and routing
+- `14d8253` chore(server): update package dependencies and add repository hydration scripts
+
+**Status**
+? Completed
+
+**Summary**
+- **Legacy Cleanup**: Systematically removed a huge swathe of deprecated v1 components, including the legacy codescope UI and the entire v1 repository graph canvas implementation.
+- **V2 Perspectives**: Refined the new \ExplorerPerspective\ and \InvestigationPanel\ which replace the deleted components.
+- **Server Updates**: Added repository state tracking scripts (\get_repo.js\, \erify_hydration.js\) and updated package dependencies.
+
+*Recorded on 2026-08-21T12:20:00+05:30*
+
