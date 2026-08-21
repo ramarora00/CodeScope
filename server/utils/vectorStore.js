@@ -1,6 +1,10 @@
 const lancedb = require("@lancedb/lancedb");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const path = require("path");
+const { PrismaClient } = require("@prisma/client");
+
+const prisma = new PrismaClient();
+const rebuildLocks = new Map();
 
 const DB_PATH = process.env.VECTOR_DB_PATH || path.join(__dirname, "../data/vectors");
 const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
@@ -208,6 +212,31 @@ const indexRepo = async (repoId, files, onProgress = null, startChunk = 0, batch
 };
 
 /**
+ * Background recovery: Rebuilds LanceDB vectors from PostgreSQL file content
+ */
+const triggerVectorRebuild = async (repoId) => {
+  if (rebuildLocks.has(repoId)) return;
+  
+  const rebuildPromise = (async () => {
+    try {
+      console.log(`[Resilience] Triggering background vector rebuild for missing LanceDB table: ${repoId}`);
+      const allFiles = await prisma.file.findMany({
+        where: { repoId },
+        select: { path: true, content: true }
+      });
+      await indexRepo(repoId, allFiles);
+      console.log(`[Resilience] ✅ Vector rebuild complete for ${repoId}`);
+    } catch (err) {
+      console.error(`[Resilience] ❌ Vector rebuild failed for ${repoId}:`, err);
+    } finally {
+      rebuildLocks.delete(repoId);
+    }
+  })();
+  
+  rebuildLocks.set(repoId, rebuildPromise);
+};
+
+/**
  * Searches for relevant chunks in a repo
  */
 const searchRepo = async (repoId, query, limit = 15) => {
@@ -233,6 +262,19 @@ const searchRepo = async (repoId, query, limit = 15) => {
       score: r._distance
     }));
   } catch (err) {
+    const isMissingTable = err.message && (
+      err.message.toLowerCase().includes("not found") ||
+      err.message.toLowerCase().includes("does not exist") ||
+      err.message.toLowerCase().includes("no such file") ||
+      err.message.toLowerCase().includes("failed to open table")
+    );
+
+    if (isMissingTable) {
+      console.warn(`[LanceDB] Table missing for ${repoId}. Initiating background recovery...`);
+      triggerVectorRebuild(repoId); // Fire and forget background recovery
+      return []; // Return empty semantic context immediately so request doesn't hang
+    }
+
     console.error("Vector search error:", err.message);
     return [];
   }

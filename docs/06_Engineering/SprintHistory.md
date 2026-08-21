@@ -607,3 +607,22 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-08-21T12:20:00+05:30*
 
+
+## Sprint — Supabase and PostgreSQL Integration
+
+**Commits**
+- `e0dbf78` chore(prisma): update schema and generate unified init migration for supabase
+- `fea786b` refactor(prisma): remove deprecated sqlite migrations
+- `71be6b7` chore(server): update environment variables and dependencies for supabase
+- `b2eb16f` feat(server): update repository routes and vector store to support postgresql
+
+**Status**
+? Completed
+
+**Summary**
+- **Prisma & Database**: Removed all legacy SQLite migrations. Created a single, unified initialization migration for PostgreSQL/Supabase and updated \schema.prisma\ accordingly.
+- **Server Config**: Cleaned up \.env.example\ and updated package dependencies to support the new database environment.
+- **Core Services**: Updated \ectorStore.js\ and \epo.js\ routes to utilize the new PostgreSQL provider capabilities.
+
+*Recorded on 2026-08-21T22:32:00+05:30*
+
