@@ -102,6 +102,34 @@ const collectFilesFromDisk = (dirPath, relativePath = '') => {
 
 
 // ============================================================================
+//  RESILIENCE: EPHEMERAL STORAGE GUARD
+// ============================================================================
+const cloneLocks = new Map();
+
+const ensureRepoCloned = async (repo) => {
+  if (repo.url.startsWith('local://')) return; // Skip mock/local repos
+  if (fs.existsSync(repo.localPath)) return;   // Already exists on disk
+
+  // Prevent concurrent clone attempts for the same repo
+  if (cloneLocks.has(repo.id)) {
+    return cloneLocks.get(repo.id);
+  }
+
+  console.log(`[Resilience] repo.localPath missing for ${repo.name}. Re-cloning...`);
+  const clonePromise = simpleGit().clone(repo.url, repo.localPath)
+    .catch((err) => {
+      console.error(`[Resilience] Failed to clone ${repo.name}:`, err.message);
+      throw new Error('Failed to restore repository on disk');
+    })
+    .finally(() => {
+      cloneLocks.delete(repo.id);
+    });
+  
+  cloneLocks.set(repo.id, clonePromise);
+  return clonePromise;
+};
+
+// ============================================================================
 //  MAIN INDEXING PIPELINE
 // ============================================================================
 
@@ -129,6 +157,12 @@ const runBackgroundIndex = async (repoId, repoUrl, repoPath, pass3BatchSize = 50
       }
       currentStatus = 'indexing';
       await prisma.repo.update({ where: { id: repoId }, data: { status: currentStatus } });
+    } else {
+      try {
+        await ensureRepoCloned(repo);
+      } catch (err) {
+        throw new Error(`Resilience: ${err.message}`);
+      }
     }
 
     // =========================================================================
@@ -859,6 +893,12 @@ router.get('/:id/files', async (req, res) => {
   const repo = await prisma.repo.findUnique({ where: { id: req.params.id } });
   if (!repo || repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
 
+  try {
+    await ensureRepoCloned(repo);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+
   const getFileTree = (dirPath, relativePath = '') => {
     const files = fs.readdirSync(dirPath);
     let tree = [];
@@ -884,6 +924,12 @@ router.get('/:id/file/content', async (req, res) => {
   const { filePath } = req.query;
   const repo = await prisma.repo.findUnique({ where: { id: req.params.id } });
   if (!repo || repo.userId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
+
+  try {
+    await ensureRepoCloned(repo);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 
   try {
     const fullPath = path.join(repo.localPath, filePath);
@@ -1144,6 +1190,7 @@ router.post('/:id/reindex', async (req, res) => {
         // STEP 1: Git Pull
         console.log(`[Reindex] Pulling latest changes for ${repo.name}...`);
         try {
+          await ensureRepoCloned(repo);
           const git = simpleGit(repo.localPath);
           await git.pull();
         } catch (e) {
@@ -1384,6 +1431,7 @@ router.post('/:id/reindex/full', async (req, res) => {
 
         // Git pull latest
         try {
+          await ensureRepoCloned(repo);
           const git = simpleGit(repo.localPath);
           await git.pull();
         } catch (e) {
