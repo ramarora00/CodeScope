@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Check, Send } from 'lucide-react';
 import { API_BASE } from '../../../../config/api';
+import { apiFetch } from '../../../../config/apiFetch';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function ElapsedTimer({ startedAt }) {
@@ -190,7 +191,7 @@ export default function InvestigationPanel({ timelineEvents = [], planSteps = []
             <button
               onClick={() => {
                 if (!repo?.id) return;
-                fetch(`${API_BASE}/api/repo/${repo.id}/investigate`, {
+                apiFetch(`${API_BASE}/api/repo/${repo.id}/investigate`, {
                   method: 'DELETE'
                 }).catch(console.error);
               }}

@@ -4,6 +4,7 @@ import FileExplorer from '../../../../components/FileExplorer';
 import UniversalCodeViewer from './shared/UniversalCodeViewer';
 import KnowledgePanel from './KnowledgePanel';
 import { API_BASE } from '../../../../config/api';
+import { apiFetch } from '../../../../config/apiFetch';
 
 /**
  * ExplorerPerspective — Sprint 3: AI Explorer
@@ -45,7 +46,7 @@ export default function ExplorerPerspective({ onNewInvestigation, presentation }
 
     const fetchContent = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/repo/${repo.id}/file/content?filePath=${encodeURIComponent(activeFilePath)}`);
+        const res = await apiFetch(`${API_BASE}/api/repo/${repo.id}/file/content?filePath=${encodeURIComponent(activeFilePath)}`);
         const data = await res.json();
         setFetchedContent({ path: activeFilePath, content: data.content || '// Empty file' });
       } catch (err) {
