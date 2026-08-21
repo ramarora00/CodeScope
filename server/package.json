@@ -26,8 +26,6 @@
     "prisma": "^6.2.1",
     "puppeteer": "^25.8.0",
     "simple-git": "^3.36.0",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^6.0.1",
     "uuid": "^14.0.1"
   },
   "devDependencies": {
