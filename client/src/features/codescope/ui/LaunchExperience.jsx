@@ -1112,7 +1112,7 @@ function CubeIcon() {
 }
 
 // ─── Main Launch Experience ────────────────────────────────────────────────────
-export default function LaunchExperience({ onConnect, repos = [], isConnectingProp = false }) {
+export default function LaunchExperience({ onConnect, activeRepo = null, isConnectingProp = false }) {
   const [repoUrl, setRepoUrl] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [localConnecting, setLocalConnecting] = useState(false);
@@ -1365,9 +1365,9 @@ export default function LaunchExperience({ onConnect, repos = [], isConnectingPr
             </motion.div>
           </motion.form>
 
-          {/* ── Recent Repositories ── */}
+          {/* ── Active Analysis ── */}
           <AnimatePresence>
-            {repos.length > 0 && (
+            {activeRepo && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: isConnecting ? 0 : 1, y: 0 }}
@@ -1380,83 +1380,92 @@ export default function LaunchExperience({ onConnect, repos = [], isConnectingPr
                   color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase',
                   marginBottom: '18px',
                 }}>
-                  Recent Repositories
+                  {activeRepo.status === 'ready' ? 'Analysis Ready' : 'Active Analysis'}
                 </div>
 
-                <div>
-                  {repos.slice(0, 3).map((r, idx) => {
-                    const displayName = r.name ? r.name.replace(/-\d{13,}$/, '') : r.id;
-                    const ts = r.createdAt ? new Date(r.createdAt).getTime() : null;
-                    const ageMs = ts && ts > 1e12 ? Date.now() - ts : null;
-                    const ageLabel = ageMs
-                      ? ageMs < 3600000   ? `analyzed ${Math.floor(ageMs / 60000)}m ago`
-                      : ageMs < 86400000  ? `analyzed ${Math.floor(ageMs / 3600000)}h ago`
-                                          : `analyzed ${Math.floor(ageMs / 86400000)}d ago`
-                      : null;
-
-                    const isReady = r.status === 'ready';
-                    const isError = r.status === 'error';
-                    const isIndexing = !isReady && !isError;
-                    const progressPct = r.indexingProgress || 0;
-                    const progressStr = isIndexing ? `${r.status.toUpperCase()} ${progressPct}%` : '';
-
-                    return (
-                      <React.Fragment key={r.id}>
-                        {/* subtle divider */}
-                        <div style={{ height: '1px', background: 'rgba(210,220,230,0.075)' }} />
-                        <motion.button
-                          initial={{ opacity: 0, x: -4 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.55 + idx * 0.06, duration: 0.35 }}
-                          onClick={() => triggerConnect('__repo__' + r.id)}
-                          disabled={isConnecting || !isReady}
-                          style={{
-                            display: 'flex', alignItems: 'center',
-                            justifyContent: 'space-between',
-                            minHeight: '66px',
-                            padding: '12px 8px',
-                            background: 'transparent', border: 'none',
-                            cursor: !isReady ? 'default' : 'pointer', width: '100%',
-                            transition: 'opacity 300ms cubic-bezier(0.22, 1, 0.36, 1)', // Smooth ease
-                            opacity: !isReady ? 0.6 : 1
-                          }}
-                          onMouseEnter={e => { if (isReady) e.currentTarget.style.opacity = '0.80'; }}
-                          onMouseLeave={e => { if (isReady) e.currentTarget.style.opacity = '1'; }}
-                        >
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                            <span style={{ color: isIndexing ? '#3b82f6' : isError ? '#ef4444' : 'rgba(220,225,230,0.50)' }}>
-                              <CubeIcon />
-                            </span>
-                            <span style={{ fontSize: '15px', color: 'rgba(245,247,250,0.88)', letterSpacing: '0.01em', fontFamily: "'Inter', sans-serif" }}>
-                              {displayName}
-                            </span>
-                          </span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            {isError && (
-                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#ef4444', letterSpacing: '0.03em' }}>
-                                FAILED
-                              </span>
-                            )}
-                            {isIndexing && (
-                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#3b82f6', letterSpacing: '0.03em' }}>
-                                {progressStr}
-                              </span>
-                            )}
-                            {isReady && ageLabel && (
-                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'rgba(215,220,225,0.32)', letterSpacing: '0.03em' }}>
-                                {ageLabel}
-                              </span>
-                            )}
-                            {isReady && <ArrowRight size={15} style={{ color: 'rgba(220,225,230,0.42)' }} />}
-                          </span>
-                        </motion.button>
-                        {/* bottom divider on last row */}
-                        {idx === Math.min(repos.length, 3) - 1 && (
-                          <div style={{ height: '1px', background: 'rgba(210,220,230,0.075)' }} />
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
+                <div style={{
+                  padding: '24px',
+                  background: 'rgba(4,6,8,0.52)',
+                  border: '1px solid rgba(190,205,220,0.08)',
+                  borderRadius: '16px',
+                  backdropFilter: 'blur(14px)',
+                }}>
+                  <div style={{ fontSize: '16px', color: 'rgba(245,247,250,0.88)', letterSpacing: '0.01em', marginBottom: '8px' }}>
+                    {activeRepo.name ? activeRepo.name.replace(/-\d{13,}$/, '') : activeRepo.id}
+                  </div>
+                  
+                  {activeRepo.status === 'ready' ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+                      <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+                        {activeRepo.totalChunks || 0} chunks indexed
+                      </span>
+                      <button
+                        onClick={() => triggerConnect('__repo__' + activeRepo.id)}
+                        disabled={isConnecting}
+                        style={{
+                          background: 'rgba(255,255,255,0.1)',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          color: '#fff',
+                          padding: '8px 16px',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          fontSize: '13px',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                      >
+                        Open Repository <ArrowRight size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      {/* Syncing State */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#3b82f6', letterSpacing: '0.03em' }}>
+                          SYNCING {activeRepo.indexingProgress || 0}%
+                        </span>
+                        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>
+                          {activeRepo.totalChunks ? `${activeRepo.processedChunks || 0} / ${activeRepo.totalChunks} chunks` : 'Analyzing repository structure...'}
+                        </span>
+                      </div>
+                      
+                      {/* Progress Bar */}
+                      <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden', marginBottom: '16px' }}>
+                        <div style={{ width: `${activeRepo.indexingProgress || 0}%`, height: '100%', background: '#3b82f6', transition: 'width 0.3s ease' }} />
+                      </div>
+                      
+                      {/* Status Message */}
+                      {(() => {
+                         const isStalled = (Date.now() - new Date(activeRepo.updatedAt).getTime()) > 15000;
+                         if (isStalled && activeRepo.status === 'syncing') {
+                           return (
+                             <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', lineHeight: '1.6' }}>
+                               <div style={{ color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Preparing AI code embeddings</div>
+                               <div>AI processing is taking longer than usual.</div>
+                               <div>We'll continue automatically — no action required.</div>
+                             </div>
+                           );
+                         }
+                         
+                         let phaseText = 'Connecting to repository...';
+                         if (activeRepo.status === 'cloning') phaseText = 'Cloning source code...';
+                         if (activeRepo.status === 'indexing') phaseText = 'PASS 1 · SYMBOL EXTRACTION';
+                         if (activeRepo.status === 'mapping') phaseText = 'PASS 2 · DEPENDENCY GRAPH';
+                         if (activeRepo.status === 'syncing') phaseText = 'PASS 3 · EMBEDDING CODE CONTEXT';
+                         if (activeRepo.status === 'error') phaseText = 'FAILED · Check server logs';
+                         
+                         return (
+                           <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)' }}>
+                             {phaseText}
+                           </div>
+                         );
+                      })()}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}

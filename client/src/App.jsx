@@ -13,6 +13,7 @@ function App() {
   const [appState, setAppState] = useState('loading');
   const [user, setUser] = useState(null);
   const [repos, setRepos] = useState([]);
+  const [activeDashboardRepoId, setActiveDashboardRepoId] = useState(null);
   
   const [isConnecting, setIsConnecting] = useState(false);
   
@@ -30,11 +31,14 @@ function App() {
     const unsubscribe = subscribeToAuthChanges((currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        setAppState('launch');
+        // Do not force 'launch' here. Let the initial load effect handle hydration
+        // and resolve the correct appState (workspace or launch).
       } else {
         setAppState('login');
         setRepos([]);
+        setActiveDashboardRepoId(null);
         useWorkspaceStore.getState().resetWorkspace();
+        localStorage.removeItem('codescope_last_repo_id');
       }
     });
     return () => unsubscribe();
@@ -47,13 +51,50 @@ function App() {
     
     apiFetch(`${API_BASE}/api/repo`, { signal: controller.signal })
       .then(r => r.json())
-      .then(d => { if (Array.isArray(d)) setRepos(d); })
+      .then(d => { 
+        if (Array.isArray(d)) {
+          setRepos(d); 
+          
+          let resolvedAppState = 'launch';
+          let resolvedDashboardRepoId = null;
+
+          const lastRepoId = localStorage.getItem('codescope_last_repo_id');
+          if (lastRepoId) {
+            const restoredRepo = d.find(r => r.id === lastRepoId);
+            if (!restoredRepo) {
+              localStorage.removeItem('codescope_last_repo_id');
+            } else if (restoredRepo.status === 'ready') {
+              setSelectedRepo(restoredRepo);
+              resolvedAppState = 'workspace';
+            } else if (restoredRepo.status === 'error') {
+              resolvedDashboardRepoId = restoredRepo.id;
+            } else {
+              // syncing, cloning, indexing, mapping
+              setSelectedRepo(restoredRepo);
+              resolvedDashboardRepoId = restoredRepo.id;
+            }
+          }
+
+          if (resolvedAppState === 'launch' && !resolvedDashboardRepoId) {
+             const active = d.find(r => ['cloning', 'indexing', 'mapping', 'syncing'].includes(r.status));
+             if (active) resolvedDashboardRepoId = active.id;
+          }
+
+          if (resolvedDashboardRepoId) {
+            setActiveDashboardRepoId(resolvedDashboardRepoId);
+          }
+          setAppState(resolvedAppState);
+        }
+      })
       .catch(e => {
-        if (e.name !== 'AbortError') console.error(e);
+        if (e.name !== 'AbortError') {
+          console.error(e);
+          setAppState('launch');
+        }
       });
 
     return () => controller.abort();
-  }, [user]);
+  }, [user, setSelectedRepo]);
 
   // Dedicated Polling Effect for Indexing/Syncing
   useEffect(() => {
@@ -128,8 +169,10 @@ function App() {
       if (!response.ok) throw new Error(data.error || 'Failed to connect repository');
 
       setRepos(prev => [data, ...prev]);
+      setActiveDashboardRepoId(data.id);
       setUserSelectedFile(null); // Clear previous file selection
       setSelectedRepo(data);
+      localStorage.setItem('codescope_last_repo_id', data.id);
       useInvestigationSession.getState().resetSession(data.id);
       
       if (data.status === 'ready') {
@@ -149,6 +192,7 @@ function App() {
   const handleSelectRepo = (repo) => {
     setUserSelectedFile(null); // Bug Fix: clear any ghost file selection from previous repo
     setSelectedRepo(repo);
+    localStorage.setItem('codescope_last_repo_id', repo.id);
     useInvestigationSession.getState().resetSession(repo.id);
     setAppState('workspace');
     if (window.location.hash !== '#workspace') {
@@ -159,6 +203,8 @@ function App() {
   const handleConnectNew = (fromPopState) => {
     const isPop = fromPopState === true;
     setUserSelectedFile(null); // Clear file selection when going back to home
+    setActiveDashboardRepoId(null); // Reset active analysis card
+    localStorage.removeItem('codescope_last_repo_id');
     setAppState('launch');
     if (!isPop && window.location.hash === '#workspace') {
       window.history.back();
@@ -266,7 +312,11 @@ function App() {
         <LoginPage />
       )}
       {appState === 'launch' && (
-        <LaunchExperience onConnect={handleConnect} repos={repos} isConnectingProp={isConnecting} />
+        <LaunchExperience 
+          onConnect={handleConnect} 
+          activeRepo={repos.find(r => r.id === activeDashboardRepoId)} 
+          isConnectingProp={isConnecting} 
+        />
       )}
       {appState === 'workspace' && (
         <WorkspaceRoot
