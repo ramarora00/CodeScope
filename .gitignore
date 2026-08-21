@@ -6,3 +6,4 @@ repos/
 client/dist/
 client/build/
 server/data/
+.logs/
