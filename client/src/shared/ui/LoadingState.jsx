@@ -1,81 +1,50 @@
-/**
- * LoadingState
- *
- * Purpose:     Named, text-driven loading indicator that replaces generic
- *              spinners for content areas. Communicates *what* is loading,
- *              not just *that* something is loading — per the Product Bible's
- *              rule: "If something takes longer than 2s, name what's happening."
- *
- * Used By:     Graph canvas while topology resolves, AI Observatory while
- *              the model reasons, Execution Trace while indexing, File Tree.
- *
- * Dependencies: cn(), animations.css (.motion-loading-pulse),
- *               tokens.css (--color-text-muted, --color-accent-aurora-blue,
- *               --spacing-*)
- *
- * Accessibility: role="status" and aria-live="polite" ensure screen readers
- *               announce the loading message. aria-busy="true" on the parent
- *               container should be set by the feature using this component.
- */
-
 import { cn } from '../utils/classNames';
+import React, { useState, useEffect } from 'react';
+import { StatusBlock } from './EnterpriseBlocks';
 
 export function LoadingState({
   className,
-  message = 'Loading…',
+  message,
   detail,
   size = 'md',
 }) {
-  const sizeMap = {
-    sm: 'text-[11px]',
-    md: 'text-xs',
-    lg: 'text-sm',
-  };
+  const [activeStep, setActiveStep] = useState(0);
+
+  const defaultSteps = [
+    "Reading routes...",
+    "Resolving imports...",
+    "Tracing execution...",
+    "Building graph...",
+    "Discovering symbols...",
+    "Embedding repository...",
+    "Checking references...",
+    "Preparing response..."
+  ];
+
+  const steps = message ? [message] : defaultSteps;
+
+  useEffect(() => {
+    if (steps.length <= 1) return;
+    
+    const interval = setInterval(() => {
+      setActiveStep((prev) => (prev + 1 < steps.length ? prev + 1 : prev));
+    }, 1200);
+
+    return () => clearInterval(interval);
+  }, [steps.length]);
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      aria-label={detail ? `${message} ${detail}` : message}
-      className={cn(
-        'flex flex-col items-center justify-center gap-[var(--spacing-sm)]',
-        'text-center select-none',
-        className
-      )}
-    >
-      {/* Orbital dot ring — replaces the generic spinner */}
-      <div className="relative w-6 h-6 flex-shrink-0">
-        <span
-          aria-hidden="true"
-          className={cn(
-            'absolute inset-0 rounded-full border border-[var(--color-border-base)]'
-          )}
-        />
-        <span
-          aria-hidden="true"
-          className={cn(
-            'absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2',
-            'w-1.5 h-1.5 rounded-full bg-[var(--color-accent-aurora-blue)]',
-            'motion-orbital-glow'
-          )}
-        />
-      </div>
-
-      <div className="flex flex-col gap-[var(--spacing-xs)]">
-        <span
-          className={cn(
-            sizeMap[size],
-            'text-[var(--color-text-muted)] motion-loading-pulse font-medium'
-          )}
-        >
-          {message}
-        </span>
-        {detail && (
-          <span className="text-[10px] text-[var(--color-text-muted)] opacity-60 font-mono">
-            {detail}
-          </span>
-        )}
-      </div>
+    <div className={cn("flex flex-col gap-2 max-w-sm w-full mx-auto", className)}>
+      {steps.slice(0, activeStep + 1).map((step, idx) => {
+        const isCurrent = idx === activeStep;
+        return (
+          <StatusBlock 
+            key={idx}
+            status={isCurrent && idx < steps.length - 1 ? 'loading' : 'success'} 
+            message={step} 
+          />
+        );
+      })}
     </div>
   );
 }

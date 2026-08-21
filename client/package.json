@@ -12,12 +12,17 @@
   "dependencies": {
     "clsx": "^2.1.1",
     "dagre": "^0.8.5",
+    "firebase": "^12.17.1",
     "force-graph": "^1.51.4",
+    "framer-motion": "^12.42.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-force-graph-2d": "^1.29.1",
+    "react-window": "^2.3.0",
     "reactflow": "^11.11.4",
-    "tailwind-merge": "^3.6.0"
+    "shiki": "^4.4.1",
+    "tailwind-merge": "^3.6.0",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,5 +1,5 @@
 {
-  "name": "ai-developer-copilot",
+  "type": "module",
   "version": "1.0.0",
   "description": "AI-Powered Codebase Intelligence Platform",
   "scripts": {

@@ -7,6 +7,7 @@
  */
 
 export { GlassPanel } from './GlassPanel';
+export { OperationBlock, EvidenceBlock, CodePreviewBlock, MetricBlock, StatusBlock } from './EnterpriseBlocks';
 export { CommandButton } from './CommandButton';
 export { StatusBadge } from './StatusBadge';
 export { SectionHeader } from './SectionHeader';
