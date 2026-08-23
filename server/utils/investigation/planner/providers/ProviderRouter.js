@@ -91,10 +91,14 @@ class ProviderRouter extends LLMProvider {
 
     if (this.backup) {
       console.log('[ProviderRouter] Executing Backup Provider...');
-      return await this.backup.generatePlan(mission, context, constraints);
+      try {
+        return await this.backup.generatePlan(mission, context, constraints);
+      } catch (backupError) {
+        console.warn(`[ProviderRouter] Backup Provider failed: ${backupError.message}`);
+      }
     }
 
-    throw new Error('ProviderRouter: All configured providers failed or are unavailable.');
+    throw new Error('All AI providers are currently unavailable. Please try again shortly.');
   }
 
   /**

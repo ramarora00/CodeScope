@@ -18,7 +18,7 @@ class FallbackProvider extends LLMProvider {
     }
     this.apiKey = apiKey;
     this.apiUrl = apiUrl;
-    this.model = 'llama-3.1-8b-instant'; // Used 8b model for higher TPM (30k) on free tier
+    this.model = process.env.FALLBACK_MODEL || 'llama-3.1-8b-instant'; // Used 8b model for higher TPM (30k) on free tier
   }
 
   async generatePlan(mission, context, constraints) {
