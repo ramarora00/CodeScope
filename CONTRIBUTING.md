@@ -1,17 +1,17 @@
 # Contributing Guide
 
-Welcome to the AI-Developer Copilot repository! We appreciate your interest in contributing. Please adhere to the rules laid out in our [Engineering Charter](docs/00_Foundation/EngineeringCharter.md).
+Welcome to the CodeScope repository! We appreciate your interest in contributing. Please adhere to the rules laid out in our [Engineering Charter](docs/00_Foundation/EngineeringCharter.md).
 
 ## Branch Naming
-- eature/<issue-id>-<short-description>
-- ugfix/<issue-id>-<short-description>
-- chore/<short-description>
-- docs/<short-description>
-- efactor/<short-description>
+- `feature/<issue-id>-<short-description>`
+- `bugfix/<issue-id>-<short-description>`
+- `chore/<short-description>`
+- `docs/<short-description>`
+- `refactor/<short-description>`
 
 ## Commit Naming
-Use Conventional Commits. Format: <type>(<scope>): <subject>
-Types: eat, ix, docs, style, efactor, perf, 	est, chore.
+Use Conventional Commits. Format: `<type>(<scope>): <subject>`
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`.
 
 ## Review Checklist
 - Check against the Architecture Decision Records (ADRs).

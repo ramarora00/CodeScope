@@ -195,6 +195,12 @@ npm run dev
 - Memory constraints may occur locally on extremely large monolithic repositories during the concurrent indexing phase.
 - Very large repositories may increase memory usage and indexing time.
 
+## Contributing
+We welcome contributions to CodeScope! Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on our code of conduct, development process, and how to submit pull requests.
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 ## Author
 **Ram Arora**  
 GitHub: [https://github.com/ramarora00/CodeScope](https://github.com/ramarora00/CodeScope)
