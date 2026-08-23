@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Box, ArrowRight, Folder, File } from 'lucide-react';
+import { LogOut, Box, ArrowRight, Folder, File, HelpCircle, Terminal, Play, Lock, ChevronRight, Fingerprint, Database, Check, History } from 'lucide-react';
 import { logout } from '../../../auth/authService';
 import UserAvatarDropdown from './v2/shared/UserAvatarDropdown';
 import CodeScopeInfo from './v2/shared/CodeScopeInfo';
+import CodeScopeGuide from './v2/shared/CodeScopeGuide';
 
 // ─── Seeded PRNG (mulberry32) — deterministic across renders ──────────────────
 function mulberry32(seed) {
@@ -1163,7 +1164,10 @@ export default function LaunchExperience({ onConnect, activeRepo = null, isConne
       >
         {/* Top-Right Navigation */}
         <div style={{ position: 'absolute', top: '24px', right: '32px', zIndex: 40, display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <CodeScopeInfo page="repository" />
+          <div className="flex items-center gap-2">
+            <CodeScopeInfo page="repository" />
+            <CodeScopeGuide />
+          </div>
           <UserAvatarDropdown />
         </div>
 
