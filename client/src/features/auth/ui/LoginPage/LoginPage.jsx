@@ -208,13 +208,21 @@ export default function LoginPage() {
       <footer className="login-footer">
         <div>◎ <span>Built for developers. Designed for clarity.</span></div>
         <div className="footer-right">
-          <span>Trusted by developers who build, scale, and ship.</span>
-          <div className="tech-row">
-            <span>⚛</span>
-            <span>node</span>
-            <b>TS</b>
-            <span>MongoDB</span>
-          </div>
+          <a
+            href="mailto:ramarora0075@gmail.com"
+            style={{
+              fontSize: '11px',
+              color: 'rgba(255,255,255,0.3)',
+              textDecoration: 'none',
+              letterSpacing: '0.01em',
+              transition: 'color 180ms ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.65)'; e.currentTarget.style.textDecoration = 'underline'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.textDecoration = 'none'; }}
+            aria-label="Contact developer: ramarora0075@gmail.com"
+          >
+            Contact developer · ramarora0075@gmail.com
+          </a>
         </div>
       </footer>
     </div>

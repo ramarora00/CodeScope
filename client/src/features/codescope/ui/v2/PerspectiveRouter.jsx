@@ -27,6 +27,7 @@ export default function PerspectiveRouter({
   startedAt,
   onNewInvestigation,
   onClearInvestigation,
+  onBack,
   fileCount,
   filesLoading
 }) {
@@ -170,6 +171,7 @@ export default function PerspectiveRouter({
               repo={presentation.selectedRepo}
               repositoryContext={presentation.repositoryContext}
               onNewInvestigation={onNewInvestigation}
+              onBack={onBack}
               fileCount={fileCount}
               filesLoading={filesLoading}
             />

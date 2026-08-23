@@ -1112,11 +1112,27 @@ function CubeIcon() {
   );
 }
 
+// ─── GitHub URL validator ─────────────────────────────────────────────────────
+function isValidGitHubUrl(url) {
+  // Allow special internal prefixes used by the app
+  if (url.startsWith('__')) return true;
+  try {
+    const u = new URL(url);
+    if (u.hostname !== 'github.com') return false;
+    // Must have at least owner/repo segments
+    const parts = u.pathname.split('/').filter(Boolean);
+    return parts.length >= 2;
+  } catch {
+    return false;
+  }
+}
+
 // ─── Main Launch Experience ────────────────────────────────────────────────────
 export default function LaunchExperience({ onConnect, activeRepo = null, isConnectingProp = false }) {
   const [repoUrl, setRepoUrl] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [localConnecting, setLocalConnecting] = useState(false);
+  const [urlError, setUrlError] = useState('');
 
   const isConnecting = localConnecting || isConnectingProp;
 
@@ -1129,7 +1145,14 @@ export default function LaunchExperience({ onConnect, activeRepo = null, isConne
   };
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (repoUrl.trim()) triggerConnect(repoUrl.trim());
+    const trimmed = repoUrl.trim();
+    if (!trimmed) return;
+    if (!isValidGitHubUrl(trimmed)) {
+      setUrlError('CodeScope currently supports GitHub repositories only. Please enter a valid GitHub repository URL.');
+      return;
+    }
+    setUrlError('');
+    triggerConnect(trimmed);
   };
 
   return (
@@ -1174,15 +1197,16 @@ export default function LaunchExperience({ onConnect, activeRepo = null, isConne
         {/* Content column */}
         <section className="codescope-content">
 
-          {/* Sparkle */}
+          {/* CodeScope Logo Mark */}
           <motion.div
             initial={{ opacity: 0, scale: 0.6 }}
-            animate={{ opacity: 0.78, scale: 1 }}
+            animate={{ opacity: 0.82, scale: 1 }}
             transition={{ delay: 0.05, duration: 0.5 }}
-            style={{ marginBottom: '22px', filter: 'drop-shadow(0 0 5px rgba(255,255,255,0.18))' }}
+            style={{ marginBottom: '22px', filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.14))' }}
           >
-            <svg width="20" height="20" viewBox="0 0 20 20">
-              <path d="M10 1 L12 8 L19 10 L12 12 L10 19 L8 12 L1 10 L8 8 Z" fill="white" />
+            <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+              <path d="M24 3 42 13.5v21L24 45 6 34.5v-21L24 3Z" stroke="rgba(255,255,255,0.9)" strokeWidth="2" strokeLinejoin="round" />
+              <path d="m20 18-6 6 6 6M28 18l6 6-6 6" stroke="rgba(255,255,255,0.9)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </motion.div>
 
@@ -1344,6 +1368,25 @@ export default function LaunchExperience({ onConnect, activeRepo = null, isConne
               </AnimatePresence>
             </div>
 
+            {/* GitHub-only validation error */}
+            {urlError && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                style={{
+                  marginTop: '12px',
+                  fontSize: '12px',
+                  color: 'rgba(255,130,100,0.9)',
+                  fontFamily: "'Inter', sans-serif",
+                  letterSpacing: '0.01em',
+                  textAlign: 'center',
+                }}
+              >
+                {urlError}
+              </motion.div>
+            )}
+
             {/* Analysis status */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -1476,7 +1519,51 @@ export default function LaunchExperience({ onConnect, activeRepo = null, isConne
           </AnimatePresence>
 
         </section>
+
       </motion.div>
+
+      {/* ── Contact Developer Footer ── */}
+      {/* Placed directly in main (outside overflowY:auto foreground) so clicks are never clipped */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '20px',
+          left: 0,
+          right: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '3px',
+          zIndex: 40,
+          pointerEvents: 'none',
+        }}
+      >
+        <span style={{
+          fontSize: '11px',
+          color: 'rgba(255,255,255,0.2)',
+          fontFamily: "'Inter', sans-serif",
+          letterSpacing: '0.01em',
+        }}>
+          Need help or found an issue?
+        </span>
+        <a
+          href="mailto:ramarora0075@gmail.com"
+          style={{
+            fontSize: '11px',
+            color: 'rgba(255,255,255,0.32)',
+            fontFamily: "'Inter', sans-serif",
+            letterSpacing: '0.01em',
+            textDecoration: 'none',
+            transition: 'color 200ms ease',
+            pointerEvents: 'auto',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; e.currentTarget.style.textDecoration = 'underline'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.32)'; e.currentTarget.style.textDecoration = 'none'; }}
+          aria-label="Contact developer: ramarora0075@gmail.com"
+        >
+          Contact developer &middot; ramarora0075@gmail.com
+        </a>
+      </div>
 
       {/* ping animation for status dot */}
       <style>{`

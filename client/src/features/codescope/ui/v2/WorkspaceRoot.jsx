@@ -197,6 +197,7 @@ export default function WorkspaceRoot({ onBack, activeInvestigation, onNewInvest
           startedAt={startedAt}
           onNewInvestigation={onNewInvestigation}
           onClearInvestigation={onClearInvestigation}
+          onBack={onBack}
           fileCount={totalFileCount}
           filesLoading={fileTree.length === 0}
         />

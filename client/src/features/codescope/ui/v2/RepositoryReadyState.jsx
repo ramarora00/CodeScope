@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function RepositoryReadyState({ repo, repositoryContext, onNewInvestigation, fileCount, filesLoading }) {
+export default function RepositoryReadyState({ repo, repositoryContext, onNewInvestigation, onBack, fileCount, filesLoading }) {
   
   const handleSuggestionClick = (suggestion) => {
     if (onNewInvestigation) {
@@ -120,6 +120,31 @@ export default function RepositoryReadyState({ repo, repositoryContext, onNewInv
             ))}
           </div>
         </div>
+
+        {/* Analyze another repository */}
+        {onBack && (
+          <div className="w-full border-t border-white/5 pt-5 mt-2 flex justify-center">
+            <button
+              onClick={onBack}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '11px',
+                color: 'var(--cs-faint)',
+                fontFamily: 'var(--font-ui)',
+                letterSpacing: '0.01em',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                transition: 'color 200ms ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--cs-muted)'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--cs-faint)'; }}
+            >
+              ← Analyze another repository
+            </button>
+          </div>
+        )}
 
       </div>
     </div>
