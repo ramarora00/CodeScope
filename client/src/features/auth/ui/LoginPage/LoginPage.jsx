@@ -4,7 +4,6 @@ import LoginPanel from './components/LoginPanel';
 import CodePreview from './components/CodePreview';
 import { loginWithEmail, loginWithGoogle, registerWithEmail } from '../../../../auth/authService';
 import CodeScopeInfo from '../../../codescope/ui/v2/shared/CodeScopeInfo';
-import CodeScopeGuide from '../../../codescope/ui/v2/shared/CodeScopeGuide';
 import './LoginPage.css';
 
 export default function LoginPage() {
@@ -48,13 +47,13 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error(err);
-      
+
       // Parse Firebase errors to user-friendly messages
       let message = isSignUp ? 'Account creation failed.' : 'Authentication failed. Please verify credentials.';
       if (err.code === 'auth/email-already-in-use') message = 'This email is already in use.';
       else if (err.code === 'auth/weak-password') message = 'Password should be at least 6 characters.';
       else if (err.code === 'auth/invalid-credential') message = 'Invalid email or password.';
-      
+
       setError(message);
     } finally {
       setLoading(false);
@@ -127,12 +126,9 @@ export default function LoginPage() {
           </span>
           <span>CODESCOPE</span>
         </a>
-        <div className="flex items-center gap-2">
-          <CodeScopeInfo page="login" />
-          <CodeScopeGuide />
-        </div>
+        <CodeScopeInfo page="login" />
       </header>
-      
+
       <main className="login-shell">
         <section className="login-left-zone">
 
@@ -141,7 +137,7 @@ export default function LoginPage() {
               <p className="eyebrow">AI-POWERED CODEBASE INTELLIGENCE</p>
               <h1>Understand.<br />Investigate.<br />Ship with <br /><span>Confidence.</span></h1>
               <p className="hero-description">AI-powered codebase intelligence that reads, reasons, and reveals what matters.</p>
-              
+
               {/* Live active engine telemetry status */}
               <div className="telemetry-engine-status">
                 <span className="status-indicator-dot">●</span>

@@ -4,7 +4,7 @@ import { LogOut, Box, ArrowRight, Folder, File, HelpCircle, Terminal, Play, Lock
 import { logout } from '../../../auth/authService';
 import UserAvatarDropdown from './v2/shared/UserAvatarDropdown';
 import CodeScopeInfo from './v2/shared/CodeScopeInfo';
-import CodeScopeGuide from './v2/shared/CodeScopeGuide';
+import CodeScopeGuide from './v2/shared/CodeScopeGuide.jsx';
 
 // ─── Seeded PRNG (mulberry32) — deterministic across renders ──────────────────
 function mulberry32(seed) {
