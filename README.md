@@ -1,123 +1,203 @@
-<div align="center">
+# CodeScope
+An AI-powered codebase intelligence platform that reads, reasons, and reveals what matters.
 
-# AI-Developer Copilot
+## Overview
+CodeScope is a context-aware developer tool that bridges the gap between static codebase structures and semantic AI reasoning. Instead of generic AI chat interfaces that struggle with large codebases, CodeScope ingests an entire repository, builds a deterministic dependency graph, creates semantic vector embeddings, and uses an advanced investigation planner to answer complex engineering questions with verifiable evidence. It helps developers understand execution flows, trace dependencies, and evaluate architectural blast radiuses deterministically.
 
-**An AI-Powered Codebase Intelligence Platform**
+## Key Features
+- **Repository Mapping & Ingestion**: Automatically clones, indexes, and builds structural models of public GitHub repositories.
+- **Deep Code Understanding**: Uses Babel for AST parsing to extract precise code symbols (functions, classes, routes) and their relationships.
+- **Semantic Vector Search**: Embeds code chunks into LanceDB for high-performance natural-language semantic querying.
+- **Dependency & Call Graph**: Deterministically resolves upstream and downstream dependencies across files to map execution flow.
+- **Contextual Investigation Pipeline**: An LLM-powered Planner and Execution Engine orchestrate context retrieval, ensuring the AI only reasons over verified codebase context.
+- **Evidence-Backed Insights**: Generates investigation reports with direct evidence links to the underlying files and symbols.
+- **Secure Authentication**: Private, isolated workspaces protected by Firebase Authentication.
+- **Interactive Workspace**: A modular, dynamic React interface with customizable perspectives (Explorer, Architecture, Investigation).
 
-![AI-Developer Copilot Banner](docs/assets/banner-placeholder.png)
+## How It Works
+CodeScope operates on a highly structured background pipeline to combines deterministic code analysis and evidence-backed retrieval to reduce unsupported AI reasoning.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Status: Advanced MVP](https://img.shields.io/badge/Status-Advanced_MVP-orange.svg)]()
-[![Stack: Node.js & React 19](https://img.shields.io/badge/Stack-Node%20%7C%20React%20%7C%20Prisma-blueviolet.svg)]()
+1. **Ingestion**: The source repository is cloned to a local workspace.
+2. **Structural Analysis (AST)**: Worker processes parse files, extracting symbols and generating a deterministic Call Graph (callers/callees).
+3. **Semantic Indexing**: Code is chunked and embedded into LanceDB.
+4. **Investigation Planning**: When a user asks a question, the `Planner` formulates an execution plan.
+5. **Execution & Context Retrieval**: The `ExecutionEngine` pulls exact graph relations and semantic vectors.
+6. **Evidence & Report**: Gemini reasons over the strict context to produce an evidence-backed investigation report.
 
-</div>
+## Architecture
 
----
+| Layer | Technology |
+|---|---|
+| **Frontend** | React 19, Vite, Tailwind CSS v4, Framer Motion, Zustand |
+| **Backend API** | Node.js, Express.js |
+| **Database (Relational)** | PostgreSQL, Prisma ORM |
+| **Vector Store (Semantic)** | LanceDB |
+| **AI Orchestration** | Google Generative AI (Gemini) |
+| **Authentication** | Firebase |
+| **Code Parsing** | Babel (`@babel/parser`, `@babel/traverse`) |
 
-## 🎯 1. Project Vision
-To accelerate engineering velocity and intelligence by bridging the gap between static codebase structures and semantic AI reasoning. We aim to make legacy monolithic architectures instantly understandable.
-
-## ❓ 2. Why this project exists
-Modern codebases are complex webs of implicit dependencies and undocumented domain logic. Developers spend countless hours mapping out execution flows manually. **AI-Developer Copilot** exists to serve as an intelligent, context-aware companion that doesn't just read code, but *understands* its execution flow. It answers the hardest engineering questions deterministically: *"What is the blast radius if I change this function?"* and *"How does data flow from this route to the database?"*
-
-## ✨ 3. Key Features
-- **Deterministic Graph Resolution**: Maps downstream and upstream dependencies across files, resolving aliases and exports to build an accurate Call Graph.
-- **Asynchronous Repository Indexing**: Offloads CPU-intensive AST parsing to background Worker Threads for non-blocking execution.
-- **Semantic Vector Search**: Chunks and embeds source code into LanceDB for natural language querying.
-- **Interactive Visualizations**: Renders dynamic module dependency graphs and execution flows via `reactflow` and `react-force-graph-2d`.
-- **AI Context Orchestration**: Categorizes user queries (architecture vs. flow trace) and injects exact deterministic graph data to prevent LLM hallucinations.
-
-## 🏗️ 4. High-Level System Architecture
-The platform operates on a decoupled architecture adhering strictly to our [Engineering Charter](docs/00_Foundation/EngineeringCharter.md):
-- **Frontend Layer**: React 19 SPA. Visualization-heavy, managing local component states.
-- **API Gateway**: Node.js/Express. Headless intelligence engine coordinating jobs.
-- **Relational Store**: SQLite (via Prisma) for AST nodes, files, and deterministic call graph edges.
-- **Semantic Store**: LanceDB for high-performance vector embeddings.
-- **AI Brain**: Google Generative AI (Gemini) orchestration.
-
-## 💻 5. Technology Stack
-
-| Domain | Technologies |
-| :--- | :--- |
-| **Frontend** | React 19, Vite, TailwindCSS v4, ReactFlow, React-Force-Graph-2D |
-| **Backend** | Node.js, Express.js, Babel (AST Parsing), Worker Threads |
-| **Data & AI** | Prisma ORM, SQLite, LanceDB, Google Generative AI (Gemini) |
-
-## 📂 6. Repository Structure
-```text
-ai-developer-copilot/
-├── client/                  # React frontend application
-├── server/                  # Node.js Express API and Engine
-│   ├── prisma/              # Schema and SQLite DB
-│   ├── routes/              # Express API Routes (chat, repo)
-│   └── utils/               # AI Engine & AST Worker Threads
-├── docs/                    # Engineering Documentation Hub
-└── repos/                   # Cloned workspace (Temporary Storage)
+```mermaid
+graph TD
+    User([User]) --> Client[CodeScope React Workspace]
+    
+    subgraph Frontend
+        Client --> Auth[Firebase Authentication]
+        Client --> Workspace[Workspace Router & Perspectives]
+    end
+    
+    Workspace --> API[Express API Gateway]
+    
+    subgraph Backend Pipeline
+        API --> Ingestion[Repository Ingestion]
+        API --> Investigation[Investigation Engine]
+        
+        Ingestion --> AST[Babel AST Parser]
+        AST --> Graph[Dependency / Call Graph]
+        Ingestion --> Embeddings[Semantic Chunker & Embedder]
+        
+        Investigation --> Planner[AI Planner]
+        Planner --> Executor[Execution Engine]
+    end
+    
+    subgraph Data Stores
+        Graph --> Postgres[(PostgreSQL via Prisma)]
+        Embeddings --> Lance[(LanceDB Vector Store)]
+        Executor --> Postgres
+        Executor --> Lance
+    end
+    
+    Executor --> Gemini[Gemini API]
+    Gemini --> Report[Evidence-Backed Report]
+    Report --> Client
 ```
 
-## ⚙️ 7. Core Engine Pipeline
-When a repository is ingested, the engine runs a rigorous background pipeline:
-1. **Repo**: Source code is cloned to the local workspace.
-2. **AST (Pass 1)**: Worker Threads parse files and extract code symbols.
-3. **Graph (Pass 2)**: Edges are resolved deterministically (Callers/Callees).
-4. **Vector (Pass 3)**: Code chunks are embedded into LanceDB.
-5. **AI**: Graph relations and semantic vectors are orchestrated as strict context to the LLM.
+## Project Structure
+```text
+CodeScope/
+├── client/                  # React SPA frontend
+│   ├── src/
+│   │   ├── features/        # Modular domain features (auth, codescope)
+│   │   ├── config/          # API and environment configuration
+│   │   └── shared/          # Shared UI components and utilities
+├── server/                  # Node.js Express API
+│   ├── prisma/              # PostgreSQL schema and migrations
+│   ├── routes/              # Express API endpoints (chat, repo, investigate)
+│   └── utils/               # Investigation engine, Vector store, AST parsing
+└── docs/                    # Engineering Documentation
+```
 
-## 📸 8. Screenshots
-
-| Intelligence Dashboard | Dependency Visualization |
-| :---: | :---: |
-| ![Dashboard Placeholder](docs/assets/dashboard-placeholder.png) | ![Graph Placeholder](docs/assets/graph-placeholder.png) |
-| *Contextual AI chat and file exploration* | *Interactive module dependency graph* |
-
-## 🚀 9. Local Setup
+## Getting Started
 
 ### Prerequisites
 - Node.js (v18+ recommended)
-- Git
+- PostgreSQL database
+- Google Gemini API Key
+- Firebase Project (for Authentication)
 
-### Installation
+### 1. Clone the repository
 ```bash
-# 1. Clone the repository
-git clone https://github.com/your-username/ai-developer-copilot.git
-cd ai-developer-copilot
+git clone https://github.com/ramarora00/CodeScope.git
+cd CodeScope
+```
 
-# 2. Install dependencies
-npm run install-all
+### 2. Install Dependencies
+```bash
+# Install frontend dependencies
+cd client
+npm install
 
-# 3. Setup Environment
-echo 'DATABASE_URL="file:./dev.db"' > server/.env
-echo 'GEMINI_API_KEY="your_google_api_key"' >> server/.env
+# Install backend dependencies
+cd ../server
+npm install
+```
 
-# 4. Initialize Database
-cd server && npx prisma migrate dev --name init && cd ..
+### 3. Environment Variables
 
-# 5. Start Dev Servers (Frontend & Backend)
+**Backend (`server/.env`)**
+```env
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/codescope?sslmode=disable"
+
+# AI Provider
+GEMINI_API_KEY="<YOUR_GEMINI_API_KEY>"
+FALLBACK_API_KEY="<YOUR_FALLBACK_API_KEY>"
+
+# Firebase
+FIREBASE_PROJECT_ID="<YOUR_FIREBASE_PROJECT_ID>"
+```
+
+**Frontend (`client/.env`)**
+```env
+VITE_API_URL=http://localhost:5000
+
+# Firebase Configuration
+VITE_FIREBASE_API_KEY="<YOUR_FIREBASE_API_KEY>"
+VITE_FIREBASE_AUTH_DOMAIN="<YOUR_FIREBASE_AUTH_DOMAIN>"
+VITE_FIREBASE_PROJECT_ID="<YOUR_FIREBASE_PROJECT_ID>"
+VITE_FIREBASE_STORAGE_BUCKET="<YOUR_FIREBASE_STORAGE_BUCKET>"
+VITE_FIREBASE_MESSAGING_SENDER_ID="<YOUR_FIREBASE_SENDER_ID>"
+VITE_FIREBASE_APP_ID="<YOUR_FIREBASE_APP_ID>"
+```
+
+### 4. Database Setup
+```bash
+cd server
+npx prisma migrate deploy
+npx prisma generate
+```
+
+### 5. Start the Application
+Open two terminals:
+
+**Terminal 1 (Backend)**
+```bash
+cd server
 npm run dev
 ```
 
-## 📚 10. Documentation Index
-- [Engineering Charter & Rules](docs/00_Foundation/EngineeringCharter.md)
-- [System Architecture](docs/SystemArchitecture.md)
-- [AI Context (For Agents)](docs/AI_CONTEXT.md)
-- *See the `docs/` folder for deeper frontend, backend, and API guidelines.*
+**Terminal 2 (Frontend)**
+```bash
+cd client
+npm run dev
+```
 
-## 🛣️ 11. Roadmap
-- **Sprint 0-1 (Current)**: Engineering Stabilization and Documentation Architecture.
-- **Sprint 2**: Backend Decoupling (Eradicating God Objects).
-- **Sprint 3**: Frontend State Abstraction (Zustand/React Query).
-- **Sprint 4**: Automated Testing Suite (Jest/Supertest).
+## Example Usage
+1. **Sign in**: Launch the app and authenticate securely via Firebase.
+2. **Launch Experience**: Enter a public GitHub repository URL (e.g., `https://github.com/sindresorhus/component-emitter`).
+3. **Mapping**: Wait for the background engine to clone, parse ASTs, and embed vectors.
+4. **Explore**: Navigate through the Architecture and Explorer perspectives.
+5. **Investigate**: Ask a specific question like *"Explain the authentication flow"* in the Investigation Panel.
+6. **Review Evidence**: Read the generated report, utilizing the linked symbols and code paths to verify the AI's reasoning.
 
-## 📊 12. Current Status
-**Status:** *Advanced MVP / Active Development (Stabilization Phase)*
-The core deterministic and semantic pipelines are fully functional. The repository is undergoing structural stabilization for multi-developer scaling.
+## Screenshots
 
-## 🔮 13. Future Scope
-- **Cloud-Native Migration**: Abstracting the local `/repos` disk and SQLite to AWS S3 and PostgreSQL.
-- **Language Server Protocol (LSP)**: Moving from Babel AST parsing to robust language-agnostic LSPs.
+### Login & Launch
+![Secure login screen and repository launch interface](login.png)
 
-## 🤝 14. Contributing
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on branch naming, PR requirements, and the Definition of Done.
+### Repository Mapping
+![Live status indicators during AST parsing and vectorization](indexing.png)
 
-## 📄 15. License
-This project is licensed under the [MIT License](LICENSE).
+### Investigation Workspace
+![The main workspace showing the file explorer, architecture perspective, and investigation chat](investigation.png)
+
+### Evidence Report
+![An AI-generated report highlighting deterministic evidence and code blocks](report.png)
+
+## Security & Scope
+- **Secure Workspaces**: Firebase Authentication ensures all sessions are strictly private.
+- **Repository Isolation**: Repositories are isolated within the server-side processing workflow and are not exposed through the public UI.
+- **Out-of-Context Protection**: The `PlanValidator` and `ExecutionEngine` strictly enforce that answers are derived only from the mapped repository's context, reducing unsupported or out-of-context AI responses.
+- **Secrets Management**: All API keys and database credentials are managed exclusively via environment variables and are never checked into version control.
+
+## Current Limitations
+- Supports primarily JavaScript/TypeScript ecosystems for deep AST resolution.
+- Only public GitHub repositories are supported via the UI cloning flow.
+- Memory constraints may occur locally on extremely large monolithic repositories during the concurrent indexing phase.
+- Very large repositories may increase memory usage and indexing time.
+
+## Author
+**Ram Arora**  
+GitHub: [https://github.com/ramarora00/CodeScope](https://github.com/ramarora00/CodeScope)
+
+---
+*Built for developers. Designed for clarity.*
