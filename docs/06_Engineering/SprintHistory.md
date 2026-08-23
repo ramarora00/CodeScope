@@ -626,3 +626,20 @@ Stabilized the vector database indexing pipeline under free-tier API rate limits
 
 *Recorded on 2026-08-21T22:32:00+05:30*
 
+
+## Sprint — Workspace Guide and Navigation Enhancements
+
+**Commits**
+- `d0974b9` feat(codescope): introduce codescope guide and refine launch experience
+- `a17a21d` feat(codescope): update architecture perspective, router, and investigation routes
+
+**Status**
+? Completed
+
+**Summary**
+- **UI Additions**: Introduced the new \CodeScopeGuide\ shared component and integrated it into the application.
+- **Workspace Polish**: Minor refinements to the \LoginPage\ layout, \LaunchExperience\, \ArchitecturePerspective\, and \PerspectiveRouter\.
+- **Server Routes**: Updated the investigation routes to align with the new workspace flow.
+
+*Recorded on 2026-08-23T15:34:00+05:30*
+
