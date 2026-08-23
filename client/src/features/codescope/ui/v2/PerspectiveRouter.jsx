@@ -41,10 +41,12 @@ export default function PerspectiveRouter({
   }, [activeInvestigation?.id]);
   // Ensure the report only appears after the orchestration queue is fully emptied (which includes the 1500ms silence phase)
   const isReadingComplete = (presentation.runtimeStatus === 'resolved' || Boolean(presentation.error)) && !orchestration?.activeCognitiveEvent;
+  const isActuallyUnderstanding = isUnderstandingMode || activeInvestigation?.mode === 'understanding';
+
   const showReport = activeInvestigation &&
     sessionState !== SESSION_STATES.IDLE &&
     isReadingComplete &&
-    !isUnderstandingMode &&
+    !isActuallyUnderstanding &&
     !reportDismissed;
 
   // File explorer derives active file exactly like it did in ExplorerPerspective
@@ -163,7 +165,7 @@ export default function PerspectiveRouter({
         {perspective === 'branch' ? (
           <ArchitecturePerspective presentation={presentation} />
         ) : (
-          bootPhase === 'ready' && (!activeInvestigation || (isUnderstandingMode && presentation.isResolving)) && !(perspective === 'files' && activeFilePath) ? (
+          (bootPhase === 'ready' || bootPhase === 'understanding') && (!activeInvestigation || isActuallyUnderstanding) && !(perspective === 'files' && activeFilePath) ? (
             <RepositoryReadyState
               repo={presentation.selectedRepo}
               repositoryContext={presentation.repositoryContext}

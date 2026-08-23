@@ -4,6 +4,9 @@ const path = require('path');
 const { sessionManager } = require('../utils/investigation/transport/SessionManager');
 const { SSETransport } = require('../utils/investigation/transport/SSETransport');
 const { RecorderTransport } = require('../utils/investigation/transport/RecorderTransport');
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
 
 // @route   GET /api/repo/:id/investigate/stream
 // @desc    Start an investigation and stream Domain Events via SSE
@@ -19,8 +22,6 @@ router.get('/:id/investigate/stream', async (req, res) => {
   }
 
   // Enforce repository ownership
-  const { PrismaClient } = require('@prisma/client');
-  const prisma = new PrismaClient();
   const repo = await prisma.repo.findUnique({ where: { id: repoId } });
   if (!repo || repo.userId !== req.user.uid) {
     return res.status(403).json({ error: 'Forbidden' });
@@ -61,9 +62,9 @@ router.get('/:id/investigate/stream', async (req, res) => {
 router.delete('/:id/investigate', async (req, res) => {
   const repoId = req.params.id;
 
-  const { PrismaClient } = require('@prisma/client');
-  const prisma = new PrismaClient();
-  const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+  const repo = await prisma.repo.findUnique({
+    where: { id: repoId }
+  });
   if (!repo || repo.userId !== req.user.uid) {
     return res.status(403).json({ error: 'Forbidden' });
   }

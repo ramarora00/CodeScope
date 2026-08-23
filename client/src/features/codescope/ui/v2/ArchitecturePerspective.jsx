@@ -187,7 +187,7 @@ function CodeGraphComingSoon() {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden select-none"
       style={{
-        background: 'radial-gradient(ellipse at center, #0B0D10 0%, #030405 100%)',
+        background: 'radial-gradient(ellipse at center, #111111 0%, #000000 100%)',
         fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
         WebkitFontSmoothing: 'antialiased',
         MozOsxFontSmoothing: 'grayscale'
