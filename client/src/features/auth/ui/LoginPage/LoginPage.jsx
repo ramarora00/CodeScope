@@ -4,6 +4,7 @@ import LoginPanel from './components/LoginPanel';
 import CodePreview from './components/CodePreview';
 import { loginWithEmail, loginWithGoogle, registerWithEmail } from '../../../../auth/authService';
 import CodeScopeInfo from '../../../codescope/ui/v2/shared/CodeScopeInfo';
+import CodeScopeGuide from '../../../codescope/ui/v2/shared/CodeScopeGuide';
 import './LoginPage.css';
 
 export default function LoginPage() {
@@ -126,7 +127,10 @@ export default function LoginPage() {
           </span>
           <span>CODESCOPE</span>
         </a>
-        <CodeScopeInfo page="login" />
+        <div className="flex items-center gap-2">
+          <CodeScopeInfo page="login" />
+          <CodeScopeGuide />
+        </div>
       </header>
 
       <main className="login-shell">
