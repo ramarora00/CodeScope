@@ -22,7 +22,7 @@ CodeScope operates on a highly structured background pipeline to combines determ
 3. **Semantic Indexing**: Code is chunked and embedded into LanceDB.
 4. **Investigation Planning**: When a user asks a question, the `Planner` formulates an execution plan.
 5. **Execution & Context Retrieval**: The `ExecutionEngine` pulls exact graph relations and semantic vectors.
-6. **Evidence & Report**: Gemini reasons over the strict context to produce an evidence-backed investigation report.
+6. **Evidence & Report**: The configured LLM provider reasons over the strict repository context to produce an evidence-backed investigation report, with fallback providers available for resilience.
 
 ## Architecture
 
@@ -32,7 +32,7 @@ CodeScope operates on a highly structured background pipeline to combines determ
 | **Backend API** | Node.js, Express.js |
 | **Database (Relational)** | PostgreSQL, Prisma ORM |
 | **Vector Store (Semantic)** | LanceDB |
-| **AI Orchestration** | Google Generative AI (Gemini) |
+| **AI Orchestration** | Multi-provider LLM orchestration (Gemini + Groq + OpenRouter) |
 | **Authentication** | Firebase |
 | **Code Parsing** | Babel (`@babel/parser`, `@babel/traverse`) |
 
