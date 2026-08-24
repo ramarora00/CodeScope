@@ -306,7 +306,22 @@ function App() {
   return (
     <div className="w-full h-full min-h-screen overflow-hidden" style={{ background: 'var(--cs-bg)' }}>
       {appState === 'loading' && (
-        <div className="w-full h-full min-h-screen flex items-center justify-center bg-[var(--cs-bg)]" />
+        <div className="w-full h-full min-h-screen flex flex-col items-center justify-center bg-[var(--cs-bg)] gap-5">
+          <div className="animate-pulse-subtle flex items-center justify-center w-14 h-14 rounded-2xl border border-[var(--cs-border)] bg-[var(--cs-panel)] shadow-[0_0_40px_rgba(255,255,255,0.02)]">
+            <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
+              <path d="M24 3 42 13.5v21L24 45 6 34.5v-21L24 3Z" stroke="var(--cs-text)" strokeWidth="2" strokeLinejoin="round" />
+              <path d="m20 18-6 6 6 6M28 18l6 6-6 6" stroke="var(--cs-text)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <div className="flex flex-col items-center gap-2 mt-2">
+            <span style={{ color: 'var(--cs-text)', fontSize: '13px', fontWeight: 400, letterSpacing: '0.35em', opacity: 0.9 }}>
+              CODESCOPE
+            </span>
+            <span style={{ color: 'var(--cs-faint)', fontSize: '11px', letterSpacing: '0.06em' }} className="animate-pulse-subtle">
+              Initializing intelligence...
+            </span>
+          </div>
+        </div>
       )}
       {appState === 'login' && (
         <LoginPage />
