@@ -7,7 +7,7 @@ import LaunchExperience from './features/codescope/ui/LaunchExperience';
 import WorkspaceRoot from './features/codescope/ui/v2/WorkspaceRoot';
 import LoginPage from './features/auth/ui/LoginPage/LoginPage';
 import { subscribeToAuthChanges } from './auth/authService';
-import './App.css';
+
 
 function App() {
   const [appState, setAppState] = useState('loading');
